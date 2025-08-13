@@ -1,6 +1,7 @@
 import os
 import json
 from tkinter import messagebox, filedialog
+from src.models.database import AppDatabase
 
 class MainController:
     """
@@ -8,10 +9,18 @@ class MainController:
     """
     
     def __init__(self):
+        self.db = AppDatabase()
         self.current_file = None
         self.current_data = None
         self.is_modified = False
         self.app_settings = self.load_settings()
+        
+    def authenticate_user(self, username, password):
+        user = self.db.authenticate_user(username, password)
+        if user:
+            self.current_user = user
+            return True
+        return False
         
     def load_settings(self):
         """Load aplikasi settings"""

@@ -1,0 +1,11 @@
+{
+    "admin": {
+        "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+        "email": "admin@example.com",
+        "role": "admin",
+        "created": "2025-08-13T23:06:09.913672",
+        "last_login": null,
+        "login_count": 0,
+        "is_active": true
+    }
+}
