@@ -1,10 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import hashlib
-import json
-import os
-from datetime import datetime, timedelta
-
 from src.models.database import AppDatabase
 
 class LoginWindow:
@@ -13,7 +9,7 @@ class LoginWindow:
         self.on_login_success = on_login_success
         self.login_window = None
         
-        # Use SQLite database instead of JSON
+        # Use SQLite database
         self.db = AppDatabase()
         
         # Variables untuk form
@@ -21,47 +17,85 @@ class LoginWindow:
         self.password_var = tk.StringVar()
         self.remember_me_var = tk.BooleanVar()
         self.show_password_var = tk.BooleanVar()
+        self.failed_attempts = 0
         
         self.create_login_window()
     
-    def hash_password(self, password):
-        """Hash password dengan SHA256"""
-        return hashlib.sha256(password.encode()).hexdigest()
-    
     def create_login_window(self):
-        """Create login window"""
+        """Create login window with forced visibility"""
+        print("🔑 Creating login window...")
+        
         self.login_window = tk.Toplevel(self.root)
         self.login_window.title("Login - My Tkinter App")
         self.login_window.geometry("400x550")
         self.login_window.resizable(False, False)
         
-        # Center window
+        print(f"   📍 Initial geometry: {self.login_window.geometry()}")
+        
+        # FORCE WINDOW TO SHOW - Multiple methods
+        self.login_window.lift()
+        self.login_window.focus_force()
+        self.login_window.attributes('-topmost', True)
+        
+        # Center window BEFORE making it modal
         self.center_window()
         
-        # Make it modal
+        # Make it modal AFTER positioning
         self.login_window.transient(self.root)
         self.login_window.grab_set()
         
-        # Hide main window
+        # Hide main window AFTER login window is set up
         self.root.withdraw()
         
         # Handle window close
         self.login_window.protocol("WM_DELETE_WINDOW", self.on_closing)
         
+        # Setup UI
         self.setup_ui()
         
-        # Focus on window
+        # Force visibility again after UI setup
+        self.login_window.deiconify()  # Ensure window is shown
+        self.login_window.update()     # Force update
+        
+        # Remove topmost after window is established
+        self.login_window.after(1000, lambda: self.login_window.attributes('-topmost', False))
+        
+        # Final focus
         self.login_window.focus_set()
+        self.login_window.focus_force()
+        
+        print(f"   ✅ Login window created")
+        print(f"   📊 Final geometry: {self.login_window.geometry()}")
+        print(f"   👁️ Window visible: {self.login_window.winfo_viewable()}")
+        print(f"   🎯 Window mapped: {self.login_window.winfo_ismapped()}")
     
     def center_window(self):
-        """Center login window on screen"""
+        """Center login window on screen with debug info"""
+        # Force update to get real dimensions
         self.login_window.update_idletasks()
-        x = (self.login_window.winfo_screenwidth() // 2) - (400 // 2)
-        y = (self.login_window.winfo_screenheight() // 2) - (550 // 2)
+        
+        # Get screen dimensions
+        screen_width = self.login_window.winfo_screenwidth()
+        screen_height = self.login_window.winfo_screenheight()
+        
+        # Calculate center position
+        x = (screen_width // 2) - (400 // 2)
+        y = (screen_height // 2) - (550 // 2)
+        
+        # Ensure window is not off-screen
+        x = max(0, min(x, screen_width - 400))
+        y = max(0, min(y, screen_height - 550))
+        
+        # Set geometry
         self.login_window.geometry(f"400x550+{x}+{y}")
+        
+        print(f"   📏 Screen: {screen_width}x{screen_height}")
+        print(f"   📍 Position: {x}, {y}")
     
     def setup_ui(self):
         """Setup login UI"""
+        print("   🎨 Setting up UI...")
+        
         # Main container
         main_frame = ttk.Frame(self.login_window, padding="30")
         main_frame.pack(fill='both', expand=True)
@@ -92,25 +126,19 @@ class LoginWindow:
         # Username field
         ttk.Label(form_frame, text="Username:", font=('Arial', 10, 'bold')).pack(anchor='w', pady=(0, 5))
         
-        username_frame = ttk.Frame(form_frame)
-        username_frame.pack(fill='x', pady=(0, 15))
-        
         self.username_entry = ttk.Entry(
-            username_frame, 
+            form_frame, 
             textvariable=self.username_var,
             font=('Arial', 11),
             width=30
         )
-        self.username_entry.pack(fill='x', ipady=8)
+        self.username_entry.pack(fill='x', ipady=8, pady=(0, 15))
         
         # Password field
         ttk.Label(form_frame, text="Password:", font=('Arial', 10, 'bold')).pack(anchor='w', pady=(0, 5))
         
-        password_frame = ttk.Frame(form_frame)
-        password_frame.pack(fill='x', pady=(0, 15))
-        
-        password_container = ttk.Frame(password_frame)
-        password_container.pack(fill='x')
+        password_container = ttk.Frame(form_frame)
+        password_container.pack(fill='x', pady=(0, 15))
         
         self.password_entry = ttk.Entry(
             password_container,
@@ -129,51 +157,27 @@ class LoginWindow:
         )
         self.show_pwd_btn.pack(side='right', padx=(5, 0))
         
-        # Options frame
-        options_frame = ttk.Frame(form_frame)
-        options_frame.pack(fill='x', pady=(0, 20))
-        
         # Remember me checkbox
         remember_cb = ttk.Checkbutton(
-            options_frame,
+            form_frame,
             text="Remember me",
             variable=self.remember_me_var
         )
-        remember_cb.pack(side='left')
+        remember_cb.pack(anchor='w', pady=(0, 20))
         
-        # Forgot password link
-        forgot_btn = ttk.Button(
-            options_frame,
-            text="Forgot Password?",
-            command=self.forgot_password,
-            style='Link.TButton'
-        )
-        forgot_btn.pack(side='right')
-        
-        # Login button
-        login_btn = ttk.Button(
+        # Login button - STORE REFERENCE
+        self.login_btn = ttk.Button(
             form_frame,
             text="Sign In",
-            command=self.login,
-            style='Accent.TButton'
+            command=self.login
         )
-        login_btn.pack(fill='x', ipady=10, pady=(0, 15))
-        
-        # Divider
-        divider_frame = ttk.Frame(form_frame)
-        divider_frame.pack(fill='x', pady=(10, 15))
-        
-        ttk.Separator(divider_frame).pack(fill='x')
-        
-        or_label = ttk.Label(divider_frame, text="OR", background='white')
-        or_label.place(relx=0.5, rely=0.5, anchor='center')
+        self.login_btn.pack(fill='x', ipady=10, pady=(0, 15))
         
         # Register button
         register_btn = ttk.Button(
             form_frame,
             text="Create New Account",
-            command=self.show_register,
-            style='Outline.TButton'
+            command=self.show_register
         )
         register_btn.pack(fill='x', ipady=8)
         
@@ -187,22 +191,58 @@ class LoginWindow:
         self.status_label.pack(pady=(10, 0))
         
         # Info section
-        info_frame = ttk.Frame(main_frame)
-        info_frame.pack(side='bottom', fill='x', pady=(20, 0))
-        
         info_label = ttk.Label(
-            info_frame,
+            main_frame,
             text="Default login: admin / admin123",
             font=('Arial', 9),
             foreground='gray'
         )
-        info_label.pack()
+        info_label.pack(side='bottom', pady=(20, 0))
+        
+        # Test button untuk debug
+        test_btn = ttk.Button(
+            main_frame,
+            text="Test Window Visibility",
+            command=self.test_window_visibility
+        )
+        test_btn.pack(pady=5)
         
         # Bind Enter key to login
         self.login_window.bind('<Return>', lambda e: self.login())
         
         # Focus on username field
         self.username_entry.focus()
+        
+        print("   ✅ UI setup complete")
+    
+    def test_window_visibility(self):
+        """Test method to check window visibility"""
+        print("=" * 50)
+        print("🔍 WINDOW VISIBILITY TEST")
+        print("=" * 50)
+        
+        if self.login_window:
+            print(f"Window exists: ✅")
+            print(f"Window state: {self.login_window.state()}")
+            print(f"Window geometry: {self.login_window.geometry()}")
+            print(f"Window visible: {self.login_window.winfo_viewable()}")
+            print(f"Window mapped: {self.login_window.winfo_ismapped()}")
+            print(f"Window width: {self.login_window.winfo_width()}")
+            print(f"Window height: {self.login_window.winfo_height()}")
+            print(f"Window x: {self.login_window.winfo_x()}")
+            print(f"Window y: {self.login_window.winfo_y()}")
+            
+            # Force window to front
+            self.login_window.lift()
+            self.login_window.focus_force()
+            self.login_window.attributes('-topmost', True)
+            self.login_window.after(2000, lambda: self.login_window.attributes('-topmost', False))
+            
+            messagebox.showinfo("Test", "If you see this, the window is working!")
+        else:
+            print("❌ Login window does not exist!")
+        
+        print("=" * 50)
     
     def toggle_password_visibility(self):
         """Toggle password visibility"""
@@ -215,36 +255,86 @@ class LoginWindow:
             self.show_pwd_btn.config(text="👁")
             self.show_password_var.set(True)
     
+    def validate_login_input(self, username, password):
+        """Validate login form input"""
+        if not username:
+            self.show_status("Please enter username", "error")
+            self.username_entry.focus()
+            return False
+        
+        if not password:
+            self.show_status("Please enter password", "error")
+            self.password_entry.focus()
+            return False
+        
+        if len(username) < 3:
+            self.show_status("Username must be at least 3 characters", "error")
+            self.username_entry.focus()
+            return False
+        
+        if len(password) < 6:
+            self.show_status("Password must be at least 6 characters", "error")
+            self.password_entry.focus()
+            return False
+        
+        return True
+    
     def login(self):
-        """Handle login process with improved error handling and SQLite"""
+        """Handle login process"""
+        print("🔐 Login attempt started...")
+        
         username = self.username_var.get().strip()
         password = self.password_var.get()
-
+        
+        print(f"   👤 Username: '{username}'")
+        print(f"   🔑 Password length: {len(password)}")
+        
+        # Input validation
+        if not self.validate_login_input(username, password):
+            print("   ❌ Validation failed")
+            return
+        
         try:
             # Authenticate user through database
+            print("   🔍 Authenticating user...")
             user_data = self.db.authenticate_user(username, password)
             
             if user_data:
+                print(f"   ✅ Authentication successful: {user_data}")
+                
                 # Check if account is active
                 if not user_data.get('is_active', True):
                     self.show_status("Account is deactivated. Contact administrator.", "error")
                     return
                 
-                
                 # Show success message
                 self.show_status("Login successful!", "success")
                 
-                # Add small delay for better UX
-                self.login_window.after(500, lambda: self.complete_login(username, user_data))
+                # Reset failed attempts
+                self.failed_attempts = 0
+                
+                print("   🚪 Closing login window...")
+                # Close login window first
+                self.close_login()
+                
+                print("   📞 Calling success callback...")
+                # Call success callback immediately
+                if self.on_login_success:
+                    self.on_login_success(username, user_data)
+                else:
+                    print("   ❌ No callback function provided!")
                 
             else:
+                print("   ❌ Authentication failed")
                 # Authentication failed
                 self.handle_login_failure()
                 
         except Exception as e:
             # Handle database errors gracefully
+            print(f"   💥 Login error: {e}")
             self.show_status("Login error. Please try again.", "error")
-            print(f"Login error: {e}")  # Log for debugging
+            import traceback
+            traceback.print_exc()
     
     def handle_login_failure(self):
         """Handle failed login attempts"""
@@ -255,20 +345,60 @@ class LoginWindow:
         
         # Focus back to password field
         self.password_entry.focus()
+        
+        # Track failed attempts
+        self.failed_attempts += 1
+        
+        # Lock login after 5 failed attempts
+        if self.failed_attempts >= 5:
+            self.lock_login_temporarily()
+    
+    def lock_login_temporarily(self):
+        """Temporarily lock login after too many failed attempts"""
+        # Disable login button and form
+        self.login_btn.config(state='disabled')
+        self.username_entry.config(state='disabled')
+        self.password_entry.config(state='disabled')
+        
+        # Show lockout message
+        self.show_status("Too many failed attempts. Please wait 30 seconds.", "error")
+        
+        # Re-enable after 30 seconds
+        self.login_window.after(30000, self.unlock_login)
+    
+    def unlock_login(self):
+        """Unlock login form after lockout period"""
+        # Reset failed attempts
+        self.failed_attempts = 0
+        
+        # Re-enable form
+        self.login_btn.config(state='normal')
+        self.username_entry.config(state='normal')
+        self.password_entry.config(state='normal')
+        
+        # Clear status
+        self.show_status("You can try logging in again.", "info")
+        
+        # Focus on username
+        self.username_entry.focus()
     
     def show_register(self):
-        """Show registration dialog"""
+        """Show simple registration dialog"""
         self.register_window = tk.Toplevel(self.login_window)
         self.register_window.title("Create Account")
-        self.register_window.geometry("350x400")
+        self.register_window.geometry("350x300")
         self.register_window.resizable(False, False)
         self.register_window.transient(self.login_window)
         self.register_window.grab_set()
         
+        # Force visibility
+        self.register_window.lift()
+        self.register_window.focus_force()
+        
         # Center register window
         x = self.login_window.winfo_x() + 25
         y = self.login_window.winfo_y() + 25
-        self.register_window.geometry(f"350x400+{x}+{y}")
+        self.register_window.geometry(f"350x300+{x}+{y}")
         
         # Registration form
         reg_frame = ttk.Frame(self.register_window, padding="20")
@@ -277,32 +407,17 @@ class LoginWindow:
         ttk.Label(reg_frame, text="Create New Account", font=('Arial', 16, 'bold')).pack(pady=(0, 20))
         
         # Form fields
-        fields = [
-            ("Username:", "reg_username"),
-            ("Email:", "reg_email"),
-            ("Password:", "reg_password"),
-            ("Confirm Password:", "reg_confirm_password")
-        ]
+        ttk.Label(reg_frame, text="Username:").pack(anchor='w', pady=(10, 2))
+        self.reg_username = ttk.Entry(reg_frame, font=('Arial', 10))
+        self.reg_username.pack(fill='x', ipady=5)
         
-        self.reg_vars = {}
-        self.reg_entries = {}
+        ttk.Label(reg_frame, text="Email:").pack(anchor='w', pady=(10, 2))
+        self.reg_email = ttk.Entry(reg_frame, font=('Arial', 10))
+        self.reg_email.pack(fill='x', ipady=5)
         
-        for label_text, var_name in fields:
-            ttk.Label(reg_frame, text=label_text).pack(anchor='w', pady=(10, 2))
-            
-            self.reg_vars[var_name] = tk.StringVar()
-            
-            entry = ttk.Entry(
-                reg_frame, 
-                textvariable=self.reg_vars[var_name],
-                font=('Arial', 10)
-            )
-            
-            if "password" in var_name:
-                entry.config(show="*")
-            
-            entry.pack(fill='x', ipady=5)
-            self.reg_entries[var_name] = entry
+        ttk.Label(reg_frame, text="Password:").pack(anchor='w', pady=(10, 2))
+        self.reg_password = ttk.Entry(reg_frame, font=('Arial', 10), show="*")
+        self.reg_password.pack(fill='x', ipady=5)
         
         # Register button
         ttk.Button(
@@ -319,125 +434,79 @@ class LoginWindow:
         ).pack(fill='x', ipady=8)
         
         # Focus on username
-        self.reg_entries['reg_username'].focus()
+        self.reg_username.focus()
     
     def register_user(self):
         """Handle user registration"""
-        username = self.reg_vars['reg_username'].get().strip()
-        email = self.reg_vars['reg_email'].get().strip()
-        password = self.reg_vars['reg_password'].get()
-        confirm_password = self.reg_vars['reg_confirm_password'].get()
+        username = self.reg_username.get().strip()
+        email = self.reg_email.get().strip()
+        password = self.reg_password.get()
         
-        # Validation
-        if not all([username, email, password, confirm_password]):
+        # Basic validation
+        if not all([username, email, password]):
             messagebox.showerror("Error", "Please fill all fields")
             return
         
-        if username in self.users:
-            messagebox.showerror("Error", "Username already exists")
+        if len(username) < 3:
+            messagebox.showerror("Error", "Username must be at least 3 characters")
             return
         
         if len(password) < 6:
             messagebox.showerror("Error", "Password must be at least 6 characters")
             return
         
-        if password != confirm_password:
-            messagebox.showerror("Error", "Passwords do not match")
+        if "@" not in email:
+            messagebox.showerror("Error", "Please enter a valid email")
             return
         
-        # Create new user
-        self.users[username] = {
-            "password": self.hash_password(password),
-            "email": email,
-            "role": "user",
-            "created": datetime.now().isoformat(),
-            "last_login": None,
-            "login_count": 0,
-            "is_active": True
-        }
-        
-        self.save_users()
-        messagebox.showinfo("Success", "Account created successfully!")
-        self.register_window.destroy()
-        
-        # Auto fill login form
-        self.username_var.set(username)
-        self.username_entry.focus()
-    
-    def forgot_password(self):
-        """Handle forgot password"""
-        # Simple forgot password dialog
-        dialog = tk.Toplevel(self.login_window)
-        dialog.title("Reset Password")
-        dialog.geometry("300x200")
-        dialog.resizable(False, False)
-        dialog.transient(self.login_window)
-        dialog.grab_set()
-        
-        frame = ttk.Frame(dialog, padding="20")
-        frame.pack(fill='both', expand=True)
-        
-        ttk.Label(frame, text="Reset Password", font=('Arial', 14, 'bold')).pack(pady=(0, 15))
-        ttk.Label(frame, text="Enter your username:").pack(anchor='w')
-        
-        username_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=username_var).pack(fill='x', pady=(5, 15))
-        
-        def reset_password():
-            username = username_var.get().strip()
-            if username in self.users:
-                # Reset to default password
-                self.users[username]['password'] = self.hash_password("newpass123")
-                self.save_users()
-                messagebox.showinfo("Success", f"Password reset to: newpass123")
-                dialog.destroy()
+        try:
+            # Create user in database
+            user_id = self.db.create_user(username, password, email)
+            
+            if user_id:
+                messagebox.showinfo("Success", "Account created successfully!")
+                self.register_window.destroy()
+                
+                # Auto fill login form
+                self.username_var.set(username)
+                self.password_entry.focus()
+                
             else:
-                messagebox.showerror("Error", "Username not found")
-        
-        ttk.Button(frame, text="Reset Password", command=reset_password).pack(fill='x', pady=(0, 5))
-        ttk.Button(frame, text="Cancel", command=dialog.destroy).pack(fill='x')
-    
+                messagebox.showerror("Error", "Username already exists")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Registration failed: {str(e)}")
     
     def show_status(self, message, status_type="info"):
         """Show status message"""
         colors = {
-            "error": "red",
-            "success": "green",
-            "info": "blue"
+            "error": "#dc3545",
+            "success": "#28a745", 
+            "info": "#17a2b8"
         }
         
         self.status_label.config(
             text=message,
-            foreground=colors.get(status_type, "black")
+            foreground=colors.get(status_type, "#333333")
         )
         
-        # Clear message after 3 seconds
-        self.login_window.after(3000, lambda: self.status_label.config(text=""))
+        # Clear message after delay
+        delay = 4000 if status_type == "error" else 2000
+        self.login_window.after(delay, lambda: self.status_label.config(text=""))
     
     def close_login(self):
-        """Close login window and show main window"""
-        self.root.deiconify()  # Show main window
-        self.login_window.destroy()
+        """Close login window"""
+        try:
+            print("   🚪 Closing login window...")
+            if self.login_window:
+                self.login_window.grab_release()
+                self.login_window.destroy()
+                self.login_window = None
+                print("   ✅ Login window closed")
+        except Exception as e:
+            print(f"Error closing login window: {e}")
     
     def on_closing(self):
         """Handle window closing"""
-        self.root.quit()  # Exit application if login is closed
-
-# Example usage function
-def on_login_success(username, user_data):
-    """Callback function called after successful login"""
-    print(f"Login successful for {username}")
-    print(f"User role: {user_data.get('role', 'user')}")
-    print(f"Last login: {user_data.get('last_login', 'Never')}")
-    print(f"Login count: {user_data.get('login_count', 0)}")
-
-# Test function
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.title("Main Application")
-    root.geometry("800x600")
-    
-    # Create login window
-    login = LoginWindow(root, on_login_success)
-    
-    root.mainloop()
+        print("🚪 Login window closing - exiting application")
+        self.root.quit()
