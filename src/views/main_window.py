@@ -58,10 +58,10 @@ class MainWindow:
         )
         welcome_label.pack(side='left', padx=20, pady=25)
         
-        # Close button
-        close_btn = tk.Button(
+        # Logout button
+        logout_btn = tk.Button(
             header_frame,
-            text="❌ Keluar",
+            text="🚪 Keluar",
             font=('Arial', 12, 'bold'),
             bg='#e74c3c',
             fg='white',
@@ -70,7 +70,7 @@ class MainWindow:
             pady=10,
             command=self.on_window_closing
         )
-        close_btn.pack(side='right', padx=20, pady=20)
+        logout_btn.pack(side='right', padx=20, pady=20)
         
         # Main content area
         main_frame = tk.Frame(self.root, bg='#ecf0f1')
@@ -86,9 +86,13 @@ class MainWindow:
         )
         title_label.pack(pady=(0, 30))
         
+        # Content container with proper spacing
+        content_frame = tk.Frame(main_frame, bg='#ecf0f1')
+        content_frame.pack(fill='both', expand=True)
+        
         # Menu buttons container
-        menu_frame = tk.Frame(main_frame, bg='#ecf0f1')
-        menu_frame.pack(expand=True)
+        menu_frame = tk.Frame(content_frame, bg='#ecf0f1')
+        menu_frame.pack(pady=(0, 20))
         
         # Row 1: Customer and Barang
         row1_frame = tk.Frame(menu_frame, bg='#ecf0f1')
@@ -103,7 +107,7 @@ class MainWindow:
             fg='white',
             relief='flat',
             width=20,
-            height=8,
+            height=6,
             command=self.show_customer_window
         )
         customer_btn.pack(side='left', padx=30)
@@ -117,14 +121,14 @@ class MainWindow:
             fg='white',
             relief='flat',
             width=20,
-            height=8,
+            height=6,
             command=self.show_barang_window
         )
         barang_btn.pack(side='left', padx=30)
         
         # Row 2: Container and Reports
         row2_frame = tk.Frame(menu_frame, bg='#ecf0f1')
-        row2_frame.pack(pady=20)
+        row2_frame.pack(pady=(0, 20))
         
         # Container button
         container_btn = tk.Button(
@@ -135,7 +139,7 @@ class MainWindow:
             fg='white',
             relief='flat',
             width=20,
-            height=8,
+            height=6,
             command=self.show_container_window
         )
         container_btn.pack(side='left', padx=30)
@@ -149,132 +153,29 @@ class MainWindow:
             fg='white',
             relief='flat',
             width=20,
-            height=8,
+            height=6,
             command=self.show_reports_window
         )
         reports_btn.pack(side='left', padx=30)
-        
-        # Statistics at bottom
-        self.create_stats_section(main_frame)
-    
-    def create_stats_section(self, parent):
-        """Create statistics section"""
-        stats_frame = tk.Frame(parent, bg='#ecf0f1')
-        stats_frame.pack(side='bottom', fill='x', pady=(30, 0))
-        
-        stats_title = tk.Label(
-            stats_frame,
-            text="📈 RINGKASAN DATA",
-            font=('Arial', 16, 'bold'),
-            fg='#2c3e50',
-            bg='#ecf0f1'
-        )
-        stats_title.pack()
-        
-        # Stats container
-        stats_container = tk.Frame(stats_frame, bg='#ecf0f1')
-        stats_container.pack(pady=10)
-        
-        # Refresh button
-        refresh_btn = tk.Button(
-            stats_container,
-            text="🔄 Refresh",
-            font=('Arial', 10),
-            bg='#95a5a6',
-            fg='white',
-            padx=15,
-            pady=5,
-            command=self.refresh_stats
-        )
-        refresh_btn.pack(pady=(0, 10))
-        
-        # Stats labels container
-        self.stats_labels_frame = tk.Frame(stats_container, bg='#ecf0f1')
-        self.stats_labels_frame.pack()
-        
-        # Load initial stats
-        self.refresh_stats()
-    
-    def refresh_stats(self):
-        """Refresh statistics display"""
-        # Clear existing stats
-        for widget in self.stats_labels_frame.winfo_children():
-            widget.destroy()
-        
-        # Get stats from database
-        stats = self.db.get_dashboard_stats()
-        
-        # Customer count
-        customer_stat = tk.Label(
-            self.stats_labels_frame,
-            text=f"👥 Customer: {stats['total_customers']}",
-            font=('Arial', 12, 'bold'),
-            bg='#3498db',
-            fg='white',
-            padx=20,
-            pady=10,
-            relief='flat'
-        )
-        customer_stat.pack(side='left', padx=10)
-        
-        # Barang count
-        barang_stat = tk.Label(
-            self.stats_labels_frame,
-            text=f"📦 Barang: {stats['total_barang']}",
-            font=('Arial', 12, 'bold'),
-            bg='#27ae60',
-            fg='white',
-            padx=20,
-            pady=10,
-            relief='flat'
-        )
-        barang_stat.pack(side='left', padx=10)
-        
-        # Container count
-        container_stat = tk.Label(
-            self.stats_labels_frame,
-            text=f"🚢 Container: {stats['total_containers']}",
-            font=('Arial', 12, 'bold'),
-            bg='#e67e22',
-            fg='white',
-            padx=20,
-            pady=10,
-            relief='flat'
-        )
-        container_stat.pack(side='left', padx=10)
-        
-        # Total users
-        total_users = len(self.db.get_all_users())
-        users_stat = tk.Label(
-            self.stats_labels_frame,
-            text=f"👤 Users: {total_users}",
-            font=('Arial', 12, 'bold'),
-            bg='#9b59b6',
-            fg='white',
-            padx=20,
-            pady=10,
-            relief='flat'
-        )
-        users_stat.pack(side='left', padx=10)
     
     def show_customer_window(self):
         """Show customer management window"""
         try:
-            CustomerWindow(self.root, self.db, self.refresh_stats)
+            CustomerWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}")
     
     def show_barang_window(self):
         """Show barang management window"""
         try:
-            BarangWindow(self.root, self.db, self.refresh_stats)
+            BarangWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window barang:\n{str(e)}")
     
     def show_container_window(self):
         """Show container management window"""
         try:
-            ContainerWindow(self.root, self.db, self.refresh_stats)
+            ContainerWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window container:\n{str(e)}")
     

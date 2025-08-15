@@ -117,13 +117,16 @@ class SQLiteDatabase:
             barang_id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_id INTEGER,
             nama_barang TEXT NOT NULL,
+            jenis_barang TEXT,
             panjang_barang REAL,
             lebar_barang REAL,
             tinggi_barang REAL,
             m3_barang REAL,
             ton_barang REAL,
             col_barang INTEGER,
-            harga_satuan REAL,
+            harga_m3 REAL,
+            harga_ton REAL,
+            harga_col REAL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers (customer_id)
@@ -326,16 +329,18 @@ class ContainerDatabase(SQLiteDatabase):
 class BarangDatabase(SQLiteDatabase):
     """Extended database class with barang-specific methods"""
     
-    def create_barang(self, customer_id, nama_barang, panjang_barang=None, 
-                     lebar_barang=None, tinggi_barang=None, m3_barang=None, 
-                     ton_barang=None, col_barang=None, harga_satuan=None):
+    def create_barang(self, customer_id, nama_barang, jenis_barang=None, 
+                     panjang_barang=None, lebar_barang=None, tinggi_barang=None, 
+                     m3_barang=None, ton_barang=None, col_barang=None, 
+                     harga_m3=None, harga_ton=None, harga_col=None):
         """Create new barang"""
         barang_id = self.execute_insert('''
-            INSERT INTO barang (customer_id, nama_barang, panjang_barang, lebar_barang,
-                               tinggi_barang, m3_barang, ton_barang, col_barang, harga_satuan)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (customer_id, nama_barang, panjang_barang, lebar_barang, tinggi_barang,
-              m3_barang, ton_barang, col_barang, harga_satuan))
+            INSERT INTO barang (customer_id, nama_barang, jenis_barang, panjang_barang, 
+                               lebar_barang, tinggi_barang, m3_barang, ton_barang, 
+                               col_barang, harga_m3, harga_ton, harga_col)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (customer_id, nama_barang, jenis_barang, panjang_barang, lebar_barang, 
+              tinggi_barang, m3_barang, ton_barang, col_barang, harga_m3, harga_ton, harga_col))
         
         return barang_id
     
