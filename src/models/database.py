@@ -52,9 +52,10 @@ class SQLiteDatabase:
     def init_db(self):
         """Initialize database with required tables"""
         self.create_users_table()
-        self.create_documents_table()
-        self.create_sessions_table()
-        self.create_app_settings_table()
+        self.create_customers_table()
+        self.create_containers_table()
+        self.create_barang_table()
+        self.create_detail_container_table()
         self.insert_default_data()
     
     def create_users_table(self):
@@ -75,48 +76,72 @@ class SQLiteDatabase:
         '''
         self.execute(query)
     
-    def create_documents_table(self):
-        """Create documents table"""
+    def create_customers_table(self):
+        """Create customers table"""
         query = '''
-        CREATE TABLE IF NOT EXISTS documents (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            title TEXT NOT NULL,
-            content TEXT,
-            file_path TEXT,
+        CREATE TABLE IF NOT EXISTS customers (
+            customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nama_customer TEXT NOT NULL,
+            alamat_customer TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         '''
         self.execute(query)
     
-    def create_sessions_table(self):
-        """Create sessions table for remember me functionality"""
+    def create_containers_table(self):
+        """Create containers table"""
         query = '''
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            session_token TEXT UNIQUE,
-            expires_at TIMESTAMP,
+        CREATE TABLE IF NOT EXISTS containers (
+            container_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feeder TEXT,
+            etd_sub DATE,
+            party TEXT,
+            cls DATE,
+            open DATE,
+            full DATE,
+            destination TEXT,
+            container TEXT,
+            seal TEXT,
+            ref_joa TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         '''
         self.execute(query)
     
-    def create_app_settings_table(self):
-        """Create app settings table"""
+    def create_barang_table(self):
+        """Create barang table"""
         query = '''
-        CREATE TABLE IF NOT EXISTS app_settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            setting_key TEXT NOT NULL,
-            setting_value TEXT,
+        CREATE TABLE IF NOT EXISTS barang (
+            barang_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER,
+            nama_barang TEXT NOT NULL,
+            panjang_barang REAL,
+            lebar_barang REAL,
+            tinggi_barang REAL,
+            m3_barang REAL,
+            ton_barang REAL,
+            col_barang INTEGER,
+            harga_satuan REAL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            UNIQUE(user_id, setting_key)
+            FOREIGN KEY (customer_id) REFERENCES customers (customer_id)
+        )
+        '''
+        self.execute(query)
+    
+    def create_detail_container_table(self):
+        """Create detail container table (junction table)"""
+        query = '''
+        CREATE TABLE IF NOT EXISTS detail_container (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            barang_id INTEGER,
+            container_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
+            FOREIGN KEY (container_id) REFERENCES containers (container_id),
+            UNIQUE(barang_id, container_id)
         )
         '''
         self.execute(query)
@@ -220,59 +245,149 @@ class UserDatabase(SQLiteDatabase):
         users = self.execute("SELECT * FROM users ORDER BY created_at DESC")
         return [dict(user) for user in users]
 
-# Document Management Methods  
-class DocumentDatabase(SQLiteDatabase):
-    """Extended database class with document-specific methods"""
+# Customer Management Methods
+class CustomerDatabase(SQLiteDatabase):
+    """Extended database class with customer-specific methods"""
     
-    def create_document(self, user_id, title, content, file_path=None):
-        """Create new document"""
-        doc_id = self.execute_insert('''
-            INSERT INTO documents (user_id, title, content, file_path)
-            VALUES (?, ?, ?, ?)
-        ''', (user_id, title, content, file_path))
+    def create_customer(self, nama_customer, alamat_customer):
+        """Create new customer"""
+        customer_id = self.execute_insert('''
+            INSERT INTO customers (nama_customer, alamat_customer)
+            VALUES (?, ?)
+        ''', (nama_customer, alamat_customer))
         
-        return doc_id
+        return customer_id
     
-    def get_user_documents(self, user_id):
-        """Get all documents for a user"""
-        docs = self.execute('''
-            SELECT * FROM documents 
-            WHERE user_id = ? 
-            ORDER BY updated_at DESC
-        ''', (user_id,))
+    def get_all_customers(self):
+        """Get all customers"""
+        customers = self.execute("SELECT * FROM customers ORDER BY nama_customer")
+        return [dict(customer) for customer in customers]
+    
+    def get_customer_by_id(self, customer_id):
+        """Get customer by ID"""
+        customer = self.execute_one(
+            "SELECT * FROM customers WHERE customer_id = ?", 
+            (customer_id,)
+        )
+        return dict(customer) if customer else None
+    
+    def update_customer(self, customer_id, nama_customer=None, alamat_customer=None):
+        """Update customer"""
+        if nama_customer and alamat_customer:
+            self.execute('''
+                UPDATE customers 
+                SET nama_customer = ?, alamat_customer = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE customer_id = ?
+            ''', (nama_customer, alamat_customer, customer_id))
+        elif nama_customer:
+            self.execute('''
+                UPDATE customers 
+                SET nama_customer = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE customer_id = ?
+            ''', (nama_customer, customer_id))
+        elif alamat_customer:
+            self.execute('''
+                UPDATE customers 
+                SET alamat_customer = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE customer_id = ?
+            ''', (alamat_customer, customer_id))
+
+# Container Management Methods
+class ContainerDatabase(SQLiteDatabase):
+    """Extended database class with container-specific methods"""
+    
+    def create_container(self, feeder=None, etd_sub=None, party=None, cls=None, 
+                        open_date=None, full=None, destination=None, container=None, 
+                        seal=None, ref_joa=None):
+        """Create new container"""
+        container_id = self.execute_insert('''
+            INSERT INTO containers (feeder, etd_sub, party, cls, open, full, 
+                                  destination, container, seal, ref_joa)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (feeder, etd_sub, party, cls, open_date, full, destination, 
+              container, seal, ref_joa))
         
-        return [dict(doc) for doc in docs]
+        return container_id
     
-    def update_document(self, doc_id, title=None, content=None):
-        """Update document"""
-        if title and content:
-            self.execute('''
-                UPDATE documents 
-                SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ''', (title, content, doc_id))
-        elif title:
-            self.execute('''
-                UPDATE documents 
-                SET title = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ''', (title, doc_id))
-        elif content:
-            self.execute('''
-                UPDATE documents 
-                SET content = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ''', (content, doc_id))
+    def get_all_containers(self):
+        """Get all containers"""
+        containers = self.execute("SELECT * FROM containers ORDER BY created_at DESC")
+        return [dict(container) for container in containers]
     
-    def delete_document(self, doc_id, user_id):
-        """Delete document (only if owned by user)"""
-        self.execute('''
-            DELETE FROM documents 
-            WHERE id = ? AND user_id = ?
-        ''', (doc_id, user_id))
+    def get_container_by_id(self, container_id):
+        """Get container by ID"""
+        container = self.execute_one(
+            "SELECT * FROM containers WHERE container_id = ?", 
+            (container_id,)
+        )
+        return dict(container) if container else None
+
+# Barang Management Methods
+class BarangDatabase(SQLiteDatabase):
+    """Extended database class with barang-specific methods"""
+    
+    def create_barang(self, customer_id, nama_barang, panjang_barang=None, 
+                     lebar_barang=None, tinggi_barang=None, m3_barang=None, 
+                     ton_barang=None, col_barang=None, harga_satuan=None):
+        """Create new barang"""
+        barang_id = self.execute_insert('''
+            INSERT INTO barang (customer_id, nama_barang, panjang_barang, lebar_barang,
+                               tinggi_barang, m3_barang, ton_barang, col_barang, harga_satuan)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (customer_id, nama_barang, panjang_barang, lebar_barang, tinggi_barang,
+              m3_barang, ton_barang, col_barang, harga_satuan))
+        
+        return barang_id
+    
+    def get_barang_by_customer(self, customer_id):
+        """Get all barang for a customer"""
+        barang_list = self.execute('''
+            SELECT b.*, c.nama_customer 
+            FROM barang b
+            JOIN customers c ON b.customer_id = c.customer_id
+            WHERE b.customer_id = ?
+            ORDER BY b.created_at DESC
+        ''', (customer_id,))
+        
+        return [dict(barang) for barang in barang_list]
+    
+    def get_all_barang(self):
+        """Get all barang with customer info"""
+        barang_list = self.execute('''
+            SELECT b.*, c.nama_customer 
+            FROM barang b
+            JOIN customers c ON b.customer_id = c.customer_id
+            ORDER BY b.created_at DESC
+        ''')
+        
+        return [dict(barang) for barang in barang_list]
+    
+    def assign_barang_to_container(self, barang_id, container_id):
+        """Assign barang to container"""
+        try:
+            self.execute_insert('''
+                INSERT INTO detail_container (barang_id, container_id)
+                VALUES (?, ?)
+            ''', (barang_id, container_id))
+            return True
+        except sqlite3.IntegrityError:
+            return False  # Already assigned
+    
+    def get_barang_in_container(self, container_id):
+        """Get all barang in a container"""
+        barang_list = self.execute('''
+            SELECT b.*, c.nama_customer, dc.created_at as assigned_at
+            FROM barang b
+            JOIN customers c ON b.customer_id = c.customer_id
+            JOIN detail_container dc ON b.barang_id = dc.barang_id
+            WHERE dc.container_id = ?
+            ORDER BY dc.created_at DESC
+        ''', (container_id,))
+        
+        return [dict(barang) for barang in barang_list]
 
 # Combined Database Class
-class AppDatabase(UserDatabase, DocumentDatabase):
+class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatabase):
     """Complete app database with all methods"""
     
     def __init__(self, db_path="data/app.db"):
@@ -280,30 +395,24 @@ class AppDatabase(UserDatabase, DocumentDatabase):
     
     def get_user_stats(self, user_id):
         """Get user statistics"""
-        doc_count = self.execute_one(
-            "SELECT COUNT(*) as count FROM documents WHERE user_id = ?",
-            (user_id,)
-        )
-        
         user_info = self.get_user_by_id(user_id)
         
         return {
-            'document_count': doc_count['count'] if doc_count else 0,
             'login_count': user_info.get('login_count', 0) if user_info else 0,
             'last_login': user_info.get('last_login') if user_info else None
         }
     
-    def search_documents(self, user_id, search_term):
-        """Search documents by title or content"""
-        docs = self.execute('''
-            SELECT * FROM documents 
-            WHERE user_id = ? AND (
-                title LIKE ? OR content LIKE ?
-            )
-            ORDER BY updated_at DESC
-        ''', (user_id, f'%{search_term}%', f'%{search_term}%'))
+    def get_dashboard_stats(self):
+        """Get dashboard statistics"""
+        total_customers = self.execute_one("SELECT COUNT(*) as count FROM customers")
+        total_barang = self.execute_one("SELECT COUNT(*) as count FROM barang")
+        total_containers = self.execute_one("SELECT COUNT(*) as count FROM containers")
         
-        return [dict(doc) for doc in docs]
+        return {
+            'total_customers': total_customers['count'] if total_customers else 0,
+            'total_barang': total_barang['count'] if total_barang else 0,
+            'total_containers': total_containers['count'] if total_containers else 0
+        }
 
 # Usage example
 if __name__ == "__main__":
@@ -318,11 +427,38 @@ if __name__ == "__main__":
     user = db.authenticate_user("admin", "admin123")
     print(f"Authenticated user: {user['username'] if user else 'Failed'}")
     
-    # Test document creation
-    if user:
-        doc_id = db.create_document(user['id'], "Test Document", "This is test content")
-        print(f"Created document with ID: {doc_id}")
+    # Test customer creation
+    customer_id = db.create_customer("PT. Test Company", "Jl. Test No. 123")
+    print(f"Created customer with ID: {customer_id}")
+    
+    # Test container creation
+    container_id = db.create_container(
+        feeder="EVER GIVEN",
+        destination="JAKARTA",
+        container="TCLU1234567"
+    )
+    print(f"Created container with ID: {container_id}")
+    
+    # Test barang creation
+    if customer_id:
+        barang_id = db.create_barang(
+            customer_id=customer_id,
+            nama_barang="Elektronik",
+            panjang_barang=100,
+            lebar_barang=50,
+            tinggi_barang=30,
+            m3_barang=0.15,
+            ton_barang=0.5,
+            col_barang=10,
+            harga_satuan=1000000
+        )
+        print(f"Created barang with ID: {barang_id}")
         
-        # Get user documents
-        docs = db.get_user_documents(user['id'])
-        print(f"User has {len(docs)} documents")
+        # Test assign barang to container
+        if container_id and barang_id:
+            assigned = db.assign_barang_to_container(barang_id, container_id)
+            print(f"Barang assigned to container: {assigned}")
+    
+    # Get dashboard stats
+    stats = db.get_dashboard_stats()
+    print(f"Dashboard stats: {stats}")

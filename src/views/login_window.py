@@ -15,7 +15,6 @@ class LoginWindow:
         # Variables untuk form
         self.username_var = tk.StringVar()
         self.password_var = tk.StringVar()
-        self.remember_me_var = tk.BooleanVar()
         self.show_password_var = tk.BooleanVar()
         self.failed_attempts = 0
         
@@ -27,7 +26,7 @@ class LoginWindow:
         
         self.login_window = tk.Toplevel(self.root)
         self.login_window.title("Login - My Tkinter App")
-        self.login_window.geometry("400x550")
+        self.login_window.geometry("400x450")
         self.login_window.resizable(False, False)
         
         print(f"   📍 Initial geometry: {self.login_window.geometry()}")
@@ -80,14 +79,14 @@ class LoginWindow:
         
         # Calculate center position
         x = (screen_width // 2) - (400 // 2)
-        y = (screen_height // 2) - (550 // 2)
+        y = (screen_height // 2) - (450 // 2)
         
         # Ensure window is not off-screen
         x = max(0, min(x, screen_width - 400))
-        y = max(0, min(y, screen_height - 550))
+        y = max(0, min(y, screen_height - 450))
         
         # Set geometry
-        self.login_window.geometry(f"400x550+{x}+{y}")
+        self.login_window.geometry(f"400x450+{x}+{y}")
         
         print(f"   📏 Screen: {screen_width}x{screen_height}")
         print(f"   📍 Position: {x}, {y}")
@@ -105,8 +104,8 @@ class LoginWindow:
         title_frame.pack(fill='x', pady=(0, 30))
         
         title_label = ttk.Label(
-            title_frame, 
-            text="Welcome Back!", 
+            title_frame,
+            text="Welcome Back!",
             font=('Arial', 24, 'bold')
         )
         title_label.pack()
@@ -127,7 +126,7 @@ class LoginWindow:
         ttk.Label(form_frame, text="Username:", font=('Arial', 10, 'bold')).pack(anchor='w', pady=(0, 5))
         
         self.username_entry = ttk.Entry(
-            form_frame, 
+            form_frame,
             textvariable=self.username_var,
             font=('Arial', 11),
             width=30
@@ -138,7 +137,7 @@ class LoginWindow:
         ttk.Label(form_frame, text="Password:", font=('Arial', 10, 'bold')).pack(anchor='w', pady=(0, 5))
         
         password_container = ttk.Frame(form_frame)
-        password_container.pack(fill='x', pady=(0, 15))
+        password_container.pack(fill='x', pady=(0, 25))
         
         self.password_entry = ttk.Entry(
             password_container,
@@ -157,14 +156,6 @@ class LoginWindow:
         )
         self.show_pwd_btn.pack(side='right', padx=(5, 0))
         
-        # Remember me checkbox
-        remember_cb = ttk.Checkbutton(
-            form_frame,
-            text="Remember me",
-            variable=self.remember_me_var
-        )
-        remember_cb.pack(anchor='w', pady=(0, 20))
-        
         # Login button - STORE REFERENCE
         self.login_btn = ttk.Button(
             form_frame,
@@ -172,14 +163,6 @@ class LoginWindow:
             command=self.login
         )
         self.login_btn.pack(fill='x', ipady=10, pady=(0, 15))
-        
-        # Register button
-        register_btn = ttk.Button(
-            form_frame,
-            text="Create New Account",
-            command=self.show_register
-        )
-        register_btn.pack(fill='x', ipady=8)
         
         # Status label
         self.status_label = ttk.Label(
@@ -382,106 +365,11 @@ class LoginWindow:
         # Focus on username
         self.username_entry.focus()
     
-    def show_register(self):
-        """Show simple registration dialog"""
-        self.register_window = tk.Toplevel(self.login_window)
-        self.register_window.title("Create Account")
-        self.register_window.geometry("350x300")
-        self.register_window.resizable(False, False)
-        self.register_window.transient(self.login_window)
-        self.register_window.grab_set()
-        
-        # Force visibility
-        self.register_window.lift()
-        self.register_window.focus_force()
-        
-        # Center register window
-        x = self.login_window.winfo_x() + 25
-        y = self.login_window.winfo_y() + 25
-        self.register_window.geometry(f"350x300+{x}+{y}")
-        
-        # Registration form
-        reg_frame = ttk.Frame(self.register_window, padding="20")
-        reg_frame.pack(fill='both', expand=True)
-        
-        ttk.Label(reg_frame, text="Create New Account", font=('Arial', 16, 'bold')).pack(pady=(0, 20))
-        
-        # Form fields
-        ttk.Label(reg_frame, text="Username:").pack(anchor='w', pady=(10, 2))
-        self.reg_username = ttk.Entry(reg_frame, font=('Arial', 10))
-        self.reg_username.pack(fill='x', ipady=5)
-        
-        ttk.Label(reg_frame, text="Email:").pack(anchor='w', pady=(10, 2))
-        self.reg_email = ttk.Entry(reg_frame, font=('Arial', 10))
-        self.reg_email.pack(fill='x', ipady=5)
-        
-        ttk.Label(reg_frame, text="Password:").pack(anchor='w', pady=(10, 2))
-        self.reg_password = ttk.Entry(reg_frame, font=('Arial', 10), show="*")
-        self.reg_password.pack(fill='x', ipady=5)
-        
-        # Register button
-        ttk.Button(
-            reg_frame,
-            text="Create Account",
-            command=self.register_user
-        ).pack(fill='x', pady=(20, 10), ipady=8)
-        
-        # Cancel button
-        ttk.Button(
-            reg_frame,
-            text="Cancel",
-            command=self.register_window.destroy
-        ).pack(fill='x', ipady=8)
-        
-        # Focus on username
-        self.reg_username.focus()
-    
-    def register_user(self):
-        """Handle user registration"""
-        username = self.reg_username.get().strip()
-        email = self.reg_email.get().strip()
-        password = self.reg_password.get()
-        
-        # Basic validation
-        if not all([username, email, password]):
-            messagebox.showerror("Error", "Please fill all fields")
-            return
-        
-        if len(username) < 3:
-            messagebox.showerror("Error", "Username must be at least 3 characters")
-            return
-        
-        if len(password) < 6:
-            messagebox.showerror("Error", "Password must be at least 6 characters")
-            return
-        
-        if "@" not in email:
-            messagebox.showerror("Error", "Please enter a valid email")
-            return
-        
-        try:
-            # Create user in database
-            user_id = self.db.create_user(username, password, email)
-            
-            if user_id:
-                messagebox.showinfo("Success", "Account created successfully!")
-                self.register_window.destroy()
-                
-                # Auto fill login form
-                self.username_var.set(username)
-                self.password_entry.focus()
-                
-            else:
-                messagebox.showerror("Error", "Username already exists")
-                
-        except Exception as e:
-            messagebox.showerror("Error", f"Registration failed: {str(e)}")
-    
     def show_status(self, message, status_type="info"):
         """Show status message"""
         colors = {
             "error": "#dc3545",
-            "success": "#28a745", 
+            "success": "#28a745",
             "info": "#17a2b8"
         }
         
