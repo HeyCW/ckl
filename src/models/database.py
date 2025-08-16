@@ -344,6 +344,26 @@ class BarangDatabase(SQLiteDatabase):
         
         return barang_id
     
+    def update_barang(self, barang_data):
+        """Update existing barang"""
+        self.execute('''
+            UPDATE barang
+            SET nama_barang = ?, jenis_barang = ?, panjang_barang = ?, lebar_barang = ?,
+                tinggi_barang = ?, m3_barang = ?, ton_barang = ?, col_barang = ?,
+                harga_m3 = ?, harga_ton = ?, harga_col = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE barang_id = ?
+        ''', (
+            barang_data['nama_barang'], barang_data['jenis_barang'], barang_data['panjang_barang'],
+            barang_data['lebar_barang'], barang_data['tinggi_barang'], barang_data['m3_barang'],
+            barang_data['ton_barang'], barang_data['col_barang'], barang_data['harga_m3'],
+            barang_data['harga_ton'], barang_data['harga_col'], barang_data['barang_id']
+        ))
+    
+    def delete_barang(self, barang_id):
+        self.execute('''
+            DELETE FROM barang WHERE barang_id = ?
+        ''', (barang_id,))
+
     def get_barang_by_customer(self, customer_id):
         """Get all barang for a customer"""
         barang_list = self.execute('''

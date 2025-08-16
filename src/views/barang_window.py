@@ -1,8 +1,10 @@
+import datetime
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pandas as pd
 import os
 from src.models.database import AppDatabase
+import re
 
 class BarangWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -381,7 +383,7 @@ class BarangWindow:
         self.status_label.pack(pady=10, fill='x')
     
     def create_list_tab(self, parent):
-        """Create barang list tab"""
+        """Create barang list tab with search, update, delete functionality"""
         # Container
         list_container = tk.Frame(parent, bg='#ecf0f1')
         list_container.pack(fill='both', expand=True, padx=20, pady=20)
@@ -404,6 +406,110 @@ class BarangWindow:
         )
         refresh_btn.pack(side='right')
         
+        # Search/Filter Frame
+        search_frame = tk.Frame(list_container, bg='#ffffff', relief='solid', bd=1)
+        search_frame.pack(fill='x', pady=(0, 10))
+        
+        # Search label
+        search_label = tk.Label(
+            search_frame,
+            text="🔍 Filter & Pencarian:",
+            font=('Arial', 12, 'bold'),
+            fg='#2c3e50',
+            bg='#ffffff'
+        )
+        search_label.pack(anchor='w', padx=10, pady=(10, 5))
+        
+        # Search controls frame
+        search_controls = tk.Frame(search_frame, bg='#ffffff')
+        search_controls.pack(fill='x', padx=10, pady=(0, 10))
+        
+        # Search by name
+        tk.Label(search_controls, text="Nama Barang:", font=('Arial', 10), bg='#ffffff').pack(side='left')
+        self.search_name_var = tk.StringVar()
+        self.search_name_var.trace('w', self.on_search_change)
+        search_name_entry = tk.Entry(search_controls, textvariable=self.search_name_var, font=('Arial', 10), width=20)
+        search_name_entry.pack(side='left', padx=(5, 15))
+        
+        # Filter by customer
+        tk.Label(search_controls, text="Customer:", font=('Arial', 10), bg='#ffffff').pack(side='left')
+        self.filter_customer_var = tk.StringVar()
+        self.filter_customer_var.trace('w', self.on_search_change)
+        self.filter_customer_combo = ttk.Combobox(
+            search_controls, 
+            textvariable=self.filter_customer_var, 
+            font=('Arial', 10), 
+            width=18,
+            state='readonly'
+        )
+        self.filter_customer_combo.pack(side='left', padx=(5, 15))
+        
+        # Clear search button
+        clear_search_btn = tk.Button(
+            search_controls,
+            text="❌ Clear",
+            font=('Arial', 9),
+            bg='#e67e22',
+            fg='white',
+            padx=10,
+            pady=2,
+            command=self.clear_search
+        )
+        clear_search_btn.pack(side='left', padx=5)
+        
+        # Action buttons frame
+        action_frame = tk.Frame(list_container, bg='#ecf0f1')
+        action_frame.pack(fill='x', pady=(0, 10))
+        
+        # Update button
+        update_btn = tk.Button(
+            action_frame,
+            text="✏️ Edit Barang",
+            font=('Arial', 11, 'bold'),
+            bg='#3498db',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.update_barang
+        )
+        update_btn.pack(side='left', padx=(0, 10))
+        
+        # Delete button
+        delete_btn = tk.Button(
+            action_frame,
+            text="🗑️ Hapus Barang",
+            font=('Arial', 11, 'bold'),
+            bg='#e74c3c',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.delete_barang
+        )
+        delete_btn.pack(side='left', padx=(0, 10))
+        
+        # Export button
+        export_btn = tk.Button(
+            action_frame,
+            text="📤 Export Excel",
+            font=('Arial', 11, 'bold'),
+            bg='#27ae60',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.export_barang
+        )
+        export_btn.pack(side='left')
+        
+        # Info label
+        self.info_label = tk.Label(
+            action_frame,
+            text="💡 Pilih barang dari tabel untuk edit/hapus",
+            font=('Arial', 10),
+            fg='#7f8c8d',
+            bg='#ecf0f1'
+        )
+        self.info_label.pack(side='right')
+        
         # Treeview for barang list with scrollbars
         tree_frame = tk.Frame(list_container, bg='#ecf0f1')
         tree_frame.pack(fill='both', expand=True)
@@ -411,29 +517,35 @@ class BarangWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        self.tree = ttk.Treeview(tree_container, 
-                               columns=('ID', 'Customer', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga', 'Created'), 
-                               show='headings', height=15)
+        self.tree = ttk.Treeview(tree_container,
+                               columns=('ID', 'Customer', 'Nama', 'Jenis', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga/M3', 'Harga/Ton', 'Harga/Col', 'Created'),
+                               show='headings', height=12)
         
         # Configure columns
         self.tree.heading('ID', text='ID')
         self.tree.heading('Customer', text='Customer')
         self.tree.heading('Nama', text='Nama Barang')
+        self.tree.heading('Jenis', text='Jenis Barang')
         self.tree.heading('Dimensi', text='P×L×T (cm)')
         self.tree.heading('Volume', text='Volume (m³)')
         self.tree.heading('Berat', text='Berat (ton)')
         self.tree.heading('Colli', text='Colli')
-        self.tree.heading('Harga', text='Harga (Rp)')
+        self.tree.heading('Harga/M3', text='Harga/M3 (Rp)')
+        self.tree.heading('Harga/Ton', text='Harga/Ton (Rp)')
+        self.tree.heading('Harga/Col', text='Harga/Col (Rp)')
         self.tree.heading('Created', text='Tanggal Dibuat')
         
         self.tree.column('ID', width=40)
         self.tree.column('Customer', width=120)
         self.tree.column('Nama', width=200)
+        self.tree.column('Jenis', width=100)
         self.tree.column('Dimensi', width=100)
         self.tree.column('Volume', width=80)
         self.tree.column('Berat', width=80)
         self.tree.column('Colli', width=60)
-        self.tree.column('Harga', width=100)
+        self.tree.column('Harga/M3', width=100)
+        self.tree.column('Harga/Ton', width=100)
+        self.tree.column('Harga/Col', width=100)
         self.tree.column('Created', width=120)
         
         # Scrollbars
@@ -448,26 +560,463 @@ class BarangWindow:
         tree_container.grid_rowconfigure(0, weight=1)
         tree_container.grid_columnconfigure(0, weight=1)
         
+        # Bind double-click to edit
+        self.tree.bind('<Double-1>', lambda e: self.update_barang())
+        
+        # Bind selection change to update info
+        self.tree.bind('<<TreeviewSelect>>', self.on_tree_select)
+        
+        # Store original data for filtering
+        self.original_barang_data = []
+        
         # Load existing barang
         self.load_barang()
+        self.load_customer_filter()
         
         # Add tab change event to refresh data when switching to this tab
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
+
+    def load_customer_filter(self):
+        """Load customers for filter dropdown"""
+        try:
+            customers = self.db.get_all_customers()
+            customer_names = ['-- Semua Customer --'] + [c['nama_customer'] for c in customers]
+            self.filter_customer_combo['values'] = customer_names
+            self.filter_customer_combo.set('-- Semua Customer --')
+        except Exception as e:
+            print(f"Error loading customer filter: {e}")
     
+    def on_search_change(self, *args):
+        """Handle search input changes"""
+        self.filter_barang()
+    
+    def clear_search(self):
+        """Clear all search filters"""
+        self.search_name_var.set('')
+        self.filter_customer_var.set('-- Semua Customer --')
+        self.filter_barang()
+    
+    def filter_barang(self):
+        """Filter barang based on search criteria with fuzzy matching"""
+        # Clear current display
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        # Get search criteria
+        search_name = self.search_name_var.get().strip()
+        filter_customer = self.filter_customer_var.get()
+        
+        print(f"Search name {search_name}")
+        
+        # Filter data
+        filtered_data = []
+        
+        print(f"Filtering data with {len(self.original_barang_data)} items")
+        
+        for barang in self.original_barang_data:
+            # Check name filter with flexible matching
+            if search_name:
+                nama_barang = barang['nama_barang'].lower()
+                search_terms = search_name.lower().split()
+                
+                print(f"search terms {search_terms}")
+                
+                # Check if any search term matches (partial matching)
+                match_found = False
+                for term in search_terms:
+                    # Create regex pattern for flexible matching
+                    # Allow for minor typos and partial matches
+                    pattern = '.*'.join(re.escape(char) for char in term)
+                    print(f"pattern: {pattern}")
+                    if re.search(pattern, nama_barang, re.IGNORECASE):
+                        match_found = True
+                        break
+                    
+                    # Also check direct substring match
+                    if term in nama_barang:
+                        match_found = True
+                        break
+                
+                if not match_found:
+                    continue
+                
+            # Check customer filter
+            if filter_customer and filter_customer != '-- Semua Customer --':
+                if barang['nama_customer'] != filter_customer:
+                    continue
+            
+            filtered_data.append(barang)
+        
+        # Display filtered data
+        for barang in filtered_data:
+            # Format dimensions
+            dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
+            
+            # Format currency
+            harga_m3 = f"Rp {barang.get('harga_m3', 0):,.0f}" if barang.get('harga_m3') else '-'
+            harga_ton = f"Rp {barang.get('harga_ton', 0):,.0f}" if barang.get('harga_ton') else '-'
+            harga_col = f"Rp {barang.get('harga_col', 0):,.0f}" if barang.get('harga_col') else '-'
+            
+            # Format date
+            created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
+            
+            self.tree.insert('', tk.END, values=(
+                barang['barang_id'],
+                barang['nama_customer'],
+                barang['nama_barang'],
+                dimensi,
+                barang.get('m3_barang', '-'),
+                barang.get('ton_barang', '-'),
+                barang.get('col_barang', '-'),
+                harga_m3,
+                harga_ton,
+                harga_col,
+                created_date
+            ))
+        
+        # Update info label
+        total_count = len(self.original_barang_data)
+        filtered_count = len(filtered_data)
+        if total_count != filtered_count:
+            self.info_label.config(text=f"📊 Menampilkan {filtered_count} dari {total_count} barang")
+        else:
+            self.info_label.config(text="💡 Pilih barang dari tabel untuk edit/hapus")
+
+    def update_barang(self):
+        """Update selected barang"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit dari tabel!")
+            return
+        
+        # Get selected item data
+        item = self.tree.item(selection[0])
+        barang_id = item['values'][0]
+        
+        # Find full barang data
+        selected_barang = None
+        for barang in self.original_barang_data:
+            if barang['barang_id'] == barang_id:
+                selected_barang = barang
+                break
+        print(f"Selected barang: {selected_barang}")
+
+        if not selected_barang:
+            messagebox.showerror("Error", "Data barang tidak ditemukan!")
+            return
+        
+        # Open update dialog
+        self.open_update_dialog(selected_barang)
+
+    def save_changes(self, updated_barang):
+        print(f"Updated data: {updated_barang}")
+        self.db.update_barang(updated_barang)
+        messagebox.showinfo("Sukses", "Data barang berhasil disimpan!")
+        self.load_barang()
+    
+    def open_update_dialog(self, barang_data):
+        """Open dialog to update barang data"""
+        # Create update window
+        update_window = tk.Toplevel(self.window)
+        update_window.title(f"✏️ Edit Barang - {barang_data['nama_barang']}")
+        update_window.geometry("600x700")
+        update_window.configure(bg='#ecf0f1')
+        update_window.transient(self.window)
+        update_window.grab_set()
+        
+        # Center window
+        update_window.update_idletasks()
+        x = (update_window.winfo_screenwidth() // 2) - (600 // 2)
+        y = (update_window.winfo_screenheight() // 2) - (700 // 2)
+        update_window.geometry(f"600x700+{x}+{y}")
+        
+        # Header
+        header = tk.Label(
+            update_window,
+            text="✏️ EDIT DATA BARANG",
+            font=('Arial', 16, 'bold'),
+            bg='#3498db',
+            fg='white',
+            pady=15
+        )
+        header.pack(fill='x')
+        
+        # Form frame
+        form_frame = tk.Frame(update_window, bg='#ecf0f1')
+        form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Create form fields (similar to manual input but pre-filled)
+        # Customer (read-only)
+        tk.Label(form_frame, text="Customer:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        customer_label = tk.Label(
+            form_frame, 
+            text=barang_data['nama_customer'], 
+            font=('Arial', 11),
+            bg='#ffffff',
+            relief='solid',
+            bd=1,
+            padx=5,
+            pady=5
+        )
+        customer_label.pack(fill='x', pady=(5, 10))
+        
+        # Nama Barang
+        tk.Label(form_frame, text="Nama Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        nama_barang_var = tk.StringVar(value=barang_data['nama_barang'])
+        nama_barang_entry = tk.Entry(form_frame, textvariable=nama_barang_var, font=('Arial', 11))
+        nama_barang_entry.pack(fill='x', pady=(5, 10))
+        
+        tk.Label(form_frame, text="Jenis Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        jenis_barang_var = tk.StringVar(value=barang_data['jenis_barang'])
+        jenis_barang_entry = tk.Entry(form_frame, textvariable=jenis_barang_var, font=('Arial', 11))
+        jenis_barang_entry.pack(fill='x', pady=(5, 10))
+
+        # Dimensions
+        dim_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        dim_frame.pack(fill='x', pady=10)
+        
+        tk.Label(dim_frame, text="Panjang (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        panjang_var = tk.StringVar(value=str(barang_data.get('panjang_barang', '') or ''))
+        panjang_entry = tk.Entry(dim_frame, textvariable=panjang_var, font=('Arial', 10), width=10)
+        panjang_entry.pack(side='left', padx=(5, 20))
+        
+        tk.Label(dim_frame, text="Lebar (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        lebar_var = tk.StringVar(value=str(barang_data.get('lebar_barang', '') or ''))
+        lebar_entry = tk.Entry(dim_frame, textvariable=lebar_var, font=('Arial', 10), width=10)
+        lebar_entry.pack(side='left', padx=(5, 20))
+        
+        tk.Label(dim_frame, text="Tinggi (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        tinggi_var = tk.StringVar(value=str(barang_data.get('tinggi_barang', '') or ''))
+        tinggi_entry = tk.Entry(dim_frame, textvariable=tinggi_var, font=('Arial', 10), width=10)
+        tinggi_entry.pack(side='left', padx=5)
+        
+        # Other fields
+        other_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        other_frame.pack(fill='x', pady=10)
+        
+        tk.Label(other_frame, text="Volume (m³):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        m3_var = tk.StringVar(value=str(barang_data.get('m3_barang', '') or ''))
+        m3_entry = tk.Entry(other_frame, textvariable=m3_var, font=('Arial', 10), width=10)
+        m3_entry.pack(side='left', padx=(5, 20))
+        
+        tk.Label(other_frame, text="Berat (ton):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        ton_var = tk.StringVar(value=str(barang_data.get('ton_barang', '') or ''))
+        ton_entry = tk.Entry(other_frame, textvariable=ton_var, font=('Arial', 10), width=10)
+        ton_entry.pack(side='left', padx=(5, 20))
+        
+        tk.Label(other_frame, text="Colli:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        col_var = tk.StringVar(value=str(barang_data.get('col_barang', '') or ''))
+        col_entry = tk.Entry(other_frame, textvariable=col_var, font=('Arial', 10), width=10)
+        col_entry.pack(side='left', padx=5)
+        
+        # Pricing fields
+        price_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        price_frame.pack(fill='x', pady=10)
+        
+        tk.Label(price_frame, text="Harga Satuan:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
+        
+        # Harga M3
+        harga_m3_frame = tk.Frame(price_frame, bg='#ecf0f1')
+        harga_m3_frame.pack(fill='x', pady=2)
+        tk.Label(harga_m3_frame, text="Harga/m³ (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        harga_m3_var = tk.StringVar(value=str(barang_data.get('harga_m3', '') or ''))
+        harga_m3_entry = tk.Entry(harga_m3_frame, textvariable=harga_m3_var, font=('Arial', 10), width=20)
+        harga_m3_entry.pack(side='left', padx=(5, 0))
+        
+        # Harga Ton
+        harga_ton_frame = tk.Frame(price_frame, bg='#ecf0f1')
+        harga_ton_frame.pack(fill='x', pady=2)
+        tk.Label(harga_ton_frame, text="Harga/ton (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        harga_ton_var = tk.StringVar(value=str(barang_data.get('harga_ton', '') or ''))
+        harga_ton_entry = tk.Entry(harga_ton_frame, textvariable=harga_ton_var, font=('Arial', 10), width=20)
+        harga_ton_entry.pack(side='left', padx=(5, 0))
+        
+        # Harga Col
+        harga_col_frame = tk.Frame(price_frame, bg='#ecf0f1')
+        harga_col_frame.pack(fill='x', pady=2)
+        tk.Label(harga_col_frame, text="Harga/colli (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        harga_col_var = tk.StringVar(value=str(barang_data.get('harga_col', '') or ''))
+        harga_col_entry = tk.Entry(harga_col_frame, textvariable=harga_col_var, font=('Arial', 10), width=20)
+        harga_col_entry.pack(side='left', padx=(5, 0))
+
+        
+        
+        def on_save():
+            updated_barang = {
+                'barang_id': barang_data['barang_id'],
+                'nama_barang': nama_barang_var.get(),
+                'jenis_barang': jenis_barang_var.get(),
+                'panjang_barang': panjang_var.get(),
+                'lebar_barang': lebar_var.get(),
+                'tinggi_barang': tinggi_var.get(),
+                'm3_barang': m3_var.get(),
+                'ton_barang': ton_var.get(),
+                'col_barang': col_var.get(),
+                'harga_m3': harga_m3_var.get(),
+                'harga_ton': harga_ton_var.get(),
+                'harga_col': harga_col_var.get(),
+                'updated_at': datetime.datetime.now()
+            }
+            self.save_changes(updated_barang)
+            update_window.destroy()  
+
+        
+
+        # Buttons
+        btn_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        btn_frame.pack(fill='x', pady=30)
+        
+        # Tambahkan tombol Save
+        btn_save = tk.Button(btn_frame, text="Save", bg="#2ecc71", fg="white", padx=20, pady=5, command=lambda: on_save())
+        btn_save.pack(side="right", padx=10)
+
+        # (opsional) tambahin tombol Cancel
+        btn_cancel = tk.Button(btn_frame, text="Cancel", bg="#e74c3c", fg="white", padx=20, pady=5, command= lambda: update_window.destroy())
+        btn_cancel.pack(side="right")
+        
+    def on_tree_select(self, event):
+        """Handle tree selection change"""
+        selection = self.tree.selection()
+        if selection:
+            item = self.tree.item(selection[0])
+            barang_id = item['values'][0]
+            nama_barang = item['values'][2]
+            self.info_label.config(text=f"✅ Terpilih: {nama_barang} (ID: {barang_id})")
+        else:
+            self.info_label.config(text="💡 Pilih barang dari tabel untuk edit/hapus")
+    
+    def delete_barang(self):
+        """Delete selected barang"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan dihapus dari tabel!")
+            return
+        
+        # Get selected item data
+        item = self.tree.item(selection[0])
+        barang_id = item['values'][0]
+        nama_barang = item['values'][2]
+        
+        # Confirm deletion
+        if not messagebox.askyesno(
+            "Konfirmasi Hapus", 
+            f"Yakin ingin menghapus barang?\n\n" +
+            f"ID: {barang_id}\n" +
+            f"Nama: {nama_barang}\n\n" +
+            f"⚠️ Aksi ini tidak dapat dibatalkan!"
+        ):
+            return
+        
+        try:
+            # Delete from database
+            self.db.delete_barang(barang_id)
+            
+            messagebox.showinfo("Sukses", f"Barang '{nama_barang}' berhasil dihapus!")
+            
+            # Refresh data
+            self.load_barang()
+            if self.refresh_callback:
+                self.refresh_callback()
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal menghapus barang:\n{str(e)}")
+    
+    def export_barang(self):
+        """Export barang data to Excel"""
+        try:
+            if not self.original_barang_data:
+                messagebox.showwarning("Peringatan", "Tidak ada data barang untuk diekspor!")
+                return
+            
+            # Ask for save location
+            filename = filedialog.asksaveasfilename(
+                parent=self.window,
+                title="Export Data Barang ke Excel",
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                initialfile=f"data_barang_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            )
+            
+            if not filename:
+                return
+            
+            # Prepare data for export
+            export_data = []
+            for barang in self.original_barang_data:
+                export_data.append({
+                    'ID': barang['barang_id'],
+                    'Customer': barang['nama_customer'],
+                    'Nama Barang': barang['nama_barang'],
+                    'Panjang (cm)': barang.get('panjang_barang', ''),
+                    'Lebar (cm)': barang.get('lebar_barang', ''),
+                    'Tinggi (cm)': barang.get('tinggi_barang', ''),
+                    'Volume (m³)': barang.get('m3_barang', ''),
+                    'Berat (ton)': barang.get('ton_barang', ''),
+                    'Colli': barang.get('col_barang', ''),
+                    'Harga/M3 (Rp)': barang.get('harga_m3', ''),
+                    'Harga/Ton (Rp)': barang.get('harga_ton', ''),
+                    'Harga/Col (Rp)': barang.get('harga_col', ''),
+                    'Tanggal Dibuat': barang.get('created_at', '')
+                })
+            
+            # Create DataFrame and export
+            df = pd.DataFrame(export_data)
+            
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Data Barang')
+                
+                # Format the Excel file
+                workbook = writer.book
+                worksheet = writer.sheets['Data Barang']
+                
+                # Style headers
+                from openpyxl.styles import Font, PatternFill, Alignment
+                
+                header_font = Font(bold=True, color="FFFFFF")
+                header_fill = PatternFill(start_color="27AE60", end_color="27AE60", fill_type="solid")
+                
+                for col_num, column_title in enumerate(df.columns, 1):
+                    cell = worksheet.cell(row=1, column=col_num)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal="center")
+                
+                # Auto-adjust column widths
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+            
+            messagebox.showinfo(
+                "Export Berhasil",
+                f"Data barang berhasil diekspor ke:\n{filename}\n\n" +
+                f"📊 Total: {len(export_data)} barang"
+            )
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal export data:\n{str(e)}")
+
     def show_error_details(self, errors, customer_not_found_list, success_count, total_count):
         """Show detailed error modal with specific error information"""
         error_window = tk.Toplevel(self.window)
         error_window.title("📊 Detail Error Upload")
-        error_window.geometry("800x600")
+        error_window.geometry("1000x700")  # Made wider to accommodate content
         error_window.configure(bg='#ecf0f1')
         error_window.transient(self.window)
         error_window.grab_set()
         
         # Center the error window
         error_window.update_idletasks()
-        x = (error_window.winfo_screenwidth() // 2) - (800 // 2)
-        y = (error_window.winfo_screenheight() // 2) - (600 // 2)
-        error_window.geometry(f"800x600+{x}+{y}")
+        x = (error_window.winfo_screenwidth() // 2) - (1000 // 2)
+        y = (error_window.winfo_screenheight() // 2) - (700 // 2)
+        error_window.geometry(f"1000x700+{x}+{y}")
         
         # Header
         header = tk.Label(
@@ -522,23 +1071,38 @@ class BarangWindow:
             )
             error_label.pack(anchor='w', padx=10, pady=(10, 5))
             
-            # Error treeview
-            error_tree_frame = tk.Frame(error_frame, bg='#ecf0f1')
-            error_tree_frame.pack(fill='both', expand=True, padx=10, pady=5)
+            # Error treeview with proper scrolling setup
+            error_main_frame = tk.Frame(error_frame, bg='#ecf0f1')
+            error_main_frame.pack(fill='both', expand=True, padx=10, pady=5)
             
-            error_tree = ttk.Treeview(error_tree_frame, 
+            # Create treeview first
+            error_tree = ttk.Treeview(error_main_frame, 
                                     columns=('No', 'Nama Barang', 'Customer', 'Error'), 
-                                    show='headings', height=15)
+                                    show='headings', height=12)
             
+            # Configure headers
             error_tree.heading('No', text='No')
             error_tree.heading('Nama Barang', text='Nama Barang')
-            error_tree.heading('Customer', text='Customer')
+            error_tree.heading('Customer', text='Customer')  
             error_tree.heading('Error', text='Detail Error')
             
-            error_tree.column('No', width=40)
-            error_tree.column('Nama Barang', width=200)
-            error_tree.column('Customer', width=150)
-            error_tree.column('Error', width=300)
+            # Set column widths - make Error column wider for long messages
+            error_tree.column('No', width=50, minwidth=40, stretch=False)
+            error_tree.column('Nama Barang', width=250, minwidth=200, stretch=True)
+            error_tree.column('Customer', width=200, minwidth=150, stretch=True)
+            error_tree.column('Error', width=500, minwidth=400, stretch=True)  # Much wider
+            
+            # Create scrollbars
+            error_v_scroll = ttk.Scrollbar(error_main_frame, orient='vertical', command=error_tree.yview)
+            error_h_scroll = ttk.Scrollbar(error_main_frame, orient='horizontal', command=error_tree.xview)
+            
+            # Configure treeview scrollbars
+            error_tree.configure(yscrollcommand=error_v_scroll.set, xscrollcommand=error_h_scroll.set)
+            
+            # Pack everything - this is the key part
+            error_tree.pack(side='left', fill='both', expand=True)
+            error_v_scroll.pack(side='right', fill='y')
+            error_h_scroll.pack(side='bottom', fill='x')
             
             # Add error data
             for i, error_info in enumerate(errors, 1):
@@ -548,17 +1112,8 @@ class BarangWindow:
                     error_info.get('customer', 'N/A'),
                     error_info.get('error', 'Unknown error')
                 ))
-            
-            # Scrollbars for error tree
-            error_v_scrollbar = ttk.Scrollbar(error_tree_frame, orient='vertical', command=error_tree.yview)
-            error_h_scrollbar = ttk.Scrollbar(error_tree_frame, orient='horizontal', command=error_tree.xview)
-            error_tree.configure(yscrollcommand=error_v_scrollbar.set, xscrollcommand=error_h_scrollbar.set)
-            
-            error_tree.pack(side='left', fill='both', expand=True)
-            error_v_scrollbar.pack(side='right', fill='y')
-            error_h_scrollbar.pack(side='bottom', fill='x')
         
-        # Tab 2: Customer Not Found
+        # Tab 2: Customer Not Found  
         if customer_not_found_list:
             customer_frame = tk.Frame(notebook, bg='#ecf0f1')
             notebook.add(customer_frame, text=f'⚠️ Customer Tidak Ditemukan ({len(customer_not_found_list)})')
@@ -572,21 +1127,36 @@ class BarangWindow:
             )
             customer_label.pack(anchor='w', padx=10, pady=(10, 5))
             
-            # Customer not found treeview
-            customer_tree_frame = tk.Frame(customer_frame, bg='#ecf0f1')
-            customer_tree_frame.pack(fill='both', expand=True, padx=10, pady=5)
+            # Customer not found treeview with proper scrolling
+            customer_main_frame = tk.Frame(customer_frame, bg='#ecf0f1')
+            customer_main_frame.pack(fill='both', expand=True, padx=10, pady=5)
             
-            customer_tree = ttk.Treeview(customer_tree_frame, 
+            # Create treeview
+            customer_tree = ttk.Treeview(customer_main_frame, 
                                        columns=('No', 'Nama Barang', 'Customer yang Dicari'), 
-                                       show='headings', height=15)
+                                       show='headings', height=12)
             
+            # Configure headers
             customer_tree.heading('No', text='No')
             customer_tree.heading('Nama Barang', text='Nama Barang')
             customer_tree.heading('Customer yang Dicari', text='Customer yang Dicari')
             
-            customer_tree.column('No', width=40)
-            customer_tree.column('Nama Barang', width=300)
-            customer_tree.column('Customer yang Dicari', width=250)
+            # Set column widths
+            customer_tree.column('No', width=50, minwidth=40, stretch=False)
+            customer_tree.column('Nama Barang', width=400, minwidth=300, stretch=True)
+            customer_tree.column('Customer yang Dicari', width=300, minwidth=250, stretch=True)
+            
+            # Create scrollbars
+            customer_v_scroll = ttk.Scrollbar(customer_main_frame, orient='vertical', command=customer_tree.yview)
+            customer_h_scroll = ttk.Scrollbar(customer_main_frame, orient='horizontal', command=customer_tree.xview)
+            
+            # Configure treeview scrollbars
+            customer_tree.configure(yscrollcommand=customer_v_scroll.set, xscrollcommand=customer_h_scroll.set)
+            
+            # Pack everything
+            customer_tree.pack(side='left', fill='both', expand=True)
+            customer_v_scroll.pack(side='right', fill='y')
+            customer_h_scroll.pack(side='bottom', fill='x')
             
             # Add customer not found data
             for i, customer_info in enumerate(customer_not_found_list, 1):
@@ -595,15 +1165,6 @@ class BarangWindow:
                     customer_info.get('nama_barang', 'N/A'),
                     customer_info.get('customer', 'N/A')
                 ))
-            
-            # Scrollbars for customer tree
-            customer_v_scrollbar = ttk.Scrollbar(customer_tree_frame, orient='vertical', command=customer_tree.yview)
-            customer_h_scrollbar = ttk.Scrollbar(customer_tree_frame, orient='horizontal', command=customer_tree.xview)
-            customer_tree.configure(yscrollcommand=customer_v_scrollbar.set, xscrollcommand=customer_h_scrollbar.set)
-            
-            customer_tree.pack(side='left', fill='both', expand=True)
-            customer_v_scrollbar.pack(side='right', fill='y')
-            customer_h_scrollbar.pack(side='bottom', fill='x')
             
             # Add instruction for customer not found
             instruction_frame = tk.Frame(customer_frame, bg='#fff3cd', relief='solid', bd=1)
@@ -616,19 +1177,31 @@ class BarangWindow:
                 font=('Arial', 10),
                 fg='#856404',
                 bg='#fff3cd',
-                wraplength=700,
+                wraplength=900,
                 justify='left',
                 padx=15,
                 pady=10
             )
             instruction_text.pack()
         
-        # Tab 3: Upload Tips
+        # Tab 3: Upload Tips - Always show this tab
         tips_frame = tk.Frame(notebook, bg='#ecf0f1')
         notebook.add(tips_frame, text='💡 Tips Upload')
         
-        tips_text = """
-📋 TIPS UNTUK UPLOAD YANG SUKSES:
+        # Create scrollable frame for tips
+        tips_canvas = tk.Canvas(tips_frame, bg='#ecf0f1')
+        tips_scrollbar = ttk.Scrollbar(tips_frame, orient="vertical", command=tips_canvas.yview)
+        tips_scrollable_frame = tk.Frame(tips_canvas, bg='#ecf0f1')
+        
+        tips_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: tips_canvas.configure(scrollregion=tips_canvas.bbox("all"))
+        )
+        
+        tips_canvas.create_window((0, 0), window=tips_scrollable_frame, anchor="nw")
+        tips_canvas.configure(yscrollcommand=tips_scrollbar.set)
+        
+        tips_text = """📋 TIPS UNTUK UPLOAD YANG SUKSES:
 
 1. 🔍 Pastikan Format Excel Benar:
    • Gunakan template yang sudah disediakan
@@ -653,19 +1226,34 @@ class BarangWindow:
 5. 💾 Backup Data:
    • Simpan file Excel asli sebagai backup
    • Export data yang sudah ada sebelum upload besar
-        """
+
+6. 🔧 Troubleshooting Common Errors:
+   • "Format tinggi tidak valid" → Pastikan angka di kolom tinggi berupa angka, bukan teks
+   • "Customer tidak ditemukan" → Tambahkan customer ke sistem terlebih dahulu
+   • "ValueError" → Periksa format data di Excel (angka vs teks)
+   • "Empty cell" → Isi minimal kolom Customer dan Nama Barang
+
+7. 📝 Format Data yang Benar:
+   • Dimensi (P/L/T): Angka dalam cm (contoh: 77, 18, 38)
+   • Volume (M3): Desimal dengan titik (contoh: 0.053)
+   • Berat (Ton): Desimal dengan titik (contoh: 0.025)
+   • Harga: Angka tanpa koma atau simbol (contoh: 2830189)"""
         
         tips_label = tk.Label(
-            tips_frame,
+            tips_scrollable_frame,
             text=tips_text,
             font=('Arial', 11),
             fg='#2c3e50',
             bg='#ecf0f1',
             justify='left',
             padx=20,
-            pady=20
+            pady=20,
+            wraplength=900
         )
         tips_label.pack(fill='both', expand=True)
+        
+        tips_canvas.pack(side="left", fill="both", expand=True)
+        tips_scrollbar.pack(side="right", fill="y")
         
         # Close button
         close_btn = tk.Button(
@@ -732,7 +1320,7 @@ class BarangWindow:
             # Clean column names
             df.columns = df.columns.astype(str).str.strip()
             
-            # Enhanced column mapping for barang data
+            # Enhanced column mapping for barang data with better matching logic
             column_mapping = {
                 'customer': ['customer', 'nama customer', 'client'],
                 'jenis_barang': ['jenis barang', 'jenis_barang', 'kategori', 'category', 'type'],
@@ -742,21 +1330,47 @@ class BarangWindow:
                 'tinggi': ['t', 'tinggi', 'height'],
                 'm3': ['m3', 'volume', 'vol'],
                 'ton': ['ton', 'berat', 'weight'],
-                'colli': ['colli', 'coll', 'kemasan', 'package'],
+                'colli': ['colli', 'col', 'kemasan', 'package'],
                 'harga_m3': ['harga/m3', 'harga per m3', 'harga_m3', 'price_m3'],
                 'harga_ton': ['harga/ton', 'harga per ton', 'harga_ton', 'price_ton'],
-                'harga_coll': ['harga/coll', 'harga per coll', 'harga_coll', 'price_coll', 'harga/colli'],
+                'harga_coll': ['harga/col', 'harga per coll', 'harga_coll', 'price_coll', 'harga/colli'],
                 'harga': ['harga', 'price']  # Generic price field as fallback
             }
             
-            # Find columns
+            # Improved column finding algorithm - find exact matches first, then partial matches
             found_columns = {}
+            used_columns = set()  # Track which Excel columns are already used
+            
+            # First pass: Look for exact matches (highest priority)
             for field, possible_names in column_mapping.items():
+                best_match = None
+                best_score = 0
+                
                 for col in df.columns:
+                    if col in used_columns:
+                        continue
+                        
                     col_lower = col.lower().strip()
-                    if any(name in col_lower for name in possible_names):
-                        found_columns[field] = col
-                        break
+                    
+                    # Calculate match score
+                    for possible_name in possible_names:
+                        if col_lower == possible_name:  # Exact match
+                            best_match = col
+                            best_score = 100
+                            break
+                        elif possible_name in col_lower:  # Partial match
+                            # Prefer shorter matches and those that start with the pattern
+                            score = len(possible_name) / len(col_lower) * 50
+                            if col_lower.startswith(possible_name):
+                                score += 25
+                            if score > best_score:
+                                best_match = col
+                                best_score = score
+                
+                if best_match and best_score >= 25:  # Minimum threshold for acceptance
+                    found_columns[field] = best_match
+                    used_columns.add(best_match)
+                    print(f"🎯 Mapped '{field}' to '{best_match}' (score: {best_score})")
             
             print(f"🎯 Found columns mapping: {found_columns}")
             
@@ -804,7 +1418,13 @@ class BarangWindow:
                 harga_m3 = get_field_value('harga_m3')
                 harga_ton = get_field_value('harga_ton')
                 harga_coll = get_field_value('harga_coll')
-                
+
+                print(f"Previewing row: {row.name}")
+                print(f"Customer: {customer}, Nama Barang: {nama_barang}")
+                print(f"Jenis Barang: {jenis_barang}, Panjang: {panjang}, Lebar: {lebar}, Tinggi: {tinggi}")
+                print(f"Volume (m3): {m3}, Tonase: {ton}, Colli: {colli}")
+                print(f"Harga/m3: {harga_m3}, Harga/Ton: {harga_ton}, Harga/Colli: {harga_coll}")
+
                 # If specific price fields not found, try generic harga
                 if not any([harga_m3, harga_ton, harga_coll]):
                     generic_harga = get_field_value('harga')
@@ -921,37 +1541,11 @@ class BarangWindow:
             if not messagebox.askyesno("Konfirmasi Upload", confirm_msg):
                 return
             
-            # Show progress dialog
-            progress_window = tk.Toplevel(self.window)
-            progress_window.title("Upload Progress")
-            progress_window.geometry("600x250")
-            progress_window.transient(self.window)
-            progress_window.grab_set()
-            
-            progress_label = tk.Label(progress_window, text="Memulai upload...", font=('Arial', 12))
-            progress_label.pack(pady=20)
-            
-            progress_bar = ttk.Progressbar(progress_window, length=500, mode='determinate')
-            progress_bar.pack(pady=10)
-            progress_bar['maximum'] = len(valid_rows)
-            
-            detail_label = tk.Label(progress_window, text="", font=('Arial', 10), fg='#666')
-            detail_label.pack(pady=5)
-            
-            status_text = tk.Text(progress_window, height=6, width=70, font=('Arial', 9))
-            status_text.pack(pady=10, padx=20, fill='both', expand=True)
-            
-            def log_status(message):
-                status_text.insert(tk.END, message + "\n")
-                status_text.see(tk.END)
-                progress_window.update()
             
             # Initialize tracking variables
             success_count = 0
             errors = []  # List to store detailed error information
             customer_not_found_list = []  # List to store customer not found details
-            
-            log_status("🚀 Memulai proses upload barang...")
             
             for idx, (_, row) in enumerate(valid_rows.iterrows()):
                 try:
@@ -962,12 +1556,6 @@ class BarangWindow:
                     customer_id = existing_customers.get(customer_name.upper())
                     
                     if not customer_id:
-                        log_status(f"❌ Customer tidak ditemukan: {customer_name}")
-                        customer_not_found_list.append({
-                            'nama_barang': nama_barang,
-                            'customer': customer_name,
-                            'row_number': idx + 2  # +2 because Excel is 1-indexed and has header
-                        })
                         continue
                     
                     # Get all field values with enhanced handling
@@ -1000,61 +1588,35 @@ class BarangWindow:
                     m3 = get_safe_value('m3', 'float')
                     ton = get_safe_value('ton', 'float')
                     colli = get_safe_value('colli', 'int')
-                    
-                    # Handle pricing - priority order: specific pricing > generic harga
-                    harga_satuan = None
-                    pricing_method = None
-                    
-                    if has_harga_m3:
-                        harga_m3 = get_safe_value('harga_m3', 'float')
-                        if harga_m3:
-                            harga_satuan = harga_m3
-                            pricing_method = "per m³"
-                    
-                    if not harga_satuan and has_harga_ton:
-                        harga_ton = get_safe_value('harga_ton', 'float')
-                        if harga_ton:
-                            harga_satuan = harga_ton
-                            pricing_method = "per ton"
-                    
-                    if not harga_satuan and has_harga_coll:
-                        harga_coll = get_safe_value('harga_coll', 'float')
-                        if harga_coll:
-                            harga_satuan = harga_coll
-                            pricing_method = "per colli"
-                    
-                    if not harga_satuan and has_generic_harga:
-                        generic_harga = get_safe_value('harga', 'float')
-                        if generic_harga:
-                            harga_satuan = generic_harga
-                            pricing_method = "umum"
-                    
-                    # Create barang with extended data
-                    # Include jenis_barang in nama_barang if available
-                    full_nama_barang = nama_barang
-                    if jenis_barang:
-                        full_nama_barang = f"[{jenis_barang}] {nama_barang}"
+                    harga_m3 = get_safe_value('harga_m3', 'float')
+                    harga_ton = get_safe_value('harga_ton', 'float')
+                    harga_coll = get_safe_value('harga_coll', 'float')
+
+                    print("Saved Values:")
+                    print(f"Processing row {idx + 1}: {nama_barang} - Customer: {customer_name}")
+                    print(f"  Jenis: {jenis_barang}, Panjang: {panjang}, Lebar: {lebar}, Tinggi: {tinggi}")
+                    print(f"  M3: {m3}, Ton: {ton}, Colli: {colli}")
+                    print(f"  Harga/m3: {harga_m3}, Harga/Ton: {harga_ton}, Harga/Colli: {harga_coll}")
+
                     
                     barang_id = self.db.create_barang(
                         customer_id=customer_id,
-                        nama_barang=full_nama_barang,
+                        nama_barang=nama_barang,
+                        jenis_barang=jenis_barang,
                         panjang_barang=panjang,
                         lebar_barang=lebar,
                         tinggi_barang=tinggi,
                         m3_barang=m3,
                         ton_barang=ton,
                         col_barang=colli,
-                        harga_satuan=harga_satuan
+                        harga_m3=harga_m3,
+                        harga_ton=harga_ton,
+                        harga_col=harga_coll
                     )
-                    
-                    pricing_info = f" ({pricing_method})" if pricing_method else ""
-                    log_status(f"✅ {success_count+1}. {nama_barang} - {customer_name}{pricing_info}")
-                    success_count += 1
                 
                 except Exception as e:
                     error_detail = str(e)
                     error_msg = f"❌ Error pada '{nama_barang}': {error_detail}"
-                    log_status(error_msg)
                     print(f"💥 Error adding barang '{nama_barang}': {error_detail}")
                     
                     # Store detailed error information
@@ -1065,37 +1627,13 @@ class BarangWindow:
                         'row_number': idx + 2  # +2 because Excel is 1-indexed and has header
                     })
                 
-                # Update progress
-                progress_bar['value'] = idx + 1
-                progress_label.config(text=f"Processing {idx + 1} of {len(valid_rows)}")
-                detail_label.config(text=f"{nama_barang[:50]}...")
-                progress_window.update()
-            
+                
             # Final summary
             total_processed = len(valid_rows)
             error_count = len(errors)
             customer_not_found_count = len(customer_not_found_list)
             
-            log_status(f"\n🎉 Upload selesai!")
-            log_status(f"✅ Berhasil: {success_count} barang")
-            if customer_not_found_count > 0:
-                log_status(f"⚠️ Customer tidak ditemukan: {customer_not_found_count}")
-            if error_count > 0:
-                log_status(f"❌ Error: {error_count}")
-            
-            # Keep progress window open for user to review
-            close_btn = tk.Button(
-                progress_window,
-                text="✅ Tutup",
-                font=('Arial', 12, 'bold'),
-                bg='#27ae60',
-                fg='white',
-                padx=30,
-                pady=10,
-                command=progress_window.destroy
-            )
-            close_btn.pack(pady=10)
-            
+             
             # Show detailed error modal if there are errors or customer issues
             if errors or customer_not_found_list:
                 self.show_error_details(errors, customer_not_found_list, success_count, total_processed)
@@ -1435,6 +1973,7 @@ class BarangWindow:
             
             # Load barang from database
             barang_list = self.db.get_all_barang()
+            self.original_barang_data = barang_list  # Store original data for filtering
             print(f"📊 Found {len(barang_list)} barang in database")
             
             for barang in barang_list:
@@ -1442,8 +1981,10 @@ class BarangWindow:
                 dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
                 
                 # Format currency
-                harga = f"Rp {barang.get('harga_satuan', 0):,.0f}" if barang.get('harga_satuan') else '-'
-                
+                harga_m3 = f"Rp {barang.get('harga_m3', 0):,.0f}" if barang.get('harga_m3') else '-'
+                harga_ton = f"Rp {barang.get('harga_ton', 0):,.0f}" if barang.get('harga_ton') else '-'
+                harga_col = f"Rp {barang.get('harga_col', 0):,.0f}" if barang.get('harga_col') else '-'
+
                 # Format date
                 created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
                 
@@ -1451,11 +1992,14 @@ class BarangWindow:
                     barang['barang_id'],
                     barang['nama_customer'],
                     barang['nama_barang'],
+                    barang['jenis_barang'],
                     dimensi,
                     barang.get('m3_barang', '-'),
                     barang.get('ton_barang', '-'),
                     barang.get('col_barang', '-'),
-                    harga,
+                    harga_m3,
+                    harga_ton,
+                    harga_col,
                     created_date
                 ))
             
