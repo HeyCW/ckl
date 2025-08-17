@@ -1907,31 +1907,19 @@ class BarangWindow:
             harga_ton = float(self.harga_ton_entry.get()) if self.harga_ton_entry.get() else None
             harga_coll = float(self.harga_coll_entry.get()) if self.harga_coll_entry.get() else None
             
-            if harga_m3:
-                harga_satuan = harga_m3
-                pricing_method = "per m³"
-            elif harga_ton:
-                harga_satuan = harga_ton
-                pricing_method = "per ton"
-            elif harga_coll:
-                harga_satuan = harga_coll
-                pricing_method = "per colli"
-            
-            # Include jenis_barang in nama_barang if provided
-            full_nama_barang = nama_barang
-            if jenis_barang:
-                full_nama_barang = f"[{jenis_barang}] {nama_barang}"
-            
             barang_id = self.db.create_barang(
                 customer_id=customer_id,
-                nama_barang=full_nama_barang,
+                nama_barang=nama_barang,
+                jenis_barang=jenis_barang,
                 panjang_barang=panjang,
                 lebar_barang=lebar,
                 tinggi_barang=tinggi,
                 m3_barang=m3,
                 ton_barang=ton,
                 col_barang=col,
-                harga_satuan=harga_satuan
+                harga_m3=harga_m3,
+                harga_ton=harga_ton,
+                harga_col=harga_coll,
             )
             
             pricing_info = f" dengan harga {pricing_method}" if pricing_method else ""

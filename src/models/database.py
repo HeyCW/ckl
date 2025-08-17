@@ -168,7 +168,7 @@ class SQLiteDatabase:
         CREATE TABLE IF NOT EXISTS customers (
             customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
             nama_customer TEXT NOT NULL,
-            alamat_customer TEXT,
+            alamat_customer TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -213,13 +213,13 @@ class SQLiteDatabase:
             barang_id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_id INTEGER,
             nama_barang TEXT NOT NULL,
-            jenis_barang TEXT,
-            panjang_barang REAL,
-            lebar_barang REAL,
-            tinggi_barang REAL,
-            m3_barang REAL,
-            ton_barang REAL,
-            col_barang INTEGER,
+            jenis_barang TEXT NOT NULL,
+            panjang_barang REAL NOT NULL,
+            lebar_barang REAL NOT NULL,
+            tinggi_barang REAL NOT NULL,
+            m3_barang REAL NOT NULL,
+            ton_barang REAL NOT NULL,
+            col_barang INTEGER NOT NULL,
             harga_m3 REAL,
             harga_ton REAL,
             harga_col REAL,
@@ -446,7 +446,7 @@ class CustomerDatabase(SQLiteDatabase):
     def get_all_customers(self):
         """Get all customers with error handling"""
         try:
-            customers = self.execute("SELECT * FROM customers ORDER BY nama_customer")
+            customers = self.execute("SELECT * FROM customers ORDER BY customer_id")
             return [dict(customer) for customer in customers]
         except Exception as e:
             logger.error(f"Failed to get all customers: {e}")
