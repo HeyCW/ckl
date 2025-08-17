@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import hashlib
 from src.models.database import AppDatabase
+from PIL import Image, ImageTk
 
 class LoginWindow:
     def __init__(self, root, on_login_success=None):
@@ -25,10 +26,22 @@ class LoginWindow:
         print("🔑 Creating login window...")
         
         self.login_window = tk.Toplevel(self.root)
-        self.login_window.title("Login - My Tkinter App")
+        self.login_window.title("Login")
         self.login_window.geometry("400x450")
         self.login_window.resizable(False, False)
-        
+
+        try:
+            # Load dan resize image
+            icon_image = Image.open("assets/logo.jpg")
+            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+
+            # Set sebagai window icon
+            self.login_window.iconphoto(False, icon_photo)
+
+        except Exception as e:
+            print(f"Icon tidak ditemukan: {e}")
+
         print(f"   📍 Initial geometry: {self.login_window.geometry()}")
         
         # FORCE WINDOW TO SHOW - Multiple methods

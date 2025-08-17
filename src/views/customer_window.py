@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import re
 from src.models.database import AppDatabase
+from PIL import Image, ImageTk
 
 class CustomerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -22,6 +23,18 @@ class CustomerWindow:
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
+        
+        try:
+            # Load dan resize image
+            icon_image = Image.open("assets/logo.jpg")
+            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+            
+            # Set sebagai window icon
+            self.window.iconphoto(False, icon_photo)
+            
+        except Exception as e:
+            print(f"Icon tidak ditemukan: {e}")
         
         # Center window
         self.center_window()

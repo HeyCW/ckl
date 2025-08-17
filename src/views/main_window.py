@@ -5,6 +5,7 @@ from src.views.barang_window import BarangWindow
 from src.views.container_window import ContainerWindow
 from src.views.customer_window import CustomerWindow
 from src.views.report_window import ReportsWindow
+from PIL import Image, ImageTk
 
 class MainWindow:
     def __init__(self, root):
@@ -19,6 +20,18 @@ class MainWindow:
         self.root.title("Aplikasi Data Shipping")
         self.root.geometry("1000x700")
         self.root.configure(bg='#f0f0f0')
+        
+        try:
+            # Load dan resize image
+            icon_image = Image.open("assets/logo.jpg")
+            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+            
+            # Set sebagai window icon
+            self.root.iconphoto(False, icon_photo)
+            
+        except Exception as e:
+            print(f"Icon tidak ditemukan: {e}")
         
         # Center window
         self.center_window()
