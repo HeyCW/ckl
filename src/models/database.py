@@ -2,64 +2,145 @@ import sqlite3
 import os
 from datetime import datetime
 import hashlib
+import logging
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app_database.log'),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+class DatabaseError(Exception):
+    """Custom database exception"""
+    pass
 
 class SQLiteDatabase:
     def __init__(self, db_path):
         self.db_path = db_path
-        self.ensure_data_dir()
-        self.init_db()
+        try:
+            self.ensure_data_dir()
+            self.init_db()
+            logger.info(f"Database initialized successfully: {db_path}")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            raise DatabaseError(f"Database initialization failed: {e}")
     
     def ensure_data_dir(self):
         """Ensure data directory exists"""
-        data_dir = os.path.dirname(self.db_path)
-        if data_dir and not os.path.exists(data_dir):
-            os.makedirs(data_dir)
+        try:
+            data_dir = os.path.dirname(self.db_path)
+            if data_dir and not os.path.exists(data_dir):
+                os.makedirs(data_dir)
+                logger.info(f"Created data directory: {data_dir}")
+        except OSError as e:
+            logger.error(f"Failed to create data directory: {e}")
+            raise DatabaseError(f"Cannot create data directory: {e}")
     
     def get_connection(self):
-        """Get database connection"""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Enable dict-like access
-        return conn
+        """Get database connection with error handling"""
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            conn.row_factory = sqlite3.Row  # Enable dict-like access
+            return conn
+        except sqlite3.Error as e:
+            logger.error(f"Database connection failed: {e}")
+            raise DatabaseError(f"Cannot connect to database: {e}")
     
     def execute(self, query, params=()):
-        """Execute query and return results"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            return cursor.fetchall()
+        """Execute query and return results with error handling"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                result = cursor.fetchall()
+                logger.debug(f"Query executed successfully: {query[:50]}...")
+                return result
+        except sqlite3.IntegrityError as e:
+            logger.error(f"Integrity constraint violation: {e}")
+            raise DatabaseError(f"Data integrity error: {e}")
+        except sqlite3.OperationalError as e:
+            logger.error(f"Operational error: {e}")
+            raise DatabaseError(f"Database operation failed: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Database error: {e}")
+            raise DatabaseError(f"Database error: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error during query execution: {e}")
+            raise DatabaseError(f"Unexpected database error: {e}")
     
     def execute_one(self, query, params=()):
-        """Execute query and return single result"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            return cursor.fetchone()
+        """Execute query and return single result with error handling"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                result = cursor.fetchone()
+                logger.debug(f"Single query executed successfully: {query[:50]}...")
+                return result
+        except sqlite3.Error as e:
+            logger.error(f"Database error in execute_one: {e}")
+            raise DatabaseError(f"Database query failed: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error in execute_one: {e}")
+            raise DatabaseError(f"Unexpected error: {e}")
     
     def execute_insert(self, query, params=()):
-        """Execute insert and return last row id"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(query, params)
-            return cursor.lastrowid
+        """Execute insert and return last row id with error handling"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                last_id = cursor.lastrowid
+                logger.info(f"Insert successful, ID: {last_id}")
+                return last_id
+        except sqlite3.IntegrityError as e:
+            logger.error(f"Insert failed - integrity constraint: {e}")
+            raise DatabaseError(f"Data already exists or constraint violation: {e}")
+        except sqlite3.Error as e:
+            logger.error(f"Insert failed: {e}")
+            raise DatabaseError(f"Failed to insert data: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error during insert: {e}")
+            raise DatabaseError(f"Unexpected insert error: {e}")
     
     def execute_many(self, query, params_list):
-        """Execute query with multiple parameter sets"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.executemany(query, params_list)
-            return cursor.rowcount
+        """Execute query with multiple parameter sets with error handling"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.executemany(query, params_list)
+                row_count = cursor.rowcount
+                logger.info(f"Bulk operation completed, rows affected: {row_count}")
+                return row_count
+        except sqlite3.Error as e:
+            logger.error(f"Bulk operation failed: {e}")
+            raise DatabaseError(f"Bulk operation error: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error in bulk operation: {e}")
+            raise DatabaseError(f"Unexpected bulk operation error: {e}")
     
     def init_db(self):
         """Initialize database with required tables"""
-        self.create_users_table()
-        self.create_customers_table()
-        self.create_containers_table()
-        self.create_barang_table()
-        self.create_detail_container_table()
-        self.insert_default_data()
+        try:
+            self.create_users_table()
+            self.create_customers_table()
+            self.create_containers_table()
+            self.create_barang_table()
+            self.create_detail_container_table()
+            self.insert_default_data()
+            logger.info("Database tables initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize database tables: {e}")
+            raise DatabaseError(f"Table initialization failed: {e}")
     
     def create_users_table(self):
-        """Create users table"""
+        """Create users table with error handling"""
         query = '''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,10 +155,15 @@ class SQLiteDatabase:
             login_count INTEGER DEFAULT 0
         )
         '''
-        self.execute(query)
+        try:
+            self.execute(query)
+            logger.info("Users table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create users table: {e}")
+            raise
     
     def create_customers_table(self):
-        """Create customers table"""
+        """Create customers table with error handling"""
         query = '''
         CREATE TABLE IF NOT EXISTS customers (
             customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,10 +173,15 @@ class SQLiteDatabase:
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         '''
-        self.execute(query)
+        try:
+            self.execute(query)
+            logger.info("Customers table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create customers table: {e}")
+            raise
     
     def create_containers_table(self):
-        """Create containers table"""
+        """Create containers table with error handling"""
         query = '''
         CREATE TABLE IF NOT EXISTS containers (
             container_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -108,10 +199,15 @@ class SQLiteDatabase:
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         '''
-        self.execute(query)
+        try:
+            self.execute(query)
+            logger.info("Containers table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create containers table: {e}")
+            raise
     
     def create_barang_table(self):
-        """Create barang table"""
+        """Create barang table with error handling"""
         query = '''
         CREATE TABLE IF NOT EXISTS barang (
             barang_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -132,10 +228,15 @@ class SQLiteDatabase:
             FOREIGN KEY (customer_id) REFERENCES customers (customer_id)
         )
         '''
-        self.execute(query)
+        try:
+            self.execute(query)
+            logger.info("Barang table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create barang table: {e}")
+            raise
     
     def create_detail_container_table(self):
-        """Create detail container table (junction table)"""
+        """Create detail container table with error handling"""
         query = '''
         CREATE TABLE IF NOT EXISTS detail_container (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,153 +248,258 @@ class SQLiteDatabase:
             UNIQUE(barang_id, container_id)
         )
         '''
-        self.execute(query)
+        try:
+            self.execute(query)
+            logger.info("Detail container table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create detail container table: {e}")
+            raise
     
     def insert_default_data(self):
-        """Insert default admin user if not exists"""
-        admin_exists = self.execute_one(
-            "SELECT id FROM users WHERE username = ?", 
-            ("admin",)
-        )
-        
-        if not admin_exists:
-            # Hash default password
-            password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+        """Insert default admin user if not exists with error handling"""
+        try:
+            admin_exists = self.execute_one(
+                "SELECT id FROM users WHERE username = ?", 
+                ("admin",)
+            )
             
-            self.execute('''
-                INSERT INTO users (username, password, email, role, is_active)
-                VALUES (?, ?, ?, ?, ?)
-            ''', ("admin", password_hash, "admin@example.com", "admin", 1))
-            
-            print("Default admin user created: admin/admin123")
+            if not admin_exists:
+                password_hash = hashlib.sha256("admin123".encode()).hexdigest()
+                
+                self.execute('''
+                    INSERT INTO users (username, password, email, role, is_active)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', ("admin", password_hash, "admin@example.com", "admin", 1))
+                
+                logger.info("Default admin user created: admin/admin123")
+        except Exception as e:
+            logger.error(f"Failed to create default admin user: {e}")
+            # Don't raise here as this is not critical
 
 # User Management Methods
 class UserDatabase(SQLiteDatabase):
     """Extended database class with user-specific methods"""
     
     def create_user(self, username, password, email, role='user'):
-        """Create new user"""
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        """Create new user with error handling"""
+        if not username or not password:
+            raise ValueError("Username and password are required")
+        
+        if len(password) < 6:
+            raise ValueError("Password must be at least 6 characters long")
         
         try:
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            
             user_id = self.execute_insert('''
                 INSERT INTO users (username, password, email, role, is_active)
                 VALUES (?, ?, ?, ?, ?)
             ''', (username, password_hash, email, role, 1))
             
+            logger.info(f"User created successfully: {username}")
             return user_id
-        except sqlite3.IntegrityError:
-            return None  # Username already exists
+            
+        except DatabaseError as e:
+            if "constraint" in str(e).lower():
+                logger.warning(f"Username already exists: {username}")
+                raise ValueError(f"Username '{username}' already exists")
+            raise e
+        except Exception as e:
+            logger.error(f"Failed to create user {username}: {e}")
+            raise DatabaseError(f"Failed to create user: {e}")
     
     def authenticate_user(self, username, password):
-        """Authenticate user login"""
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        """Authenticate user login with error handling"""
+        if not username or not password:
+            raise ValueError("Username and password are required")
         
-        user = self.execute_one('''
-            SELECT * FROM users 
-            WHERE username = ? AND password = ? AND is_active = 1
-        ''', (username, password_hash))
-        
-        if user:
-            # Update login info
-            self.execute('''
-                UPDATE users 
-                SET last_login = CURRENT_TIMESTAMP, 
-                    login_count = login_count + 1
-                WHERE id = ?
-            ''', (user['id'],))
+        try:
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
             
-            return dict(user)
-        
-        return None
+            user = self.execute_one('''
+                SELECT * FROM users 
+                WHERE username = ? AND password = ? AND is_active = 1
+            ''', (username, password_hash))
+            
+            if user:
+                # Update login info
+                self.execute('''
+                    UPDATE users 
+                    SET last_login = CURRENT_TIMESTAMP, 
+                        login_count = login_count + 1
+                    WHERE id = ?
+                ''', (user['id'],))
+                
+                logger.info(f"User authenticated successfully: {username}")
+                return dict(user)
+            else:
+                logger.warning(f"Failed authentication attempt for: {username}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Authentication error for {username}: {e}")
+            raise DatabaseError(f"Authentication failed: {e}")
     
     def get_user_by_username(self, username):
-        """Get user by username"""
-        user = self.execute_one(
-            "SELECT * FROM users WHERE username = ?", 
-            (username,)
-        )
-        return dict(user) if user else None
+        """Get user by username with error handling"""
+        if not username:
+            raise ValueError("Username is required")
+        
+        try:
+            user = self.execute_one(
+                "SELECT * FROM users WHERE username = ?", 
+                (username,)
+            )
+            return dict(user) if user else None
+        except Exception as e:
+            logger.error(f"Failed to get user {username}: {e}")
+            raise DatabaseError(f"Failed to retrieve user: {e}")
     
     def get_user_by_id(self, user_id):
-        """Get user by ID"""
-        user = self.execute_one(
-            "SELECT * FROM users WHERE id = ?", 
-            (user_id,)
-        )
-        return dict(user) if user else None
+        """Get user by ID with error handling"""
+        if not user_id:
+            raise ValueError("User ID is required")
+        
+        try:
+            user = self.execute_one(
+                "SELECT * FROM users WHERE id = ?", 
+                (user_id,)
+            )
+            return dict(user) if user else None
+        except Exception as e:
+            logger.error(f"Failed to get user ID {user_id}: {e}")
+            raise DatabaseError(f"Failed to retrieve user: {e}")
     
     def update_user_password(self, username, new_password):
-        """Update user password"""
-        password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        """Update user password with error handling"""
+        if not username or not new_password:
+            raise ValueError("Username and new password are required")
         
-        result = self.execute('''
-            UPDATE users 
-            SET password = ?, updated_at = CURRENT_TIMESTAMP 
-            WHERE username = ?
-        ''', (password_hash, username))
+        if len(new_password) < 6:
+            raise ValueError("Password must be at least 6 characters long")
         
-        return True
+        try:
+            password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+            
+            self.execute('''
+                UPDATE users 
+                SET password = ?, updated_at = CURRENT_TIMESTAMP 
+                WHERE username = ?
+            ''', (password_hash, username))
+            
+            logger.info(f"Password updated for user: {username}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to update password for {username}: {e}")
+            raise DatabaseError(f"Failed to update password: {e}")
     
     def deactivate_user(self, username):
-        """Deactivate user account"""
-        self.execute('''
-            UPDATE users 
-            SET is_active = 0, updated_at = CURRENT_TIMESTAMP 
-            WHERE username = ?
-        ''', (username,))
+        """Deactivate user account with error handling"""
+        if not username:
+            raise ValueError("Username is required")
+        
+        try:
+            self.execute('''
+                UPDATE users 
+                SET is_active = 0, updated_at = CURRENT_TIMESTAMP 
+                WHERE username = ?
+            ''', (username,))
+            
+            logger.info(f"User deactivated: {username}")
+            
+        except Exception as e:
+            logger.error(f"Failed to deactivate user {username}: {e}")
+            raise DatabaseError(f"Failed to deactivate user: {e}")
     
     def get_all_users(self):
-        """Get all users"""
-        users = self.execute("SELECT * FROM users ORDER BY created_at DESC")
-        return [dict(user) for user in users]
+        """Get all users with error handling"""
+        try:
+            users = self.execute("SELECT * FROM users ORDER BY created_at DESC")
+            return [dict(user) for user in users]
+        except Exception as e:
+            logger.error(f"Failed to get all users: {e}")
+            raise DatabaseError(f"Failed to retrieve users: {e}")
 
 # Customer Management Methods
 class CustomerDatabase(SQLiteDatabase):
     """Extended database class with customer-specific methods"""
     
     def create_customer(self, nama_customer, alamat_customer):
-        """Create new customer"""
-        customer_id = self.execute_insert('''
-            INSERT INTO customers (nama_customer, alamat_customer)
-            VALUES (?, ?)
-        ''', (nama_customer, alamat_customer))
+        """Create new customer with error handling"""
+        if not nama_customer:
+            raise ValueError("Customer name is required")
         
-        return customer_id
+        try:
+            customer_id = self.execute_insert('''
+                INSERT INTO customers (nama_customer, alamat_customer)
+                VALUES (?, ?)
+            ''', (nama_customer, alamat_customer))
+            
+            logger.info(f"Customer created successfully: {nama_customer}")
+            return customer_id
+            
+        except Exception as e:
+            logger.error(f"Failed to create customer {nama_customer}: {e}")
+            raise DatabaseError(f"Failed to create customer: {e}")
     
     def get_all_customers(self):
-        """Get all customers"""
-        customers = self.execute("SELECT * FROM customers ORDER BY nama_customer")
-        return [dict(customer) for customer in customers]
+        """Get all customers with error handling"""
+        try:
+            customers = self.execute("SELECT * FROM customers ORDER BY nama_customer")
+            return [dict(customer) for customer in customers]
+        except Exception as e:
+            logger.error(f"Failed to get all customers: {e}")
+            raise DatabaseError(f"Failed to retrieve customers: {e}")
     
     def get_customer_by_id(self, customer_id):
-        """Get customer by ID"""
-        customer = self.execute_one(
-            "SELECT * FROM customers WHERE customer_id = ?", 
-            (customer_id,)
-        )
-        return dict(customer) if customer else None
+        """Get customer by ID with error handling"""
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+        
+        try:
+            customer = self.execute_one(
+                "SELECT * FROM customers WHERE customer_id = ?", 
+                (customer_id,)
+            )
+            return dict(customer) if customer else None
+        except Exception as e:
+            logger.error(f"Failed to get customer ID {customer_id}: {e}")
+            raise DatabaseError(f"Failed to retrieve customer: {e}")
     
     def update_customer(self, customer_id, nama_customer=None, alamat_customer=None):
-        """Update customer"""
-        if nama_customer and alamat_customer:
-            self.execute('''
-                UPDATE customers 
-                SET nama_customer = ?, alamat_customer = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE customer_id = ?
-            ''', (nama_customer, alamat_customer, customer_id))
-        elif nama_customer:
-            self.execute('''
-                UPDATE customers 
-                SET nama_customer = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE customer_id = ?
-            ''', (nama_customer, customer_id))
-        elif alamat_customer:
-            self.execute('''
-                UPDATE customers 
-                SET alamat_customer = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE customer_id = ?
-            ''', (alamat_customer, customer_id))
+        """Update customer with error handling"""
+        if not customer_id:
+            raise ValueError("Customer ID is required")
+        
+        if not nama_customer and not alamat_customer:
+            raise ValueError("At least one field must be provided for update")
+        
+        try:
+            if nama_customer and alamat_customer:
+                self.execute('''
+                    UPDATE customers 
+                    SET nama_customer = ?, alamat_customer = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE customer_id = ?
+                ''', (nama_customer, alamat_customer, customer_id))
+            elif nama_customer:
+                self.execute('''
+                    UPDATE customers 
+                    SET nama_customer = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE customer_id = ?
+                ''', (nama_customer, customer_id))
+            elif alamat_customer:
+                self.execute('''
+                    UPDATE customers 
+                    SET alamat_customer = ?, updated_at = CURRENT_TIMESTAMP 
+                    WHERE customer_id = ?
+                ''', (alamat_customer, customer_id))
+            
+            logger.info(f"Customer updated successfully: ID {customer_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to update customer ID {customer_id}: {e}")
+            raise DatabaseError(f"Failed to update customer: {e}")
 
 # Container Management Methods
 class ContainerDatabase(SQLiteDatabase):
@@ -302,28 +508,45 @@ class ContainerDatabase(SQLiteDatabase):
     def create_container(self, feeder=None, etd_sub=None, party=None, cls=None, 
                         open_date=None, full=None, destination=None, container=None, 
                         seal=None, ref_joa=None):
-        """Create new container"""
-        container_id = self.execute_insert('''
-            INSERT INTO containers (feeder, etd_sub, party, cls, open, full, 
-                                  destination, container, seal, ref_joa)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (feeder, etd_sub, party, cls, open_date, full, destination, 
-              container, seal, ref_joa))
-        
-        return container_id
+        """Create new container with error handling"""
+        try:
+            container_id = self.execute_insert('''
+                INSERT INTO containers (feeder, etd_sub, party, cls, open, full, 
+                                      destination, container, seal, ref_joa)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (feeder, etd_sub, party, cls, open_date, full, destination, 
+                  container, seal, ref_joa))
+            
+            logger.info(f"Container created successfully: ID {container_id}")
+            return container_id
+            
+        except Exception as e:
+            logger.error(f"Failed to create container: {e}")
+            raise DatabaseError(f"Failed to create container: {e}")
     
     def get_all_containers(self):
-        """Get all containers"""
-        containers = self.execute("SELECT * FROM containers ORDER BY created_at DESC")
-        return [dict(container) for container in containers]
+        """Get all containers with error handling"""
+        try:
+            containers = self.execute("SELECT * FROM containers ORDER BY created_at DESC")
+            return [dict(container) for container in containers]
+        except Exception as e:
+            logger.error(f"Failed to get all containers: {e}")
+            raise DatabaseError(f"Failed to retrieve containers: {e}")
     
     def get_container_by_id(self, container_id):
-        """Get container by ID"""
-        container = self.execute_one(
-            "SELECT * FROM containers WHERE container_id = ?", 
-            (container_id,)
-        )
-        return dict(container) if container else None
+        """Get container by ID with error handling"""
+        if not container_id:
+            raise ValueError("Container ID is required")
+        
+        try:
+            container = self.execute_one(
+                "SELECT * FROM containers WHERE container_id = ?", 
+                (container_id,)
+            )
+            return dict(container) if container else None
+        except Exception as e:
+            logger.error(f"Failed to get container ID {container_id}: {e}")
+            raise DatabaseError(f"Failed to retrieve container: {e}")
 
 # Barang Management Methods
 class BarangDatabase(SQLiteDatabase):
@@ -333,157 +556,303 @@ class BarangDatabase(SQLiteDatabase):
                      panjang_barang=None, lebar_barang=None, tinggi_barang=None, 
                      m3_barang=None, ton_barang=None, col_barang=None, 
                      harga_m3=None, harga_ton=None, harga_col=None):
-        """Create new barang"""
-        barang_id = self.execute_insert('''
-            INSERT INTO barang (customer_id, nama_barang, jenis_barang, panjang_barang, 
-                               lebar_barang, tinggi_barang, m3_barang, ton_barang, 
-                               col_barang, harga_m3, harga_ton, harga_col)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (customer_id, nama_barang, jenis_barang, panjang_barang, lebar_barang, 
-              tinggi_barang, m3_barang, ton_barang, col_barang, harga_m3, harga_ton, harga_col))
+        """Create new barang with error handling"""
+        if not customer_id or not nama_barang:
+            raise ValueError("Customer ID and barang name are required")
         
-        return barang_id
+        try:
+            barang_id = self.execute_insert('''
+                INSERT INTO barang (customer_id, nama_barang, jenis_barang, panjang_barang, 
+                                   lebar_barang, tinggi_barang, m3_barang, ton_barang, 
+                                   col_barang, harga_m3, harga_ton, harga_col)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (customer_id, nama_barang, jenis_barang, panjang_barang, lebar_barang, 
+                  tinggi_barang, m3_barang, ton_barang, col_barang, harga_m3, harga_ton, harga_col))
+            
+            logger.info(f"Barang created successfully: {nama_barang}")
+            return barang_id
+            
+        except Exception as e:
+            logger.error(f"Failed to create barang {nama_barang}: {e}")
+            raise DatabaseError(f"Failed to create barang: {e}")
     
     def update_barang(self, barang_data):
-        """Update existing barang"""
-        self.execute('''
-            UPDATE barang
-            SET nama_barang = ?, jenis_barang = ?, panjang_barang = ?, lebar_barang = ?,
-                tinggi_barang = ?, m3_barang = ?, ton_barang = ?, col_barang = ?,
-                harga_m3 = ?, harga_ton = ?, harga_col = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE barang_id = ?
-        ''', (
-            barang_data['nama_barang'], barang_data['jenis_barang'], barang_data['panjang_barang'],
-            barang_data['lebar_barang'], barang_data['tinggi_barang'], barang_data['m3_barang'],
-            barang_data['ton_barang'], barang_data['col_barang'], barang_data['harga_m3'],
-            barang_data['harga_ton'], barang_data['harga_col'], barang_data['barang_id']
-        ))
+        """Update existing barang with error handling"""
+        if not barang_data or not barang_data.get('barang_id'):
+            raise ValueError("Barang data and ID are required")
+    
+        required_fields = ['nama_barang', 'barang_id']
+        for field in required_fields:
+            if field not in barang_data:
+                raise ValueError(f"Required field missing: {field}")
+    
+        try:
+            # Cek apakah barang_id ada sebelum update
+            existing_barang = self.execute_one(
+                "SELECT barang_id FROM barang WHERE barang_id = ?", 
+                (barang_data['barang_id'],)
+            )
+            
+            if not existing_barang:
+                raise ValueError(f"Barang dengan ID {barang_data['barang_id']} tidak ditemukan")
+            
+            # Lakukan update
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE barang
+                    SET nama_barang = ?, jenis_barang = ?, panjang_barang = ?, lebar_barang = ?,
+                        tinggi_barang = ?, m3_barang = ?, ton_barang = ?, col_barang = ?,
+                        harga_m3 = ?, harga_ton = ?, harga_col = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE barang_id = ?
+                ''', (
+                    barang_data.get('nama_barang'), barang_data.get('jenis_barang'),
+                    barang_data.get('panjang_barang'), barang_data.get('lebar_barang'),
+                    barang_data.get('tinggi_barang'), barang_data.get('m3_barang'),
+                    barang_data.get('ton_barang'), barang_data.get('col_barang'),
+                    barang_data.get('harga_m3'), barang_data.get('harga_ton'),
+                    barang_data.get('harga_col'), barang_data['barang_id']
+                ))
+                
+                # Cek berapa row yang terpengaruh
+                rows_affected = cursor.rowcount
+                
+                if rows_affected == 0:
+                    raise ValueError(f"Gagal mengupdate barang ID {barang_data['barang_id']} - data tidak ditemukan")
+        
+            logger.info(f"Barang updated successfully: ID {barang_data['barang_id']}")
+        
+        except ValueError:
+            # Re-raise ValueError tanpa wrap ke DatabaseError
+            raise
+        except Exception as e:
+            logger.error(f"Failed to update barang ID {barang_data.get('barang_id')}: {e}")
+            raise DatabaseError(f"Failed to update barang: {e}")
+        
     
     def delete_barang(self, barang_id):
-        self.execute('''
-            DELETE FROM barang WHERE barang_id = ?
-        ''', (barang_id,))
+        """Delete barang with error handling"""
+        if not barang_id:
+            raise ValueError("Barang ID is required")
+    
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    DELETE FROM barang WHERE barang_id = ?
+                ''', (barang_id,))
+                
+                # Cek apakah ada row yang terhapus
+                if cursor.rowcount == 0:
+                    raise ValueError(f"Barang dengan ID {barang_id} tidak ditemukan")
+        
+            logger.info(f"Barang deleted successfully: ID {barang_id}")
+        
+        except ValueError:
+            # Re-raise ValueError agar bisa ditangani di GUI
+            raise
+        except Exception as e:
+            logger.error(f"Failed to delete barang ID {barang_id}: {e}")
+            raise DatabaseError(f"Failed to delete barang: {e}")
 
     def get_barang_by_customer(self, customer_id):
-        """Get all barang for a customer"""
-        barang_list = self.execute('''
-            SELECT b.*, c.nama_customer 
-            FROM barang b
-            JOIN customers c ON b.customer_id = c.customer_id
-            WHERE b.customer_id = ?
-            ORDER BY b.created_at DESC
-        ''', (customer_id,))
+        """Get all barang for a customer with error handling"""
+        if not customer_id:
+            raise ValueError("Customer ID is required")
         
-        return [dict(barang) for barang in barang_list]
+        try:
+            barang_list = self.execute('''
+                SELECT b.*, c.nama_customer 
+                FROM barang b
+                JOIN customers c ON b.customer_id = c.customer_id
+                WHERE b.customer_id = ?
+                ORDER BY b.created_at DESC
+            ''', (customer_id,))
+            
+            return [dict(barang) for barang in barang_list]
+            
+        except Exception as e:
+            logger.error(f"Failed to get barang for customer ID {customer_id}: {e}")
+            raise DatabaseError(f"Failed to retrieve barang: {e}")
     
     def get_all_barang(self):
-        """Get all barang with customer info"""
-        barang_list = self.execute('''
-            SELECT b.*, c.nama_customer 
-            FROM barang b
-            JOIN customers c ON b.customer_id = c.customer_id
-            ORDER BY b.created_at DESC
-        ''')
-        
-        return [dict(barang) for barang in barang_list]
+        """Get all barang with customer info and error handling"""
+        try:
+            barang_list = self.execute('''
+                SELECT b.*, c.nama_customer 
+                FROM barang b
+                JOIN customers c ON b.customer_id = c.customer_id
+                ORDER BY b.barang_id ASC
+            ''')
+            
+            return [dict(barang) for barang in barang_list]
+            
+        except Exception as e:
+            logger.error(f"Failed to get all barang: {e}")
+            raise DatabaseError(f"Failed to retrieve barang: {e}")
     
     def assign_barang_to_container(self, barang_id, container_id):
-        """Assign barang to container"""
+        """Assign barang to container with error handling"""
+        if not barang_id or not container_id:
+            raise ValueError("Barang ID and Container ID are required")
+        
         try:
             self.execute_insert('''
                 INSERT INTO detail_container (barang_id, container_id)
                 VALUES (?, ?)
             ''', (barang_id, container_id))
+            
+            logger.info(f"Barang {barang_id} assigned to container {container_id}")
             return True
-        except sqlite3.IntegrityError:
-            return False  # Already assigned
+            
+        except DatabaseError as e:
+            if "constraint" in str(e).lower():
+                logger.warning(f"Barang {barang_id} already assigned to container {container_id}")
+                raise ValueError("Barang already assigned to this container")
+            raise e
+        except Exception as e:
+            logger.error(f"Failed to assign barang {barang_id} to container {container_id}: {e}")
+            raise DatabaseError(f"Failed to assign barang to container: {e}")
     
     def get_barang_in_container(self, container_id):
-        """Get all barang in a container"""
-        barang_list = self.execute('''
-            SELECT b.*, c.nama_customer, dc.created_at as assigned_at
-            FROM barang b
-            JOIN customers c ON b.customer_id = c.customer_id
-            JOIN detail_container dc ON b.barang_id = dc.barang_id
-            WHERE dc.container_id = ?
-            ORDER BY dc.created_at DESC
-        ''', (container_id,))
+        """Get all barang in a container with error handling"""
+        if not container_id:
+            raise ValueError("Container ID is required")
         
-        return [dict(barang) for barang in barang_list]
+        try:
+            barang_list = self.execute('''
+                SELECT b.*, c.nama_customer, dc.created_at as assigned_at
+                FROM barang b
+                JOIN customers c ON b.customer_id = c.customer_id
+                JOIN detail_container dc ON b.barang_id = dc.barang_id
+                WHERE dc.container_id = ?
+                ORDER BY dc.created_at DESC
+            ''', (container_id,))
+            
+            return [dict(barang) for barang in barang_list]
+            
+        except Exception as e:
+            logger.error(f"Failed to get barang in container {container_id}: {e}")
+            raise DatabaseError(f"Failed to retrieve barang in container: {e}")
 
 # Combined Database Class
 class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatabase):
-    """Complete app database with all methods"""
+    """Complete app database with all methods and error handling"""
     
     def __init__(self, db_path="data/app.db"):
-        super().__init__(db_path)
+        try:
+            super().__init__(db_path)
+            logger.info("AppDatabase initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize AppDatabase: {e}")
+            raise
     
     def get_user_stats(self, user_id):
-        """Get user statistics"""
-        user_info = self.get_user_by_id(user_id)
+        """Get user statistics with error handling"""
+        if not user_id:
+            raise ValueError("User ID is required")
         
-        return {
-            'login_count': user_info.get('login_count', 0) if user_info else 0,
-            'last_login': user_info.get('last_login') if user_info else None
-        }
+        try:
+            user_info = self.get_user_by_id(user_id)
+            
+            return {
+                'login_count': user_info.get('login_count', 0) if user_info else 0,
+                'last_login': user_info.get('last_login') if user_info else None
+            }
+        except Exception as e:
+            logger.error(f"Failed to get user stats for ID {user_id}: {e}")
+            raise DatabaseError(f"Failed to retrieve user statistics: {e}")
     
     def get_dashboard_stats(self):
-        """Get dashboard statistics"""
-        total_customers = self.execute_one("SELECT COUNT(*) as count FROM customers")
-        total_barang = self.execute_one("SELECT COUNT(*) as count FROM barang")
-        total_containers = self.execute_one("SELECT COUNT(*) as count FROM containers")
-        
-        return {
-            'total_customers': total_customers['count'] if total_customers else 0,
-            'total_barang': total_barang['count'] if total_barang else 0,
-            'total_containers': total_containers['count'] if total_containers else 0
-        }
+        """Get dashboard statistics with error handling"""
+        try:
+            total_customers = self.execute_one("SELECT COUNT(*) as count FROM customers")
+            total_barang = self.execute_one("SELECT COUNT(*) as count FROM barang")
+            total_containers = self.execute_one("SELECT COUNT(*) as count FROM containers")
+            
+            return {
+                'total_customers': total_customers['count'] if total_customers else 0,
+                'total_barang': total_barang['count'] if total_barang else 0,
+                'total_containers': total_containers['count'] if total_containers else 0
+            }
+        except Exception as e:
+            logger.error(f"Failed to get dashboard stats: {e}")
+            raise DatabaseError(f"Failed to retrieve dashboard statistics: {e}")
 
-# Usage example
+# Usage example with error handling
 if __name__ == "__main__":
-    # Initialize database
-    db = AppDatabase()
-    
-    # Test user creation
-    user_id = db.create_user("testuser", "password123", "test@example.com")
-    print(f"Created user with ID: {user_id}")
-    
-    # Test authentication
-    user = db.authenticate_user("admin", "admin123")
-    print(f"Authenticated user: {user['username'] if user else 'Failed'}")
-    
-    # Test customer creation
-    customer_id = db.create_customer("PT. Test Company", "Jl. Test No. 123")
-    print(f"Created customer with ID: {customer_id}")
-    
-    # Test container creation
-    container_id = db.create_container(
-        feeder="EVER GIVEN",
-        destination="JAKARTA",
-        container="TCLU1234567"
-    )
-    print(f"Created container with ID: {container_id}")
-    
-    # Test barang creation
-    if customer_id:
-        barang_id = db.create_barang(
-            customer_id=customer_id,
-            nama_barang="Elektronik",
-            panjang_barang=100,
-            lebar_barang=50,
-            tinggi_barang=30,
-            m3_barang=0.15,
-            ton_barang=0.5,
-            col_barang=10,
-            harga_satuan=1000000
-        )
-        print(f"Created barang with ID: {barang_id}")
+    try:
+        # Initialize database
+        db = AppDatabase()
         
-        # Test assign barang to container
-        if container_id and barang_id:
-            assigned = db.assign_barang_to_container(barang_id, container_id)
-            print(f"Barang assigned to container: {assigned}")
-    
-    # Get dashboard stats
-    stats = db.get_dashboard_stats()
-    print(f"Dashboard stats: {stats}")
+        # Test user creation
+        try:
+            user_id = db.create_user("testuser", "password123", "test@example.com")
+            print(f"Created user with ID: {user_id}")
+        except (ValueError, DatabaseError) as e:
+            print(f"User creation failed: {e}")
+        
+        # Test authentication
+        try:
+            user = db.authenticate_user("admin", "admin123")
+            print(f"Authenticated user: {user['username'] if user else 'Failed'}")
+        except (ValueError, DatabaseError) as e:
+            print(f"Authentication failed: {e}")
+        
+        # Test customer creation
+        try:
+            customer_id = db.create_customer("PT. Test Company", "Jl. Test No. 123")
+            print(f"Created customer with ID: {customer_id}")
+        except (ValueError, DatabaseError) as e:
+            print(f"Customer creation failed: {e}")
+        
+        # Test container creation
+        try:
+            container_id = db.create_container(
+                feeder="EVER GIVEN",
+                destination="JAKARTA",
+                container="TCLU1234567"
+            )
+            print(f"Created container with ID: {container_id}")
+        except DatabaseError as e:
+            print(f"Container creation failed: {e}")
+        
+        # Test barang creation
+        if 'customer_id' in locals():
+            try:
+                barang_id = db.create_barang(
+                    customer_id=customer_id,
+                    nama_barang="Elektronik",
+                    panjang_barang=100,
+                    lebar_barang=50,
+                    tinggi_barang=30,
+                    m3_barang=0.15,
+                    ton_barang=0.5,
+                    col_barang=10,
+                    harga_m3=1000000
+                )
+                print(f"Created barang with ID: {barang_id}")
+                
+                # Test assign barang to container
+                if 'container_id' in locals() and 'barang_id' in locals():
+                    try:
+                        assigned = db.assign_barang_to_container(barang_id, container_id)
+                        print(f"Barang assigned to container: {assigned}")
+                    except (ValueError, DatabaseError) as e:
+                        print(f"Assignment failed: {e}")
+                        
+            except (ValueError, DatabaseError) as e:
+                print(f"Barang creation failed: {e}")
+        
+        # Get dashboard stats
+        try:
+            stats = db.get_dashboard_stats()
+            print(f"Dashboard stats: {stats}")
+        except DatabaseError as e:
+            print(f"Failed to get dashboard stats: {e}")
+            
+    except DatabaseError as e:
+        print(f"Database initialization failed: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error in main: {e}")

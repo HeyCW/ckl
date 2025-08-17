@@ -709,10 +709,14 @@ class BarangWindow:
         self.open_update_dialog(selected_barang)
 
     def save_changes(self, updated_barang):
-        print(f"Updated data: {updated_barang}")
-        self.db.update_barang(updated_barang)
-        messagebox.showinfo("Sukses", "Data barang berhasil disimpan!")
-        self.load_barang()
+        try:
+            print(f"Updated data: {updated_barang}")
+            self.db.update_barang(updated_barang)
+            messagebox.showinfo("Sukses", "Data barang berhasil disimpan!")
+            self.load_barang()
+        except Exception as e:
+            print(f"Error saat menyimpan data: {e}")
+            messagebox.showerror("Error", f"Gagal menyimpan data barang!\nError: {str(e)}")
     
     def open_update_dialog(self, barang_data):
         """Open dialog to update barang data"""
