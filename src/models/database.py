@@ -240,8 +240,10 @@ class SQLiteDatabase:
         query = '''
         CREATE TABLE IF NOT EXISTS detail_container (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            barang_id INTEGER,
-            container_id INTEGER,
+            barang_id INTEGER NOT NULL,
+            container_id INTEGER NOT NULL,
+            colli_amount INTEGER NOT NULL,
+            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
             FOREIGN KEY (container_id) REFERENCES containers (container_id),
@@ -254,6 +256,46 @@ class SQLiteDatabase:
         except Exception as e:
             logger.error(f"Failed to create detail container table: {e}")
             raise
+
+        
+    def get_barang_in_container_with_colli(self, container_id):
+        """Get all barang in a container with colli information"""
+        try:
+            return self.execute("""
+                SELECT b.*, c.*, dc.colli_amount, dc.assigned_at
+                FROM barang b
+                JOIN detail_container dc ON b.barang_id = dc.barang_id
+                JOIN customers c ON b.customer_id = c.customer_id
+                WHERE dc.container_id = ?
+                ORDER BY dc.assigned_at DESC
+            """, (container_id,))
+        except Exception as e:
+            print(f"Error getting barang in container with colli: {e}")
+            return []
+
+        
+    def assign_barang_to_container_with_colli(self, barang_id, container_id, colli_amount):
+        """Assign barang to container with colli amount"""
+        try:
+            # Check if barang is already in this container
+            existing = self.execute(
+                "SELECT 1 FROM detail_container WHERE barang_id = ? AND container_id = ?",
+                (barang_id, container_id)
+            )
+            
+            if existing:
+                return False
+            
+            # Add to detail_container with colli amount
+            self.execute("""
+                INSERT INTO detail_container (barang_id, container_id, colli_amount, assigned_at)
+                VALUES (?, ?, ?, datetime('now'))
+            """, (barang_id, container_id, colli_amount))
+            
+            return True
+        except Exception as e:
+            print(f"Error assigning barang to container: {e}")
+            return False
     
     def insert_default_data(self):
         """Insert default admin user if not exists with error handling"""
@@ -677,6 +719,7 @@ class BarangDatabase(SQLiteDatabase):
     
     def get_all_barang(self):
         """Get all barang with customer info and error handling"""
+        
         try:
             barang_list = self.execute('''
                 SELECT b.*, c.nama_customer 
