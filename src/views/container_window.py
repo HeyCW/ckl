@@ -416,10 +416,9 @@ class ContainerWindow:
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
         self.container_barang_tree = ttk.Treeview(container_tree_frame,
-                                                columns=('ID', 'Customer', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Tanggal'),
+                                                columns=('Customer', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Tanggal'),
                                                 show='headings', height=12)
         
-        self.container_barang_tree.heading('ID', text='ID')
         self.container_barang_tree.heading('Customer', text='Customer')
         self.container_barang_tree.heading('Nama', text='Nama Barang')
         self.container_barang_tree.heading('Dimensi', text='P×L×T (cm)')
@@ -428,7 +427,6 @@ class ContainerWindow:
         self.container_barang_tree.heading('Colli', text='Colli')
         self.container_barang_tree.heading('Tanggal', text='Ditambahkan')
         
-        self.container_barang_tree.column('ID', width=40)
         self.container_barang_tree.column('Customer', width=90)
         self.container_barang_tree.column('Nama', width=120)
         self.container_barang_tree.column('Dimensi', width=80)
@@ -503,14 +501,6 @@ class ContainerWindow:
             # Get all barang first
             all_barang = self.db.get_all_barang()
             
-            # Get barang that are already in containers
-            barang_in_containers = set()
-            containers = self.db.get_all_containers()
-            for container in containers:
-                container_barang = self.db.get_barang_in_container(container['container_id'])
-                for barang in container_barang:
-                    barang_in_containers.add(barang['barang_id'])
-            
             # Show only this customer's available barang
             customer_barang_count = 0
             for barang in all_barang:
@@ -526,10 +516,6 @@ class ContainerWindow:
                     nama_customer = safe_get(barang, 'nama_customer', '')
 
                     print(f"Nama Customer: {nama_customer}")
-
-                    # Skip if barang is already in a container
-                    if barang_id in barang_in_containers:
-                        continue
                         
                     # Show only barang from selected customer
                     if nama_customer == customer_name:
@@ -577,13 +563,6 @@ class ContainerWindow:
             # Get all barang
             all_barang = self.db.get_all_barang()
             
-            # Get barang that are already in containers
-            barang_in_containers = set()
-            containers = self.db.get_all_containers()
-            for container in containers:
-                container_barang = self.db.get_barang_in_container(container['container_id'])
-                for barang in container_barang:
-                    barang_in_containers.add(barang['barang_id'])
             
             # Show only available barang (not in any container)
             available_count = 0
@@ -598,28 +577,27 @@ class ContainerWindow:
                     
                     barang_id = safe_get(barang, 'barang_id', 0)
                     
-                    if barang_id not in barang_in_containers:
-                        # Format dimensions
-                        panjang = safe_get(barang, 'panjang_barang', '-')
-                        lebar = safe_get(barang, 'lebar_barang', '-')
-                        tinggi = safe_get(barang, 'tinggi_barang', '-')
-                        dimensi = f"{panjang}×{lebar}×{tinggi}"
-                        
-                        # Get values safely
-                        nama_customer = safe_get(barang, 'nama_customer', '-')
-                        nama_barang = safe_get(barang, 'nama_barang', '-')
-                        m3_barang = safe_get(barang, 'm3_barang', '-')
-                        ton_barang = safe_get(barang, 'ton_barang', '-')
-                        
-                        self.available_tree.insert('', tk.END, values=(
-                            barang_id,
-                            nama_customer,
-                            nama_barang,
-                            dimensi,
-                            m3_barang,
-                            ton_barang
-                        ))
-                        available_count += 1
+                    # Format dimensions
+                    panjang = safe_get(barang, 'panjang_barang', '-')
+                    lebar = safe_get(barang, 'lebar_barang', '-')
+                    tinggi = safe_get(barang, 'tinggi_barang', '-')
+                    dimensi = f"{panjang}×{lebar}×{tinggi}"
+                    
+                    # Get values safely
+                    nama_customer = safe_get(barang, 'nama_customer', '-')
+                    nama_barang = safe_get(barang, 'nama_barang', '-')
+                    m3_barang = safe_get(barang, 'm3_barang', '-')
+                    ton_barang = safe_get(barang, 'ton_barang', '-')
+                    
+                    self.available_tree.insert('', tk.END, values=(
+                        barang_id,
+                        nama_customer,
+                        nama_barang,
+                        dimensi,
+                        m3_barang,
+                        ton_barang
+                    ))
+                    available_count += 1
                         
                 except Exception as row_error:
                     print(f"Error processing available barang row: {row_error}")
@@ -637,6 +615,7 @@ class ContainerWindow:
         """Clear customer and barang selection"""
         self.customer_search_var.set("")
         self.colli_var.set("1")
+        self.load_available_barang()
     
     def add_selected_barang_to_container(self):
         """Add selected barang from treeview to container"""
@@ -716,7 +695,6 @@ class ContainerWindow:
             # Add barang to container
             success_count = 0
             error_count = 0
-            duplicate_count = 0
             
             for item in selected_items:
                 try:
@@ -726,10 +704,6 @@ class ContainerWindow:
                     if success:
                         success_count += 1
                         print(f"✅ Added barang {item['id']} ({item['name']}) to container {container_id}")
-                    else:
-                        duplicate_count += 1
-                        print(f"⚠️ Barang {item['id']} ({item['name']}) already in container {container_id}")
-                        
                 except Exception as e:
                     error_count += 1
                     print(f"❌ Error adding barang {item['id']} ({item['name']}): {e}")
@@ -738,16 +712,12 @@ class ContainerWindow:
             result_msg = ""
             if success_count > 0:
                 result_msg += f"✅ Berhasil menambahkan {success_count} barang ke container!\n"
-            if duplicate_count > 0:
-                result_msg += f"⚠️ {duplicate_count} barang sudah ada dalam container.\n"
             if error_count > 0:
                 result_msg += f"❌ {error_count} barang gagal ditambahkan.\n"
             
             if success_count > 0:
                 result_msg += f"\nSetiap barang ditambahkan dengan {colli_amount} colli."
                 messagebox.showinfo("Hasil", result_msg)
-            elif duplicate_count > 0 and error_count == 0:
-                messagebox.showwarning("Peringatan", result_msg)
             else:
                 messagebox.showerror("Error", result_msg)
             
@@ -875,7 +845,6 @@ class ContainerWindow:
                     print(f"Debug - Processed date: '{assigned_at}' for barang {barang_id}")  # Debug
 
                     self.container_barang_tree.insert('', tk.END, values=(
-                        barang_id,
                         nama_customer,
                         nama_barang,
                         dimensi,
@@ -1147,18 +1116,19 @@ class ContainerWindow:
             
             tk.Label(info_frame, text="🚢 INFORMASI CONTAINER", font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
             
-            info_text = f"""
-    Container: {safe_container_get('container')}
-    Feeder: {safe_container_get('feeder')}
-    Destination: {safe_container_get('destination')}
-    Party: {safe_container_get('party')}
-    ETD Sub: {safe_container_get('etd_sub')}
-    CLS: {safe_container_get('cls')}
-    Open: {safe_container_get('open')}
-    Full: {safe_container_get('full')}
-    Seal: {safe_container_get('seal')}
-    Ref JOA: {safe_container_get('ref_joa')}
-            """
+            info_lines = [
+                f"Container: {safe_container_get('container')}",
+                f"Feeder: {safe_container_get('feeder')}",
+                f"Destination: {safe_container_get('destination')}",
+                f"Party: {safe_container_get('party')}",
+                f"ETD Sub: {safe_container_get('etd_sub')}",
+                f"CLS: {safe_container_get('cls')}",
+                f"Open: {safe_container_get('open')}",
+                f"Full: {safe_container_get('full')}",
+                f"Seal: {safe_container_get('seal')}",
+                f"Ref JOA: {safe_container_get('ref_joa')}"
+            ]
+            info_text = "\n".join(info_lines)
             
             tk.Label(info_frame, text=info_text.strip(), font=('Arial', 10), bg='#ffffff', justify='left').pack(padx=20, pady=10)
             
@@ -1168,13 +1138,14 @@ class ContainerWindow:
             
             tk.Label(stats_frame, text="📊 STATISTIK MUATAN", font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
             
-            stats_text = f"""
-    Total Barang: {len(barang_list)} items
-    Total Volume: {total_volume:.3f} m³
-    Total Berat: {total_weight:.3f} ton
-    Total Colli: {total_colli} kemasan
-    Jumlah Customer: {len(customer_summary)}
-            """
+            stats_lines = [
+                f"Total Barang: {len(barang_list)} items",
+                f"Total Volume: {total_volume:.3f} m³", 
+                f"Total Berat: {total_weight:.3f} ton",
+                f"Total Colli: {total_colli} kemasan",
+                f"Jumlah Customer: {len(customer_summary)}"
+            ]
+            stats_text = "\n".join(stats_lines)
             
             tk.Label(stats_frame, text=stats_text.strip(), font=('Arial', 12, 'bold'), bg='#ffffff', justify='left').pack(padx=20, pady=10)
             

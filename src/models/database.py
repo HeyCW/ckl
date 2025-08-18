@@ -246,8 +246,7 @@ class SQLiteDatabase:
             assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
-            FOREIGN KEY (container_id) REFERENCES containers (container_id),
-            UNIQUE(barang_id, container_id)
+            FOREIGN KEY (container_id) REFERENCES containers (container_id)
         )
         '''
         try:
@@ -277,19 +276,11 @@ class SQLiteDatabase:
     def assign_barang_to_container_with_colli(self, barang_id, container_id, colli_amount):
         """Assign barang to container with colli amount"""
         try:
-            # Check if barang is already in this container
-            existing = self.execute(
-                "SELECT 1 FROM detail_container WHERE barang_id = ? AND container_id = ?",
-                (barang_id, container_id)
-            )
-            
-            if existing:
-                return False
             
             # Add to detail_container with colli amount
             self.execute("""
                 INSERT INTO detail_container (barang_id, container_id, colli_amount, assigned_at)
-                VALUES (?, ?, ?, datetime('now'))
+                VALUES (?, ?, ?, datetime('now', '+7 hours'))
             """, (barang_id, container_id, colli_amount))
             
             return True
