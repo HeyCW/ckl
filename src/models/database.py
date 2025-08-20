@@ -236,13 +236,15 @@ class SQLiteDatabase:
             raise
     
     def create_detail_container_table(self):
-        """Create detail container table with error handling"""
+        """Create detail container table with pricing columns"""
         query = '''
         CREATE TABLE IF NOT EXISTS detail_container (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             barang_id INTEGER NOT NULL,
             container_id INTEGER NOT NULL,
             colli_amount INTEGER NOT NULL,
+            harga_per_unit DECIMAL(15,2) DEFAULT 0,
+            total_harga DECIMAL(15,2) DEFAULT 0,
             assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
@@ -255,38 +257,6 @@ class SQLiteDatabase:
         except Exception as e:
             logger.error(f"Failed to create detail container table: {e}")
             raise
-
-        
-    def get_barang_in_container_with_colli(self, container_id):
-        """Get all barang in a container with colli information"""
-        try:
-            return self.execute("""
-                SELECT b.*, c.*, dc.colli_amount, dc.assigned_at
-                FROM barang b
-                JOIN detail_container dc ON b.barang_id = dc.barang_id
-                JOIN customers c ON b.customer_id = c.customer_id
-                WHERE dc.container_id = ?
-                ORDER BY dc.assigned_at DESC
-            """, (container_id,))
-        except Exception as e:
-            print(f"Error getting barang in container with colli: {e}")
-            return []
-
-        
-    def assign_barang_to_container_with_colli(self, barang_id, container_id, colli_amount):
-        """Assign barang to container with colli amount"""
-        try:
-            
-            # Add to detail_container with colli amount
-            self.execute("""
-                INSERT INTO detail_container (barang_id, container_id, colli_amount, assigned_at)
-                VALUES (?, ?, ?, datetime('now', '+7 hours'))
-            """, (barang_id, container_id, colli_amount))
-            
-            return True
-        except Exception as e:
-            print(f"Error assigning barang to container: {e}")
-            return False
     
     def insert_default_data(self):
         """Insert default admin user if not exists with error handling"""
@@ -769,9 +739,9 @@ class BarangDatabase(SQLiteDatabase):
             logger.error(f"Failed to get barang in container {container_id}: {e}")
             raise DatabaseError(f"Failed to retrieve barang in container: {e}")
 
-# Combined Database Class
+# Combined Database Class with Pricing Features
 class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatabase):
-    """Complete app database with all methods and error handling"""
+    """Complete app database with all methods including pricing features"""
     
     def __init__(self, db_path="data/app.db"):
         try:
@@ -813,7 +783,357 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
             logger.error(f"Failed to get dashboard stats: {e}")
             raise DatabaseError(f"Failed to retrieve dashboard statistics: {e}")
 
-# Usage example with error handling
+    # ================== PRICING FEATURES ==================
+
+    def assign_barang_to_container_with_pricing(self, barang_id, container_id, colli_amount, harga_per_unit=0, total_harga=0):
+        """Assign barang to container with pricing information"""
+        try:
+            from datetime import datetime
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Insert with pricing
+            self.execute("""
+                INSERT INTO detail_container 
+                (barang_id, container_id, colli_amount, harga_per_unit, total_harga, assigned_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (barang_id, container_id, colli_amount, harga_per_unit, total_harga, current_time))
+            
+            logger.info(f"Barang {barang_id} assigned to container {container_id} with pricing")
+            return True
+        except Exception as e:
+            logger.error(f"Error assigning barang to container with pricing: {e}")
+            return False
+
+    def get_barang_in_container_with_colli_and_pricing(self, container_id):
+        """Get all barang in a specific container with colli and pricing information"""
+        try:
+            result = self.execute("""
+                SELECT 
+                    b.barang_id,
+                    b.nama_barang,
+                    b.jenis_barang,
+                    b.panjang_barang,
+                    b.lebar_barang,
+                    b.tinggi_barang,
+                    b.m3_barang,
+                    b.ton_barang,
+                    c.nama_customer,
+                    dc.colli_amount,
+                    COALESCE(dc.harga_per_unit, 0) as harga_per_unit,
+                    COALESCE(dc.total_harga, 0) as total_harga,
+                    dc.assigned_at
+                FROM detail_container dc
+                JOIN barang b ON dc.barang_id = b.barang_id
+                JOIN customers c ON b.customer_id = c.customer_id
+                WHERE dc.container_id = ?
+                ORDER BY dc.assigned_at DESC
+            """, (container_id,))
+            
+            logger.debug(f"Retrieved {len(result)} barang with pricing for container {container_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Error getting barang in container with pricing: {e}")
+            return []
+
+    def update_barang_pricing_in_container(self, barang_id, container_id, harga_per_unit, total_harga):
+        """Update pricing for specific barang in container"""
+        try:
+            self.execute("""
+                UPDATE detail_container 
+                SET harga_per_unit = ?, total_harga = ?
+                WHERE barang_id = ? AND container_id = ?
+            """, (harga_per_unit, total_harga, barang_id, container_id))
+            
+            logger.info(f"Updated pricing for barang {barang_id} in container {container_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating barang pricing: {e}")
+            return False
+        
+    
+    def get_barang_with_pricing_info(self, barang_id):
+        """Get barang with pricing information from database"""
+        try:
+            result = self.execute_one("""
+                SELECT b.*, c.nama_customer 
+                FROM barang b 
+                JOIN customers c ON b.customer_id = c.customer_id 
+                WHERE b.barang_id = ?
+            """, (barang_id,))
+            
+            return dict(result) if result else None
+            
+        except Exception as e:
+            print(f"Error getting barang pricing info: {e}")
+            return None
+
+    def get_container_total_value(self, container_id):
+        """Get total value of all barang in container"""
+        try:
+            result = self.execute_one("""
+                SELECT SUM(COALESCE(total_harga, 0)) as total_value
+                FROM detail_container 
+                WHERE container_id = ?
+            """, (container_id,))
+            
+            if result and result[0]:
+                return float(result[0] or 0)
+            return 0
+            
+        except Exception as e:
+            logger.error(f"Error getting container total value: {e}")
+            return 0
+
+    def get_customer_container_summary_with_pricing(self, container_id):
+        """Get summary by customer for container including pricing"""
+        try:
+            result = self.execute("""
+                SELECT 
+                    c.nama_customer,
+                    COUNT(dc.barang_id) as jumlah_barang,
+                    SUM(dc.colli_amount) as total_colli,
+                    SUM(COALESCE(dc.total_harga, 0)) as total_nilai,
+                    SUM(b.m3_barang * dc.colli_amount) as total_volume,
+                    SUM(b.ton_barang * dc.colli_amount) as total_berat
+                FROM detail_container dc
+                JOIN barang b ON dc.barang_id = b.barang_id
+                JOIN customers c ON b.customer_id = c.customer_id
+                WHERE dc.container_id = ?
+                GROUP BY c.customer_id, c.nama_customer
+                ORDER BY total_nilai DESC
+            """, (container_id,))
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting customer container summary with pricing: {e}")
+            return []
+
+    def get_all_containers_with_value(self):
+        """Get all containers with total value"""
+        try:
+            result = self.execute("""
+                SELECT 
+                    cont.*,
+                    COUNT(dc.barang_id) as jumlah_barang,
+                    SUM(COALESCE(dc.total_harga, 0)) as total_nilai
+                FROM containers cont
+                LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                GROUP BY cont.container_id
+                ORDER BY cont.container_id DESC
+            """)
+            
+            return [dict(container) for container in result]
+            
+        except Exception as e:
+            logger.error(f"Error getting containers with value: {e}")
+            return self.get_all_containers()  # Fallback to original method
+
+    def get_pricing_report_by_date_range(self, start_date, end_date):
+        """Get pricing report for containers within date range"""
+        try:
+            result = self.execute("""
+                SELECT 
+                    cont.container_id,
+                    cont.container,
+                    cont.destination,
+                    cont.etd_sub,
+                    COUNT(dc.barang_id) as jumlah_barang,
+                    SUM(dc.colli_amount) as total_colli,
+                    SUM(COALESCE(dc.total_harga, 0)) as total_nilai
+                FROM containers cont
+                LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                WHERE cont.etd_sub BETWEEN ? AND ?
+                GROUP BY cont.container_id
+                HAVING total_nilai > 0
+                ORDER BY cont.etd_sub DESC
+            """, (start_date, end_date))
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting pricing report: {e}")
+            return []
+
+    # BACKWARD COMPATIBILITY - Override existing methods
+    def assign_barang_to_container_with_colli(self, barang_id, container_id, colli_amount):
+        """Original method - now calls the pricing version with 0 prices for backward compatibility"""
+        return self.assign_barang_to_container_with_pricing(
+            barang_id, container_id, colli_amount, 0, 0
+        )
+
+    def get_barang_in_container_with_colli(self, container_id):
+        """Override existing method to include pricing data for backward compatibility"""
+        try:
+            # Get with pricing data but return in original format
+            result = self.get_barang_in_container_with_colli_and_pricing(container_id)
+            return result
+        except Exception as e:
+            logger.error(f"Error in get_barang_in_container_with_colli: {e}")
+            # Fallback to basic query without pricing if needed
+            try:
+                result = self.execute("""
+                    SELECT 
+                        b.barang_id,
+                        b.nama_barang,
+                        b.jenis_barang,
+                        b.panjang_barang,
+                        b.lebar_barang,
+                        b.tinggi_barang,
+                        b.m3_barang,
+                        b.ton_barang,
+                        c.nama_customer,
+                        dc.colli_amount,
+                        dc.assigned_at
+                    FROM detail_container dc
+                    JOIN barang b ON dc.barang_id = b.barang_id
+                    JOIN customers c ON b.customer_id = c.customer_id
+                    WHERE dc.container_id = ?
+                    ORDER BY dc.assigned_at DESC
+                """, (container_id,))
+                return result
+            except Exception as fallback_error:
+                logger.error(f"Fallback error: {fallback_error}")
+                return []
+
+    # HELPER METHODS UNTUK PRICING
+    def bulk_update_container_pricing(self, container_id, pricing_data):
+        """Update pricing for multiple barang in container
+        pricing_data: dict {barang_id: {'harga_per_unit': x, 'total_harga': y}}
+        """
+        try:
+            success_count = 0
+            error_count = 0
+            
+            for barang_id, price_data in pricing_data.items():
+                try:
+                    self.update_barang_pricing_in_container(
+                        barang_id, 
+                        container_id, 
+                        price_data['harga_per_unit'], 
+                        price_data['total_harga']
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"Error updating pricing for barang {barang_id}: {e}")
+                    error_count += 1
+            
+            logger.info(f"Bulk pricing update: {success_count} success, {error_count} errors")
+            return {'success': success_count, 'error': error_count}
+            
+        except Exception as e:
+            logger.error(f"Error in bulk_update_container_pricing: {e}")
+            return {'success': 0, 'error': len(pricing_data)}
+
+    def get_container_pricing_summary(self, container_id):
+        """Get detailed pricing summary for a container"""
+        try:
+            # Get container info
+            container = self.get_container_by_id(container_id)
+            if not container:
+                return None
+            
+            # Get total values
+            total_value = self.get_container_total_value(container_id)
+            
+            # Get customer breakdown
+            customer_summary = self.get_customer_container_summary_with_pricing(container_id)
+            
+            # Get item count
+            item_count = self.execute_one("""
+                SELECT COUNT(*) as count, SUM(colli_amount) as total_colli
+                FROM detail_container WHERE container_id = ?
+            """, (container_id,))
+            
+            return {
+                'container': container,
+                'total_value': total_value,
+                'customer_summary': [dict(row) for row in customer_summary],
+                'total_items': item_count['count'] if item_count else 0,
+                'total_colli': item_count['total_colli'] if item_count else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting container pricing summary: {e}")
+            return None
+
+    def search_containers_by_value_range(self, min_value=0, max_value=None):
+        """Search containers by value range"""
+        try:
+            if max_value is None:
+                result = self.execute("""
+                    SELECT 
+                        cont.*,
+                        SUM(COALESCE(dc.total_harga, 0)) as total_nilai
+                    FROM containers cont
+                    LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                    GROUP BY cont.container_id
+                    HAVING total_nilai >= ?
+                    ORDER BY total_nilai DESC
+                """, (min_value,))
+            else:
+                result = self.execute("""
+                    SELECT 
+                        cont.*,
+                        SUM(COALESCE(dc.total_harga, 0)) as total_nilai
+                    FROM containers cont
+                    LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                    GROUP BY cont.container_id
+                    HAVING total_nilai BETWEEN ? AND ?
+                    ORDER BY total_nilai DESC
+                """, (min_value, max_value))
+            
+            return [dict(container) for container in result]
+            
+        except Exception as e:
+            logger.error(f"Error searching containers by value range: {e}")
+            return []
+
+    def get_top_value_containers(self, limit=10):
+        """Get top containers by value"""
+        try:
+            result = self.execute("""
+                SELECT 
+                    cont.*,
+                    SUM(COALESCE(dc.total_harga, 0)) as total_nilai,
+                    COUNT(dc.barang_id) as jumlah_barang
+                FROM containers cont
+                LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                GROUP BY cont.container_id
+                HAVING total_nilai > 0
+                ORDER BY total_nilai DESC
+                LIMIT ?
+            """, (limit,))
+            
+            return [dict(container) for container in result]
+            
+        except Exception as e:
+            logger.error(f"Error getting top value containers: {e}")
+            return []
+
+    def get_customer_total_value_by_period(self, customer_id, start_date, end_date):
+        """Get total value for a customer within date range"""
+        try:
+            result = self.execute_one("""
+                SELECT 
+                    c.nama_customer,
+                    SUM(COALESCE(dc.total_harga, 0)) as total_nilai,
+                    COUNT(DISTINCT cont.container_id) as jumlah_container,
+                    COUNT(dc.barang_id) as jumlah_barang
+                FROM customers c
+                JOIN barang b ON c.customer_id = b.customer_id
+                JOIN detail_container dc ON b.barang_id = dc.barang_id
+                JOIN containers cont ON dc.container_id = cont.container_id
+                WHERE c.customer_id = ? AND cont.etd_sub BETWEEN ? AND ?
+            """, (customer_id, start_date, end_date))
+            
+            return dict(result) if result else None
+            
+        except Exception as e:
+            logger.error(f"Error getting customer total value by period: {e}")
+            return None
+
+# Usage example with error handling and pricing features
 if __name__ == "__main__":
     try:
         # Initialize database
@@ -867,13 +1187,20 @@ if __name__ == "__main__":
                 )
                 print(f"Created barang with ID: {barang_id}")
                 
-                # Test assign barang to container
+                # Test assign barang to container WITH PRICING
                 if 'container_id' in locals() and 'barang_id' in locals():
                     try:
-                        assigned = db.assign_barang_to_container(barang_id, container_id)
-                        print(f"Barang assigned to container: {assigned}")
+                        assigned = db.assign_barang_to_container_with_pricing(
+                            barang_id, container_id, 5, 150000, 750000
+                        )
+                        print(f"Barang assigned to container with pricing: {assigned}")
+                        
+                        # Test get container total value
+                        total_value = db.get_container_total_value(container_id)
+                        print(f"Container total value: Rp {total_value:,.0f}")
+                        
                     except (ValueError, DatabaseError) as e:
-                        print(f"Assignment failed: {e}")
+                        print(f"Assignment with pricing failed: {e}")
                         
             except (ValueError, DatabaseError) as e:
                 print(f"Barang creation failed: {e}")
@@ -884,6 +1211,17 @@ if __name__ == "__main__":
             print(f"Dashboard stats: {stats}")
         except DatabaseError as e:
             print(f"Failed to get dashboard stats: {e}")
+            
+        # Test pricing features
+        try:
+            containers_with_value = db.get_all_containers_with_value()
+            print(f"Containers with value: {len(containers_with_value)}")
+            
+            top_containers = db.get_top_value_containers(5)
+            print(f"Top 5 value containers: {len(top_containers)}")
+            
+        except DatabaseError as e:
+            print(f"Failed to test pricing features: {e}")
             
     except DatabaseError as e:
         print(f"Database initialization failed: {e}")

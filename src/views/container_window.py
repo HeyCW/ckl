@@ -254,7 +254,7 @@ class ContainerWindow:
         self.feeder_entry.focus()
     
     def create_container_barang_tab(self, parent):
-        """Create container-barang management tab"""
+        """Create container-barang management tab with pricing"""
         # Container selection frame
         selection_frame = tk.Frame(parent, bg='#ecf0f1')
         selection_frame.pack(fill='x', padx=20, pady=20)
@@ -308,10 +308,10 @@ class ContainerWindow:
         actions_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         actions_frame.pack(fill='x', pady=10)
         
-        # Add barang to container
+        # Add barang to container with pricing
         add_barang_btn = tk.Button(
             actions_frame,
-            text="➕ Tambah Barang ke Container",
+            text="💰 Tambah Barang + Harga ke Container",
             font=('Arial', 12, 'bold'),
             bg='#27ae60',
             fg='white',
@@ -333,6 +333,19 @@ class ContainerWindow:
             command=self.remove_barang_from_container
         )
         remove_barang_btn.pack(side='left', padx=(0, 10))
+        
+        # Edit price button
+        edit_price_btn = tk.Button(
+            actions_frame,
+            text="✏️ Edit Harga",
+            font=('Arial', 12, 'bold'),
+            bg='#f39c12',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.edit_barang_price_in_container
+        )
+        edit_price_btn.pack(side='left', padx=(0, 10))
         
         # View container summary
         summary_btn = tk.Button(
@@ -404,19 +417,19 @@ class ContainerWindow:
         available_tree_container.grid_rowconfigure(0, weight=1)
         available_tree_container.grid_columnconfigure(0, weight=1)
         
-        # Right side - Barang in selected container
+        # Right side - Barang in selected container (WITH PRICING)
         right_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
         right_frame.pack(side='right', fill='both', expand=True, padx=(10, 0))
         
         self.container_label = tk.Label(right_frame, text="📦 Barang dalam Container", font=('Arial', 12, 'bold'), bg='#ffffff')
         self.container_label.pack(pady=10)
         
-        # Container barang tree
+        # Container barang tree WITH PRICING COLUMNS
         container_tree_frame = tk.Frame(right_frame)
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
         self.container_barang_tree = ttk.Treeview(container_tree_frame,
-                                                columns=('Customer', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Tanggal'),
+                                                columns=('Customer', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
                                                 show='headings', height=12)
         
         self.container_barang_tree.heading('Customer', text='Customer')
@@ -425,15 +438,19 @@ class ContainerWindow:
         self.container_barang_tree.heading('Volume', text='Volume (m³)')
         self.container_barang_tree.heading('Berat', text='Berat (ton)')
         self.container_barang_tree.heading('Colli', text='Colli')
+        self.container_barang_tree.heading('Harga_Unit', text='Harga/Unit')
+        self.container_barang_tree.heading('Total_Harga', text='Total Harga')
         self.container_barang_tree.heading('Tanggal', text='Ditambahkan')
         
-        self.container_barang_tree.column('Customer', width=90)
-        self.container_barang_tree.column('Nama', width=120)
-        self.container_barang_tree.column('Dimensi', width=80)
-        self.container_barang_tree.column('Volume', width=60)
-        self.container_barang_tree.column('Berat', width=60)
-        self.container_barang_tree.column('Colli', width=50)
-        self.container_barang_tree.column('Tanggal', width=80)
+        self.container_barang_tree.column('Customer', width=80)
+        self.container_barang_tree.column('Nama', width=100)
+        self.container_barang_tree.column('Dimensi', width=70)
+        self.container_barang_tree.column('Volume', width=50)
+        self.container_barang_tree.column('Berat', width=50)
+        self.container_barang_tree.column('Colli', width=40)
+        self.container_barang_tree.column('Harga_Unit', width=80)
+        self.container_barang_tree.column('Total_Harga', width=90)
+        self.container_barang_tree.column('Tanggal', width=70)
         
         # Scrollbars for container barang tree
         container_barang_v_scroll = ttk.Scrollbar(container_tree_frame, orient='vertical', command=self.container_barang_tree.yview)
@@ -449,6 +466,804 @@ class ContainerWindow:
         
         # Load initial data
         self.load_available_barang()
+    
+    def create_pricing_dialog(self, selected_items, colli_amount):
+        """Create dialog for pricing input with auto-price selection"""
+        pricing_window = tk.Toplevel(self.window)
+        pricing_window.title("💰 Set Harga Barang")
+        pricing_window.geometry("800x600")
+        pricing_window.configure(bg='#ecf0f1')
+        pricing_window.transient(self.window)
+        pricing_window.grab_set()
+        
+        # Center window
+        pricing_window.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (400)
+        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (300)
+        pricing_window.geometry(f"800x600+{x}+{y}")
+        
+        # Header
+        header = tk.Label(
+            pricing_window,
+            text="💰 SET HARGA BARANG",
+            font=('Arial', 16, 'bold'),
+            bg='#e67e22',
+            fg='white',
+            pady=15
+        )
+        header.pack(fill='x')
+        
+        # Info frame
+        info_frame = tk.Frame(pricing_window, bg='#ecf0f1')
+        info_frame.pack(fill='x', padx=20, pady=10)
+        
+        tk.Label(
+            info_frame,
+            text=f"📦 Jumlah Colli per barang: {colli_amount}",
+            font=('Arial', 12, 'bold'),
+            bg='#ecf0f1'
+        ).pack(anchor='w')
+        
+        # Auto pricing options frame
+        auto_frame = tk.Frame(info_frame, bg='#ecf0f1')
+        auto_frame.pack(fill='x', pady=10)
+        
+        tk.Label(auto_frame, text="🚀 Auto Fill dari Database:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
+        
+        # Pricing frame
+        pricing_frame = tk.Frame(pricing_window, bg='#ffffff', relief='solid', bd=1)
+        pricing_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Headers
+        headers_frame = tk.Frame(pricing_frame, bg='#ffffff')
+        headers_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(headers_frame, text="Nama Barang", font=('Arial', 9, 'bold'), bg='#ffffff', width=20).pack(side='left')
+        tk.Label(headers_frame, text="Customer", font=('Arial', 9, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        tk.Label(headers_frame, text="Auto", font=('Arial', 9, 'bold'), bg='#ffffff', width=8).pack(side='left')
+        tk.Label(headers_frame, text="Harga/Unit", font=('Arial', 9, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        tk.Label(headers_frame, text="Total", font=('Arial', 9, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        tk.Label(headers_frame, text="Info Harga DB", font=('Arial', 9, 'bold'), bg='#ffffff', width=15).pack(side='left')
+        
+        # Pricing entries
+        pricing_entries = {}
+        canvas = tk.Canvas(pricing_frame, bg='#ffffff')
+        scrollbar = ttk.Scrollbar(pricing_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='#ffffff')
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Get detailed barang data for pricing options
+        barang_details = {}
+        for item in selected_items:
+            try:
+                barang_data = self.db.execute_one("""
+                    SELECT b.*, c.nama_customer 
+                    FROM barang b 
+                    JOIN customers c ON b.customer_id = c.customer_id 
+                    WHERE b.barang_id = ?
+                """, (item['id'],))
+                
+                if barang_data:
+                    barang_details[item['id']] = dict(barang_data)
+            except Exception as e:
+                print(f"Error getting barang details for {item['id']}: {e}")
+                barang_details[item['id']] = {}
+        
+        for i, item in enumerate(selected_items):
+            row_frame = tk.Frame(scrollable_frame, bg='#ffffff')
+            row_frame.pack(fill='x', padx=5, pady=3)
+            
+            barang_detail = barang_details.get(item['id'], {})
+            
+            # Barang info
+            tk.Label(row_frame, text=item['name'][:25], font=('Arial', 8), bg='#ffffff', width=20, anchor='w').pack(side='left')
+            tk.Label(row_frame, text=item['customer'][:12], font=('Arial', 8), bg='#ffffff', width=12, anchor='w').pack(side='left')
+            
+            # Auto pricing combobox
+            auto_var = tk.StringVar(value="Manual")
+            auto_combo = ttk.Combobox(row_frame, textvariable=auto_var, 
+                                    values=["Manual", "Harga/m³", "Harga/ton", "Harga/colli"], 
+                                    font=('Arial', 8), width=8, state='readonly')
+            auto_combo.pack(side='left', padx=2)
+            
+            # Harga per unit entry
+            harga_var = tk.StringVar(value="0")
+            harga_entry = tk.Entry(row_frame, textvariable=harga_var, font=('Arial', 8), width=12)
+            harga_entry.pack(side='left', padx=2)
+            
+            # Total label
+            total_var = tk.StringVar(value="0")
+            total_label = tk.Label(row_frame, textvariable=total_var, font=('Arial', 8), bg='#ffffff', width=12, anchor='w')
+            total_label.pack(side='left', padx=2)
+            
+            # Info harga dari database
+            harga_m3 = barang_detail.get('harga_m3', 0) or 0
+            harga_ton = barang_detail.get('harga_ton', 0) or 0
+            harga_col = barang_detail.get('harga_col', 0) or 0
+            m3_barang = barang_detail.get('m3_barang', 0) or 0
+            ton_barang = barang_detail.get('ton_barang', 0) or 0
+            
+            info_text = f"m³:{harga_m3:,.0f} | ton:{harga_ton:,.0f} | col:{harga_col:,.0f}"
+            tk.Label(row_frame, text=info_text, font=('Arial', 7), bg='#f8f9fa', width=15, anchor='w').pack(side='left', padx=2)
+            
+            # Auto calculate total
+            def update_total(event=None, harga_var=harga_var, total_var=total_var, colli=colli_amount):
+                try:
+                    harga = float(harga_var.get().replace(',', '') or 0)
+                    total = harga * colli
+                    total_var.set(f"{total:,.0f}")
+                except ValueError:
+                    total_var.set("0")
+            
+            # Auto pricing function
+            def auto_price_change(event, auto_var=auto_var, harga_var=harga_var, 
+                                barang_detail=barang_detail, colli=colli_amount):
+                selection = auto_var.get()
+                try:
+                    if selection == "Harga/m³" and harga_m3 > 0:
+                        # Harga per unit = harga_m3 * m3_barang
+                        unit_price = float(harga_m3) * float(m3_barang)
+                        harga_var.set(f"{unit_price:,.0f}")
+                    elif selection == "Harga/ton" and harga_ton > 0:
+                        # Harga per unit = harga_ton * ton_barang  
+                        unit_price = float(harga_ton) * float(ton_barang)
+                        harga_var.set(f"{unit_price:,.0f}")
+                    elif selection == "Harga/colli" and harga_col > 0:
+                        # Harga per unit = harga_col (sudah per colli)
+                        harga_var.set(f"{float(harga_col):,.0f}")
+                    elif selection == "Manual":
+                        harga_var.set("0")
+                    
+                    # Update total
+                    update_total()
+                except (ValueError, TypeError) as e:
+                    print(f"Error in auto pricing: {e}")
+                    harga_var.set("0")
+                    update_total()
+            
+            auto_combo.bind('<<ComboboxSelected>>', auto_price_change)
+            harga_entry.bind('<KeyRelease>', update_total)
+            
+            pricing_entries[item['id']] = {
+                'harga_var': harga_var,
+                'total_var': total_var,
+                'auto_var': auto_var,
+                'entry': harga_entry,
+                'combo': auto_combo,
+                'barang_detail': barang_detail
+            }
+        
+        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Buttons
+        btn_frame = tk.Frame(pricing_window, bg='#ecf0f1')
+        btn_frame.pack(fill='x', padx=20, pady=10)
+        
+        # Auto fill all buttons
+        auto_all_frame = tk.Frame(btn_frame, bg='#ecf0f1')
+        auto_all_frame.pack(fill='x', pady=5)
+        
+        tk.Label(auto_all_frame, text="Auto Fill Semua:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        
+        def auto_fill_all(pricing_type):
+            """Auto fill all items with selected pricing type"""
+            for entry_data in pricing_entries.values():
+                entry_data['auto_var'].set(pricing_type)
+                # Trigger auto price change
+                entry_data['combo'].event_generate('<<ComboboxSelected>>')
+        
+        auto_types = [
+            ("m³", "Harga/m³", '#3498db'),
+            ("ton", "Harga/ton", '#e74c3c'), 
+            ("colli", "Harga/colli", '#27ae60'),
+            ("Manual", "Manual", '#95a5a6')
+        ]
+        
+        for label, value, color in auto_types:
+            btn = tk.Button(
+                auto_all_frame,
+                text=label,
+                font=('Arial', 9),
+                bg=color,
+                fg='white',
+                padx=8,
+                pady=3,
+                command=lambda v=value: auto_fill_all(v)
+            )
+            btn.pack(side='left', padx=2)
+        
+        # Quick fill buttons
+        quick_frame = tk.Frame(btn_frame, bg='#ecf0f1')
+        quick_frame.pack(fill='x', pady=5)
+        
+        tk.Label(quick_frame, text="Quick Fill Manual:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        
+        def quick_fill(amount):
+            for entry_data in pricing_entries.values():
+                entry_data['auto_var'].set("Manual")
+                entry_data['harga_var'].set(str(amount))
+                # Trigger update
+                entry_data['entry'].event_generate('<KeyRelease>')
+        
+        quick_amounts = [50000, 100000, 150000, 200000, 250000]
+        for amount in quick_amounts:
+            btn = tk.Button(
+                quick_frame,
+                text=f"{amount//1000}K",
+                font=('Arial', 8),
+                bg='#95a5a6',
+                fg='white',
+                padx=5,
+                pady=2,
+                command=lambda a=amount: quick_fill(a)
+            )
+            btn.pack(side='left', padx=2)
+        
+        # Action buttons
+        action_frame = tk.Frame(btn_frame, bg='#ecf0f1')
+        action_frame.pack(fill='x', pady=10)
+        
+        result = {'confirmed': False, 'pricing_data': {}}
+        
+        def confirm_pricing():
+            try:
+                pricing_data = {}
+                total_amount = 0
+                summary_lines = []
+                
+                for barang_id, entry_data in pricing_entries.items():
+                    harga_str = entry_data['harga_var'].get().replace(',', '')
+                    harga = float(harga_str or 0)
+                    total = harga * colli_amount
+                    pricing_data[barang_id] = {
+                        'harga_per_unit': harga,
+                        'total_harga': total
+                    }
+                    total_amount += total
+                    
+                    # Add to summary
+                    barang_name = next((item['name'] for item in selected_items if item['id'] == barang_id), 'Unknown')
+                    auto_method = entry_data['auto_var'].get()
+                    summary_lines.append(f"• {barang_name[:25]} - {auto_method} - Rp {harga:,.0f}/unit")
+                
+                # Detailed confirm dialog
+                confirm_msg = f"Konfirmasi penambahan barang dengan harga:\n\n"
+                confirm_msg += f"📊 RINGKASAN:\n"
+                confirm_msg += f"Total {len(selected_items)} barang\n"
+                confirm_msg += f"Colli per barang: {colli_amount}\n"
+                confirm_msg += f"Total nilai: Rp {total_amount:,.0f}\n\n"
+                
+                confirm_msg += f"📋 DETAIL HARGA:\n"
+                for line in summary_lines[:5]:  # Show max 5
+                    confirm_msg += line + "\n"
+                if len(summary_lines) > 5:
+                    confirm_msg += f"... dan {len(summary_lines) - 5} barang lainnya\n"
+                
+                confirm_msg += f"\n🚀 Lanjutkan?"
+                
+                if messagebox.askyesno("Konfirmasi Harga", confirm_msg):
+                    result['confirmed'] = True
+                    result['pricing_data'] = pricing_data
+                    pricing_window.destroy()
+            except ValueError as e:
+                messagebox.showerror("Error", f"Pastikan semua harga berupa angka yang valid!\nError: {str(e)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
+        
+        def cancel_pricing():
+            pricing_window.destroy()
+        
+        tk.Button(
+            action_frame,
+            text="✅ Konfirmasi & Tambah",
+            font=('Arial', 12, 'bold'),
+            bg='#27ae60',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=confirm_pricing
+        ).pack(side='left', padx=(0, 10))
+        
+        tk.Button(
+            action_frame,
+            text="❌ Batal",
+            font=('Arial', 12, 'bold'),
+            bg='#e74c3c',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=cancel_pricing
+        ).pack(side='left')
+        
+        # Tips label
+        tips_label = tk.Label(
+            pricing_window,
+            text="💡 Tips: Pilih 'Auto Fill Semua' untuk menggunakan harga dari database, atau 'Quick Fill Manual' untuk harga seragam",
+            font=('Arial', 9),
+            bg='#ecf0f1',
+            fg='#7f8c8d'
+        )
+        tips_label.pack(pady=5)
+        
+        # Wait for dialog to close
+        pricing_window.wait_window()
+        
+        return result if result['confirmed'] else None
+
+    def create_edit_pricing_dialog(self, selected_items, container_id):
+        """Create dialog for editing existing prices with auto-price options"""
+        pricing_window = tk.Toplevel(self.window)
+        pricing_window.title("✏️ Edit Harga Barang")
+        pricing_window.geometry("800x500")
+        pricing_window.configure(bg='#ecf0f1')
+        pricing_window.transient(self.window)
+        pricing_window.grab_set()
+        
+        # Center window
+        pricing_window.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (400)
+        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (250)
+        pricing_window.geometry(f"800x500+{x}+{y}")
+        
+        # Header
+        header = tk.Label(
+            pricing_window,
+            text="✏️ EDIT HARGA BARANG",
+            font=('Arial', 16, 'bold'),
+            bg='#f39c12',
+            fg='white',
+            pady=15
+        )
+        header.pack(fill='x')
+        
+        # Pricing frame
+        pricing_frame = tk.Frame(pricing_window, bg='#ffffff', relief='solid', bd=1)
+        pricing_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Headers
+        headers_frame = tk.Frame(pricing_frame, bg='#ffffff')
+        headers_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(headers_frame, text="Nama Barang", font=('Arial', 9, 'bold'), bg='#ffffff', width=18).pack(side='left')
+        tk.Label(headers_frame, text="Colli", font=('Arial', 9, 'bold'), bg='#ffffff', width=6).pack(side='left')
+        tk.Label(headers_frame, text="Harga Lama", font=('Arial', 9, 'bold'), bg='#ffffff', width=10).pack(side='left')
+        tk.Label(headers_frame, text="Auto", font=('Arial', 9, 'bold'), bg='#ffffff', width=8).pack(side='left')
+        tk.Label(headers_frame, text="Harga Baru", font=('Arial', 9, 'bold'), bg='#ffffff', width=10).pack(side='left')
+        tk.Label(headers_frame, text="Total Baru", font=('Arial', 9, 'bold'), bg='#ffffff', width=10).pack(side='left')
+        tk.Label(headers_frame, text="Info DB", font=('Arial', 9, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        
+        # Pricing entries
+        pricing_entries = {}
+        
+        # Get barang details for auto pricing
+        barang_details = {}
+        for item in selected_items:
+            try:
+                barang_data = self.db.execute_one("""
+                    SELECT b.*, c.nama_customer 
+                    FROM barang b 
+                    JOIN customers c ON b.customer_id = c.customer_id 
+                    WHERE b.barang_id = ?
+                """, (item['id'],))
+                
+                if barang_data:
+                    barang_details[item['id']] = dict(barang_data)
+            except Exception as e:
+                print(f"Error getting barang details for {item['id']}: {e}")
+                barang_details[item['id']] = {}
+        
+        for i, item in enumerate(selected_items):
+            row_frame = tk.Frame(pricing_frame, bg='#ffffff')
+            row_frame.pack(fill='x', padx=10, pady=3)
+            
+            barang_detail = barang_details.get(item['id'], {})
+            
+            # Barang info
+            tk.Label(row_frame, text=item['name'][:22], font=('Arial', 8), bg='#ffffff', width=18, anchor='w').pack(side='left')
+            tk.Label(row_frame, text=str(item['colli']), font=('Arial', 8), bg='#ffffff', width=6, anchor='center').pack(side='left')
+            
+            # Current price (read-only)
+            current_price = str(item.get('current_harga', '0')).replace(',', '')
+            tk.Label(row_frame, text=f"{float(current_price):,.0f}" if current_price.replace('.', '').isdigit() else current_price, 
+                    font=('Arial', 8), bg='#f8f9fa', width=10, anchor='center', relief='sunken').pack(side='left', padx=1)
+            
+            # Auto pricing combobox
+            auto_var = tk.StringVar(value="Manual")
+            auto_combo = ttk.Combobox(row_frame, textvariable=auto_var, 
+                                    values=["Manual", "Harga/m³", "Harga/ton", "Harga/colli"], 
+                                    font=('Arial', 8), width=8, state='readonly')
+            auto_combo.pack(side='left', padx=1)
+            
+            # New price entry
+            harga_var = tk.StringVar(value=current_price)
+            harga_entry = tk.Entry(row_frame, textvariable=harga_var, font=('Arial', 8), width=10)
+            harga_entry.pack(side='left', padx=1)
+            
+            # Total label
+            total_var = tk.StringVar()
+            total_label = tk.Label(row_frame, textvariable=total_var, font=('Arial', 8), bg='#ffffff', width=10, anchor='center')
+            total_label.pack(side='left', padx=1)
+            
+            # Info harga dari database
+            harga_m3 = barang_detail.get('harga_m3', 0) or 0
+            harga_ton = barang_detail.get('harga_ton', 0) or 0
+            harga_col = barang_detail.get('harga_col', 0) or 0
+            m3_barang = barang_detail.get('m3_barang', 0) or 0
+            ton_barang = barang_detail.get('ton_barang', 0) or 0
+            
+            info_text = f"m³:{harga_m3:,.0f}|t:{harga_ton:,.0f}|c:{harga_col:,.0f}"
+            tk.Label(row_frame, text=info_text, font=('Arial', 7), bg='#f8f9fa', width=12, anchor='w').pack(side='left', padx=1)
+            
+            # Auto calculate total
+            def update_total(event=None, harga_var=harga_var, total_var=total_var, colli=int(item['colli'])):
+                try:
+                    harga = float(harga_var.get().replace(',', '') or 0)
+                    total = harga * colli
+                    total_var.set(f"{total:,.0f}")
+                except ValueError:
+                    total_var.set("0")
+            
+            # Auto pricing function
+            def auto_price_change(event, auto_var=auto_var, harga_var=harga_var, 
+                                barang_detail=barang_detail, colli=int(item['colli'])):
+                selection = auto_var.get()
+                try:
+                    if selection == "Harga/m³" and harga_m3 > 0:
+                        unit_price = float(harga_m3) * float(m3_barang)
+                        harga_var.set(f"{unit_price:,.0f}")
+                    elif selection == "Harga/ton" and harga_ton > 0:
+                        unit_price = float(harga_ton) * float(ton_barang)
+                        harga_var.set(f"{unit_price:,.0f}")
+                    elif selection == "Harga/colli" and harga_col > 0:
+                        harga_var.set(f"{float(harga_col):,.0f}")
+                    
+                    # Update total
+                    update_total()
+                except (ValueError, TypeError) as e:
+                    print(f"Error in auto pricing: {e}")
+                    update_total()
+            
+            auto_combo.bind('<<ComboboxSelected>>', auto_price_change)
+            harga_entry.bind('<KeyRelease>', update_total)
+            
+            # Initial calculation
+            update_total()
+            
+            pricing_entries[item['id']] = {
+                'harga_var': harga_var,
+                'total_var': total_var,
+                'auto_var': auto_var,
+                'entry': harga_entry,
+                'combo': auto_combo,
+                'colli': int(item['colli'])
+            }
+        
+        # Auto fill buttons
+        auto_frame = tk.Frame(pricing_window, bg='#ecf0f1')
+        auto_frame.pack(fill='x', padx=20, pady=5)
+        
+        tk.Label(auto_frame, text="Auto Fill Semua:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        
+        def auto_fill_all(pricing_type):
+            for entry_data in pricing_entries.values():
+                entry_data['auto_var'].set(pricing_type)
+                entry_data['combo'].event_generate('<<ComboboxSelected>>')
+        
+        auto_types = [("m³", "Harga/m³", '#3498db'), ("ton", "Harga/ton", '#e74c3c'), ("colli", "Harga/colli", '#27ae60')]
+        for label, value, color in auto_types:
+            btn = tk.Button(auto_frame, text=label, font=('Arial', 9), bg=color, fg='white',
+                          padx=8, pady=3, command=lambda v=value: auto_fill_all(v))
+            btn.pack(side='left', padx=2)
+        
+        # Action buttons
+        btn_frame = tk.Frame(pricing_window, bg='#ecf0f1')
+        btn_frame.pack(fill='x', padx=20, pady=10)
+        
+        result = {'confirmed': False, 'pricing_data': {}}
+        
+        def confirm_edit():
+            try:
+                pricing_data = {}
+                total_amount = 0
+                
+                for barang_id, entry_data in pricing_entries.items():
+                    harga_str = entry_data['harga_var'].get().replace(',', '')
+                    harga = float(harga_str or 0)
+                    colli = entry_data['colli']
+                    total = harga * colli
+                    pricing_data[barang_id] = {
+                        'harga_per_unit': harga,
+                        'total_harga': total
+                    }
+                    total_amount += total
+                
+                # Confirm dialog
+                confirm_msg = f"Konfirmasi perubahan harga:\n\n"
+                confirm_msg += f"Total {len(selected_items)} barang\n"
+                confirm_msg += f"Total nilai baru: Rp {total_amount:,.0f}\n\n"
+                confirm_msg += "Simpan perubahan?"
+                
+                if messagebox.askyesno("Konfirmasi Edit", confirm_msg):
+                    result['confirmed'] = True
+                    result['pricing_data'] = pricing_data
+                    pricing_window.destroy()
+            except ValueError:
+                messagebox.showerror("Error", "Pastikan semua harga berupa angka yang valid!")
+        
+        def cancel_edit():
+            pricing_window.destroy()
+        
+        tk.Button(
+            btn_frame,
+            text="✅ Simpan Perubahan",
+            font=('Arial', 12, 'bold'),
+            bg='#27ae60',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=confirm_edit
+        ).pack(side='left', padx=(0, 10))
+        
+        tk.Button(
+            btn_frame,
+            text="❌ Batal",
+            font=('Arial', 12, 'bold'),
+            bg='#e74c3c',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=cancel_edit
+        ).pack(side='left')
+        
+        # Wait for dialog to close
+        pricing_window.wait_window()
+        
+        return result if result['confirmed'] else None
+    
+    
+    def edit_barang_price_in_container(self):
+        """Edit price of selected barang in container"""
+        if not self.selected_container_var.get():
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            return
+        
+        selection = self.container_barang_tree.selection()
+        if not selection:
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit harganya!")
+            return
+        
+        try:
+            container_id = int(self.selected_container_var.get().split(' - ')[0])
+            
+            # Get selected barang details
+            selected_items = []
+            for item in selection:
+                values = self.container_barang_tree.item(item)['values']
+                # Find barang_id from database based on customer and nama_barang
+                customer = values[0]  # Customer column
+                nama_barang = values[1]  # Nama barang column
+                current_harga = values[6] if len(values) > 6 else "0"  # Current price
+                current_total = values[7] if len(values) > 7 else "0"  # Current total
+                colli = values[5]  # Colli column
+                
+                # Get barang_id from database
+                barang_data = self.db.execute("""
+                    SELECT b.barang_id FROM barang b 
+                    JOIN customers c ON b.customer_id = c.customer_id 
+                    WHERE c.nama_customer = ? AND b.nama_barang = ?
+                """, (customer, nama_barang))
+                
+                if barang_data:
+                    barang_id = barang_data[0][0]
+                    selected_items.append({
+                        'id': barang_id,
+                        'name': nama_barang,
+                        'customer': customer,
+                        'current_harga': current_harga,
+                        'current_total': current_total,
+                        'colli': colli
+                    })
+            
+            if not selected_items:
+                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!")
+                return
+            
+            # Create edit pricing dialog
+            edit_result = self.create_edit_pricing_dialog(selected_items, container_id)
+            
+            if edit_result and edit_result['confirmed']:
+                # Update prices in database
+                success_count = 0
+                error_count = 0
+                
+                for barang_id, price_data in edit_result['pricing_data'].items():
+                    try:
+                        # Update price in detail_container table
+                        self.db.execute("""
+                            UPDATE detail_container 
+                            SET harga_per_unit = ?, total_harga = ? 
+                            WHERE barang_id = ? AND container_id = ?
+                        """, (
+                            price_data['harga_per_unit'], 
+                            price_data['total_harga'], 
+                            barang_id, 
+                            container_id
+                        ))
+                        success_count += 1
+                        
+                    except Exception as e:
+                        error_count += 1
+                        print(f"❌ Error updating price for barang {barang_id}: {e}")
+                
+                # Show result
+                if success_count > 0:
+                    messagebox.showinfo("Sukses", f"✅ Berhasil mengupdate harga {success_count} barang!")
+                    self.load_container_barang(container_id)  # Refresh display
+                
+                if error_count > 0:
+                    messagebox.showwarning("Peringatan", f"❌ {error_count} barang gagal diupdate.")
+            
+        except Exception as e:
+            print(f"Error in edit_barang_price_in_container: {e}")
+            messagebox.showerror("Error", f"Gagal mengedit harga: {str(e)}")
+
+    def create_edit_pricing_dialog(self, selected_items, container_id):
+        """Create dialog for editing existing prices"""
+        pricing_window = tk.Toplevel(self.window)
+        pricing_window.title("✏️ Edit Harga Barang")
+        pricing_window.geometry("600x400")
+        pricing_window.configure(bg='#ecf0f1')
+        pricing_window.transient(self.window)
+        pricing_window.grab_set()
+        
+        # Center window
+        pricing_window.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (300)
+        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (200)
+        pricing_window.geometry(f"600x400+{x}+{y}")
+        
+        # Header
+        header = tk.Label(
+            pricing_window,
+            text="✏️ EDIT HARGA BARANG",
+            font=('Arial', 16, 'bold'),
+            bg='#f39c12',
+            fg='white',
+            pady=15
+        )
+        header.pack(fill='x')
+        
+        # Pricing frame
+        pricing_frame = tk.Frame(pricing_window, bg='#ffffff', relief='solid', bd=1)
+        pricing_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Headers
+        headers_frame = tk.Frame(pricing_frame, bg='#ffffff')
+        headers_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(headers_frame, text="Nama Barang", font=('Arial', 10, 'bold'), bg='#ffffff', width=20).pack(side='left')
+        tk.Label(headers_frame, text="Colli", font=('Arial', 10, 'bold'), bg='#ffffff', width=8).pack(side='left')
+        tk.Label(headers_frame, text="Harga Lama", font=('Arial', 10, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        tk.Label(headers_frame, text="Harga Baru", font=('Arial', 10, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        tk.Label(headers_frame, text="Total Baru", font=('Arial', 10, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        
+        # Pricing entries
+        pricing_entries = {}
+        
+        for i, item in enumerate(selected_items):
+            row_frame = tk.Frame(pricing_frame, bg='#ffffff')
+            row_frame.pack(fill='x', padx=10, pady=5)
+            
+            # Barang info
+            tk.Label(row_frame, text=item['name'][:25], font=('Arial', 9), bg='#ffffff', width=20, anchor='w').pack(side='left')
+            tk.Label(row_frame, text=str(item['colli']), font=('Arial', 9), bg='#ffffff', width=8, anchor='center').pack(side='left')
+            
+            # Current price (read-only)
+            current_price = str(item.get('current_harga', '0')).replace(',', '')
+            tk.Label(row_frame, text=f"{float(current_price):,.0f}" if current_price.replace('.', '').isdigit() else current_price, 
+                    font=('Arial', 9), bg='#f8f9fa', width=12, anchor='center', relief='sunken').pack(side='left', padx=2)
+            
+            # New price entry
+            harga_var = tk.StringVar(value=current_price)
+            harga_entry = tk.Entry(row_frame, textvariable=harga_var, font=('Arial', 9), width=12)
+            harga_entry.pack(side='left', padx=2)
+            
+            # Total label
+            total_var = tk.StringVar()
+            total_label = tk.Label(row_frame, textvariable=total_var, font=('Arial', 9), bg='#ffffff', width=12, anchor='center')
+            total_label.pack(side='left')
+            
+            # Auto calculate total
+            def update_total(event, harga_var=harga_var, total_var=total_var, colli=int(item['colli'])):
+                try:
+                    harga = float(harga_var.get().replace(',', '') or 0)
+                    total = harga * colli
+                    total_var.set(f"{total:,.0f}")
+                except ValueError:
+                    total_var.set("0")
+            
+            # Initial calculation
+            update_total(None)
+            harga_entry.bind('<KeyRelease>', update_total)
+            
+            pricing_entries[item['id']] = {
+                'harga_var': harga_var,
+                'total_var': total_var,
+                'entry': harga_entry,
+                'colli': int(item['colli'])
+            }
+        
+        # Action buttons
+        btn_frame = tk.Frame(pricing_window, bg='#ecf0f1')
+        btn_frame.pack(fill='x', padx=20, pady=10)
+        
+        result = {'confirmed': False, 'pricing_data': {}}
+        
+        def confirm_edit():
+            try:
+                pricing_data = {}
+                total_amount = 0
+                
+                for barang_id, entry_data in pricing_entries.items():
+                    harga = float(entry_data['harga_var'].get().replace(',', '') or 0)
+                    colli = entry_data['colli']
+                    total = harga * colli
+                    pricing_data[barang_id] = {
+                        'harga_per_unit': harga,
+                        'total_harga': total
+                    }
+                    total_amount += total
+                
+                # Confirm dialog
+                confirm_msg = f"Konfirmasi perubahan harga:\n\n"
+                confirm_msg += f"Total {len(selected_items)} barang\n"
+                confirm_msg += f"Total nilai baru: Rp {total_amount:,.0f}\n\n"
+                confirm_msg += "Simpan perubahan?"
+                
+                if messagebox.askyesno("Konfirmasi Edit", confirm_msg):
+                    result['confirmed'] = True
+                    result['pricing_data'] = pricing_data
+                    pricing_window.destroy()
+            except ValueError:
+                messagebox.showerror("Error", "Pastikan semua harga berupa angka yang valid!")
+        
+        def cancel_edit():
+            pricing_window.destroy()
+        
+        tk.Button(
+            btn_frame,
+            text="✅ Simpan Perubahan",
+            font=('Arial', 12, 'bold'),
+            bg='#27ae60',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=confirm_edit
+        ).pack(side='left', padx=(0, 10))
+        
+        tk.Button(
+            btn_frame,
+            text="❌ Batal",
+            font=('Arial', 12, 'bold'),
+            bg='#e74c3c',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=cancel_edit
+        ).pack(side='left')
+        
+        # Wait for dialog to close
+        pricing_window.wait_window()
+        
+        return result if result['confirmed'] else None
     
     def load_customers(self):
         """Load all customers for search dropdown"""
@@ -563,7 +1378,6 @@ class ContainerWindow:
             # Get all barang
             all_barang = self.db.get_all_barang()
             
-            
             # Show only available barang (not in any container)
             available_count = 0
             for barang in all_barang:
@@ -618,7 +1432,7 @@ class ContainerWindow:
         self.load_available_barang()
     
     def add_selected_barang_to_container(self):
-        """Add selected barang from treeview to container"""
+        """Add selected barang from treeview to container with pricing"""
         # Validate container selection
         if not self.selected_container_var.get():
             messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
@@ -670,40 +1484,33 @@ class ContainerWindow:
                 messagebox.showwarning("Peringatan", "Tidak ada barang yang valid untuk ditambahkan!")
                 return
             
-            # Confirm addition
-            if len(selected_items) == 1:
-                item = selected_items[0]
-                confirm_msg = f"Tambah barang ke container?\n\n" + \
-                            f"Customer: {item['customer']}\n" + \
-                            f"Barang: {item['name']}\n" + \
-                            f"Jumlah Colli: {colli_amount}\n" + \
-                            f"Container: {self.selected_container_var.get().split(' - ', 1)[1]}"
-            else:
-                confirm_msg = f"Tambah {len(selected_items)} barang ke container?\n\n" + \
-                            f"Jumlah Colli per barang: {colli_amount}\n" + \
-                            f"Container: {self.selected_container_var.get().split(' - ', 1)[1]}\n\n" + \
-                            f"Barang yang akan ditambahkan:\n"
-                
-                for i, item in enumerate(selected_items[:5], 1):  # Show max 5 items
-                    confirm_msg += f"{i}. {item['name']} ({item['customer']})\n"
-                if len(selected_items) > 5:
-                    confirm_msg += f"... dan {len(selected_items) - 5} barang lainnya"
+            # Show pricing dialog
+            pricing_result = self.create_pricing_dialog(selected_items, colli_amount)
             
-            if not messagebox.askyesno("Konfirmasi", confirm_msg):
-                return
+            if not pricing_result:
+                return  # User cancelled
             
-            # Add barang to container
+            # Add barang to container with pricing
             success_count = 0
             error_count = 0
             
             for item in selected_items:
                 try:
-                    # Add barang to container with colli amount
-                    success = self.db.assign_barang_to_container_with_colli(item['id'], container_id, colli_amount)
+                    barang_id = item['id']
+                    price_data = pricing_result['pricing_data'].get(barang_id, {'harga_per_unit': 0, 'total_harga': 0})
+                    
+                    # Add barang to container with pricing
+                    success = self.db.assign_barang_to_container_with_pricing(
+                        barang_id, 
+                        container_id, 
+                        colli_amount,
+                        price_data['harga_per_unit'],
+                        price_data['total_harga']
+                    )
                     
                     if success:
                         success_count += 1
-                        print(f"✅ Added barang {item['id']} ({item['name']}) to container {container_id}")
+                        print(f"✅ Added barang {barang_id} ({item['name']}) to container {container_id} with price {price_data['harga_per_unit']}")
                 except Exception as e:
                     error_count += 1
                     print(f"❌ Error adding barang {item['id']} ({item['name']}): {e}")
@@ -711,7 +1518,7 @@ class ContainerWindow:
             # Show result message
             result_msg = ""
             if success_count > 0:
-                result_msg += f"✅ Berhasil menambahkan {success_count} barang ke container!\n"
+                result_msg += f"✅ Berhasil menambahkan {success_count} barang ke container dengan harga!\n"
             if error_count > 0:
                 result_msg += f"❌ {error_count} barang gagal ditambahkan.\n"
             
@@ -780,42 +1587,15 @@ class ContainerWindow:
             container_info = selection.split(' - ', 1)[1] if ' - ' in selection else selection
             self.container_label.config(text=f"📦 Barang dalam Container: {container_info}")
     
-    def load_available_barang(self):
-        """Load available barang (not in any container)"""
-        try:
-            # Clear existing items
-            for item in self.available_tree.get_children():
-                self.available_tree.delete(item)
-            
-            # Get all barang
-            all_barang = self.db.get_all_barang()
-            
-            # Show only available barang
-            for barang in all_barang:
-                    # Format dimensions
-                    dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
-                    
-                    self.available_tree.insert('', tk.END, values=(
-                        barang['barang_id'],
-                        barang['nama_customer'],
-                        barang['nama_barang'],
-                        dimensi,
-                        barang.get('m3_barang', '-'),
-                        barang.get('ton_barang', '-')
-                    ))
-        except Exception as e:
-            print(f"Error loading available barang: {e}")
-            messagebox.showerror("Error", f"Gagal memuat daftar barang: {str(e)}")
-    
     def load_container_barang(self, container_id):
-        """Load barang in specific container"""
+        """Load barang in specific container with pricing"""
         try:
             # Clear existing items
             for item in self.container_barang_tree.get_children():
                 self.container_barang_tree.delete(item)
             
-            # Load barang in container
-            container_barang = self.db.get_barang_in_container_with_colli(container_id)
+            # Load barang in container with pricing
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
             
             for barang in container_barang:
                 try:
@@ -835,14 +1615,17 @@ class ContainerWindow:
                     assigned_at = safe_get(barang, 'assigned_at', '')
                     
                     # Get values safely
-                    barang_id = safe_get(barang, 'barang_id', 0)
                     nama_customer = safe_get(barang, 'nama_customer', '-')
                     nama_barang = safe_get(barang, 'nama_barang', '-')
                     m3_barang = safe_get(barang, 'm3_barang', '-')
                     ton_barang = safe_get(barang, 'ton_barang', '-')
                     colli_amount = safe_get(barang, 'colli_amount', 1)
+                    harga_per_unit = safe_get(barang, 'harga_per_unit', 0)
+                    total_harga = safe_get(barang, 'total_harga', 0)
 
-                    print(f"Debug - Processed date: '{assigned_at}' for barang {barang_id}")  # Debug
+                    # Format pricing display
+                    harga_display = f"{float(harga_per_unit):,.0f}" if str(harga_per_unit).replace('.', '').isdigit() else harga_per_unit
+                    total_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').isdigit() else total_harga
 
                     self.container_barang_tree.insert('', tk.END, values=(
                         nama_customer,
@@ -851,6 +1634,8 @@ class ContainerWindow:
                         m3_barang,
                         ton_barang,
                         colli_amount,
+                        harga_display,
+                        total_display,
                         assigned_at
                     ))
                     
@@ -886,32 +1671,53 @@ class ContainerWindow:
             selected_items = []
             for item in selection:
                 values = self.container_barang_tree.item(item)['values']
-                barang_id = values[0]
-                nama_barang = values[2]  # Nama barang column
-                customer = values[1]     # Customer column
-                colli = values[6]        # Colli column
-                selected_items.append({
-                    'id': barang_id,
-                    'nama': nama_barang,
-                    'customer': customer,
-                    'colli': colli
-                })
+                customer = values[0]     # Customer column
+                nama_barang = values[1]  # Nama barang column
+                colli = values[5]        # Colli column
+                harga_unit = values[6]   # Harga per unit
+                total_harga = values[7]  # Total harga
+                
+                # Get barang_id from database
+                barang_data = self.db.execute("""
+                    SELECT b.barang_id FROM barang b 
+                    JOIN customers c ON b.customer_id = c.customer_id 
+                    WHERE c.nama_customer = ? AND b.nama_barang = ?
+                """, (customer, nama_barang))
+                
+                if barang_data:
+                    barang_id = barang_data[0][0]
+                    selected_items.append({
+                        'id': barang_id,
+                        'nama': nama_barang,
+                        'customer': customer,
+                        'colli': colli,
+                        'harga_unit': harga_unit,
+                        'total_harga': total_harga
+                    })
             
-            # Confirm removal with details
+            # Confirm removal with details including pricing
             if len(selected_items) == 1:
                 item = selected_items[0]
                 confirm_msg = f"Hapus barang dari container?\n\n" + \
                             f"Barang: {item['nama']}\n" + \
                             f"Customer: {item['customer']}\n" + \
-                            f"Colli: {item['colli']}\n\n" + \
+                            f"Colli: {item['colli']}\n" + \
+                            f"Harga/Unit: Rp {item['harga_unit']}\n" + \
+                            f"Total Harga: Rp {item['total_harga']}\n\n" + \
                             f"Barang akan dikembalikan ke daftar barang tersedia."
             else:
+                total_nilai = 0
                 confirm_msg = f"Hapus {len(selected_items)} barang dari container?\n\n"
                 for i, item in enumerate(selected_items[:3], 1):  # Show max 3 items
-                    confirm_msg += f"{i}. {item['nama']} ({item['customer']}) - {item['colli']} colli\n"
+                    confirm_msg += f"{i}. {item['nama']} ({item['customer']}) - {item['colli']} colli - Rp {item['total_harga']}\n"
+                    try:
+                        total_nilai += float(str(item['total_harga']).replace(',', ''))
+                    except:
+                        pass
                 if len(selected_items) > 3:
                     confirm_msg += f"... dan {len(selected_items) - 3} barang lainnya\n"
-                confirm_msg += f"\nSemua barang akan dikembalikan ke daftar barang tersedia."
+                confirm_msg += f"\nTotal nilai yang akan dihapus: Rp {total_nilai:,.0f}\n"
+                confirm_msg += f"Semua barang akan dikembalikan ke daftar barang tersedia."
             
             if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg):
                 return
@@ -971,7 +1777,7 @@ class ContainerWindow:
             messagebox.showerror("Error", f"Gagal menghapus barang dari container!\n\nError: {str(e)}")
     
     def view_container_summary(self):
-        """View detailed summary of selected container"""
+        """View detailed summary of selected container including pricing"""
         if not self.selected_container_var.get():
             messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
             return
@@ -985,8 +1791,8 @@ class ContainerWindow:
                 messagebox.showerror("Error", "Container tidak ditemukan!")
                 return
             
-            # Get barang in container with colli
-            container_barang = self.db.get_barang_in_container_with_colli(container_id)
+            # Get barang in container with colli and pricing
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
             
             # Safe way to get values from sqlite3.Row object
             def safe_get(row, key, default=0):
@@ -996,10 +1802,11 @@ class ContainerWindow:
                 except (KeyError, IndexError):
                     return default
             
-            # Calculate totals
+            # Calculate totals including pricing
             total_volume = 0
             total_weight = 0
             total_colli = 0
+            total_nilai = 0
             
             for b in container_barang:
                 try:
@@ -1011,11 +1818,16 @@ class ContainerWindow:
                     
                     colli_value = safe_get(b, 'colli_amount', 0)
                     total_colli += int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    
+                    # Calculate total pricing
+                    total_harga_value = safe_get(b, 'total_harga', 0)
+                    total_nilai += float(total_harga_value) if total_harga_value not in [None, '', '-'] else 0
+                    
                 except (ValueError, TypeError) as ve:
                     print(f"Error calculating totals for barang: {ve}")
                     continue
             
-            # Group by customer
+            # Group by customer with pricing
             customer_summary = {}
             for barang in container_barang:
                 try:
@@ -1026,7 +1838,8 @@ class ContainerWindow:
                             'count': 0,
                             'volume': 0,
                             'weight': 0,
-                            'colli': 0
+                            'colli': 0,
+                            'nilai': 0
                         }
                     
                     customer_summary[customer]['count'] += 1
@@ -1049,13 +1862,19 @@ class ContainerWindow:
                         customer_summary[customer]['colli'] += int(colli_value) if colli_value not in [None, '', '-'] else 0
                     except (ValueError, TypeError):
                         pass
+                    
+                    try:
+                        nilai_value = safe_get(barang, 'total_harga', 0)
+                        customer_summary[customer]['nilai'] += float(nilai_value) if nilai_value not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        pass
                         
                 except Exception as customer_error:
                     print(f"Error processing customer summary for barang: {customer_error}")
                     continue
             
-            self.show_container_summary_dialog(container, container_barang, customer_summary, 
-                                            total_volume, total_weight, total_colli)
+            self.show_container_summary_dialog_with_pricing(container, container_barang, customer_summary, 
+                                            total_volume, total_weight, total_colli, total_nilai)
             
         except Exception as e:
             print(f"Error in view_container_summary: {e}")
@@ -1063,21 +1882,21 @@ class ContainerWindow:
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal membuat summary container: {str(e)}")
 
-    def show_container_summary_dialog(self, container, barang_list, customer_summary, total_volume, total_weight, total_colli):
-        """Show container summary in a dialog"""
+    def show_container_summary_dialog_with_pricing(self, container, barang_list, customer_summary, total_volume, total_weight, total_colli, total_nilai):
+        """Show container summary in a dialog with pricing information"""
         try:
             summary_window = tk.Toplevel(self.window)
             summary_window.title(f"📊 Summary Container - {container.get('container', 'N/A') if hasattr(container, 'get') else container['container'] if 'container' in container else 'N/A'}")
-            summary_window.geometry("900x700")
+            summary_window.geometry("1000x750")
             summary_window.configure(bg='#ecf0f1')
             summary_window.transient(self.window)
             summary_window.grab_set()
             
             # Center window
             summary_window.update_idletasks()
-            x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (900 // 2)
-            y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (700 // 2)
-            summary_window.geometry(f"900x700+{x}+{y}")
+            x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (500)
+            y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (375)
+            summary_window.geometry(f"1000x750+{x}+{y}")
             
             # Safe way to get container values
             def safe_container_get(key, default='-'):
@@ -1106,7 +1925,7 @@ class ContainerWindow:
             summary_notebook = ttk.Notebook(summary_window)
             summary_notebook.pack(fill='both', expand=True, padx=20, pady=20)
             
-            # Tab 1: Overview
+            # Tab 1: Overview with Pricing
             overview_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
             summary_notebook.add(overview_frame, text='📋 Overview')
             
@@ -1132,35 +1951,36 @@ class ContainerWindow:
             
             tk.Label(info_frame, text=info_text.strip(), font=('Arial', 10), bg='#ffffff', justify='left').pack(padx=20, pady=10)
             
-            # Summary stats
+            # Summary stats with pricing
             stats_frame = tk.Frame(overview_frame, bg='#ffffff', relief='solid', bd=1)
             stats_frame.pack(fill='x', padx=10, pady=10)
             
-            tk.Label(stats_frame, text="📊 STATISTIK MUATAN", font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
+            tk.Label(stats_frame, text="📊 STATISTIK MUATAN & NILAI", font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
             
             stats_lines = [
                 f"Total Barang: {len(barang_list)} items",
                 f"Total Volume: {total_volume:.3f} m³", 
                 f"Total Berat: {total_weight:.3f} ton",
                 f"Total Colli: {total_colli} kemasan",
+                f"Total Nilai: Rp {total_nilai:,.0f}",  # NEW PRICING INFO
                 f"Jumlah Customer: {len(customer_summary)}"
             ]
             stats_text = "\n".join(stats_lines)
             
             tk.Label(stats_frame, text=stats_text.strip(), font=('Arial', 12, 'bold'), bg='#ffffff', justify='left').pack(padx=20, pady=10)
             
-            # Tab 2: Customer Summary
+            # Tab 2: Customer Summary with Pricing
             customer_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
             summary_notebook.add(customer_frame, text='👥 Per Customer')
             
             tk.Label(customer_frame, text="👥 RINGKASAN PER CUSTOMER", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
             
-            # Customer summary tree
+            # Customer summary tree with pricing
             customer_tree_container = tk.Frame(customer_frame, bg='#ecf0f1')
             customer_tree_container.pack(fill='both', expand=True, padx=10, pady=10)
             
             customer_summary_tree = ttk.Treeview(customer_tree_container,
-                                            columns=('Customer', 'Items', 'Volume', 'Weight', 'Colli'),
+                                            columns=('Customer', 'Items', 'Volume', 'Weight', 'Colli', 'Nilai'),
                                             show='headings', height=15)
             
             customer_summary_tree.heading('Customer', text='Customer')
@@ -1168,21 +1988,24 @@ class ContainerWindow:
             customer_summary_tree.heading('Volume', text='Volume (m³)')
             customer_summary_tree.heading('Weight', text='Berat (ton)')
             customer_summary_tree.heading('Colli', text='Total Colli')
+            customer_summary_tree.heading('Nilai', text='Total Nilai (Rp)')
             
-            customer_summary_tree.column('Customer', width=200)
-            customer_summary_tree.column('Items', width=120)
-            customer_summary_tree.column('Volume', width=120)
-            customer_summary_tree.column('Weight', width=120)
-            customer_summary_tree.column('Colli', width=120)
+            customer_summary_tree.column('Customer', width=180)
+            customer_summary_tree.column('Items', width=100)
+            customer_summary_tree.column('Volume', width=100)
+            customer_summary_tree.column('Weight', width=100)
+            customer_summary_tree.column('Colli', width=100)
+            customer_summary_tree.column('Nilai', width=150)
             
-            # Add customer data
+            # Add customer data with pricing
             for customer, data in customer_summary.items():
                 customer_summary_tree.insert('', tk.END, values=(
                     customer,
                     data['count'],
                     f"{data['volume']:.3f}",
                     f"{data['weight']:.3f}",
-                    data['colli']
+                    data['colli'],
+                    f"{data['nilai']:,.0f}"
                 ))
             
             # Scrollbar for customer tree
@@ -1192,21 +2015,20 @@ class ContainerWindow:
             customer_summary_tree.pack(side='left', fill='both', expand=True)
             customer_v_scroll.pack(side='right', fill='y')
             
-            # Tab 3: Detailed Items (simplified for safety)
+            # Tab 3: Detailed Items with Pricing
             items_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
             summary_notebook.add(items_frame, text='📦 Detail Barang')
             
-            tk.Label(items_frame, text="📦 DETAIL SEMUA BARANG", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
+            tk.Label(items_frame, text="📦 DETAIL SEMUA BARANG DENGAN HARGA", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
             
-            # Items detail tree
+            # Items detail tree with pricing
             items_tree_container = tk.Frame(items_frame, bg='#ecf0f1')
             items_tree_container.pack(fill='both', expand=True, padx=10, pady=10)
             
             items_detail_tree = ttk.Treeview(items_tree_container,
-                                        columns=('ID', 'Customer', 'Nama', 'Jenis', 'Dimensi', 'Volume', 'Weight', 'Colli', 'Added'),
+                                        columns=('Customer', 'Nama', 'Jenis', 'Dimensi', 'Volume', 'Weight', 'Colli', 'Harga_Unit', 'Total_Harga', 'Added'),
                                         show='headings', height=15)
             
-            items_detail_tree.heading('ID', text='ID')
             items_detail_tree.heading('Customer', text='Customer')
             items_detail_tree.heading('Nama', text='Nama Barang')
             items_detail_tree.heading('Jenis', text='Jenis')
@@ -1214,19 +2036,22 @@ class ContainerWindow:
             items_detail_tree.heading('Volume', text='Volume (m³)')
             items_detail_tree.heading('Weight', text='Berat (ton)')
             items_detail_tree.heading('Colli', text='Colli')
+            items_detail_tree.heading('Harga_Unit', text='Harga/Unit')
+            items_detail_tree.heading('Total_Harga', text='Total Harga')
             items_detail_tree.heading('Added', text='Ditambahkan')
             
-            items_detail_tree.column('ID', width=40)
-            items_detail_tree.column('Customer', width=100)
-            items_detail_tree.column('Nama', width=150)
-            items_detail_tree.column('Jenis', width=100)
-            items_detail_tree.column('Dimensi', width=80)
-            items_detail_tree.column('Volume', width=80)
-            items_detail_tree.column('Weight', width=80)
-            items_detail_tree.column('Colli', width=60)
-            items_detail_tree.column('Added', width=80)
+            items_detail_tree.column('Customer', width=90)
+            items_detail_tree.column('Nama', width=120)
+            items_detail_tree.column('Jenis', width=80)
+            items_detail_tree.column('Dimensi', width=70)
+            items_detail_tree.column('Volume', width=60)
+            items_detail_tree.column('Weight', width=60)
+            items_detail_tree.column('Colli', width=50)
+            items_detail_tree.column('Harga_Unit', width=80)
+            items_detail_tree.column('Total_Harga', width=90)
+            items_detail_tree.column('Added', width=70)
             
-            # Add items data with safe access
+            # Add items data with safe access including pricing
             def safe_barang_get(barang, key, default='-'):
                 try:
                     value = barang[key]
@@ -1234,7 +2059,7 @@ class ContainerWindow:
                 except (KeyError, IndexError):
                     return default
             
-            # Add items data
+            # Add items data with pricing
             for barang in barang_list:
                 try:
                     panjang = safe_barang_get(barang, 'panjang_barang', '-')
@@ -1245,8 +2070,14 @@ class ContainerWindow:
                     assigned_at = safe_barang_get(barang, 'assigned_at', '')
                     added_date = assigned_at[:10] if assigned_at and len(str(assigned_at)) >= 10 else '-'
                     
+                    # Format pricing for display
+                    harga_unit = safe_barang_get(barang, 'harga_per_unit', 0)
+                    total_harga = safe_barang_get(barang, 'total_harga', 0)
+                    
+                    harga_unit_display = f"{float(harga_unit):,.0f}" if str(harga_unit).replace('.', '').isdigit() else str(harga_unit)
+                    total_harga_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').isdigit() else str(total_harga)
+                    
                     items_detail_tree.insert('', tk.END, values=(
-                        safe_barang_get(barang, 'barang_id', '-'),
                         safe_barang_get(barang, 'nama_customer', '-'),
                         safe_barang_get(barang, 'nama_barang', '-'),
                         safe_barang_get(barang, 'jenis_barang', '-'),
@@ -1254,6 +2085,8 @@ class ContainerWindow:
                         safe_barang_get(barang, 'm3_barang', '-'),
                         safe_barang_get(barang, 'ton_barang', '-'),
                         safe_barang_get(barang, 'colli_amount', '-'),
+                        harga_unit_display,
+                        total_harga_display,
                         added_date
                     ))
                 except Exception as item_error:
@@ -1503,6 +2336,65 @@ class ContainerWindow:
         except Exception as e:
             print(f"Error loading containers: {e}")
             messagebox.showerror("Error", f"Gagal memuat daftar container: {str(e)}")
+
+
+# DATABASE METHODS YANG PERLU DITAMBAHKAN KE AppDatabase CLASS:
+
+def assign_barang_to_container_with_pricing(self, barang_id, container_id, colli_amount, harga_per_unit=0, total_harga=0):
+    """Assign barang to container with pricing information"""
+    try:
+        from datetime import datetime
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Insert with pricing
+        self.execute("""
+            INSERT INTO detail_container 
+            (barang_id, container_id, colli_amount, harga_per_unit, total_harga, assigned_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (barang_id, container_id, colli_amount, harga_per_unit, total_harga, current_time))
+        
+        return True
+    except Exception as e:
+        print(f"Error assigning barang to container with pricing: {e}")
+        return False
+
+def get_barang_in_container_with_colli_and_pricing(self, container_id):
+    """Get all barang in a specific container with colli and pricing information"""
+    try:
+        result = self.execute("""
+            SELECT 
+                b.barang_id,
+                b.nama_barang,
+                b.jenis_barang,
+                b.panjang_barang,
+                b.lebar_barang,
+                b.tinggi_barang,
+                b.m3_barang,
+                b.ton_barang,
+                c.nama_customer,
+                dc.colli_amount,
+                dc.harga_per_unit,
+                dc.total_harga,
+                dc.assigned_at
+            FROM detail_container dc
+            JOIN barang b ON dc.barang_id = b.barang_id
+            JOIN customers c ON b.customer_id = c.customer_id
+            WHERE dc.container_id = ?
+            ORDER BY dc.assigned_at DESC
+        """, (container_id,))
+        return result
+    except Exception as e:
+        print(f"Error getting barang in container with pricing: {e}")
+        return []
+
+
+# SQL UNTUK MENAMBAH KOLOM PRICING KE DATABASE:
+"""
+-- Tambahkan kolom harga ke tabel detail_container
+ALTER TABLE detail_container ADD COLUMN harga_per_unit DECIMAL(15,2) DEFAULT 0;
+ALTER TABLE detail_container ADD COLUMN total_harga DECIMAL(15,2) DEFAULT 0;
+"""
+
 
 if __name__ == "__main__":
     try:
