@@ -80,12 +80,12 @@ class PrintHandler:
         
         # Header information
         content = []
-        content.append("=" * 80)
-        content.append("                           INVOICE CONTAINER")
-        content.append("                          CV. CAHAYA KARUNIA")
-        content.append("                    Jl. Teluk Raya Selatan No. 6 Surabaya")
-        content.append("                         Phone: 031-60166017")
-        content.append("=" * 80)
+        content.append("=" * 120)
+        content.append("                                         INVOICE CONTAINER")
+        content.append("                                        CV. CAHAYA KARUNIA")
+        content.append("                                  Jl. Teluk Raya Selatan No. 6 Surabaya")
+        content.append("                                       Phone: 031-60166017")
+        content.append("=" * 120)
         content.append("")
         
         # Container information
@@ -100,11 +100,41 @@ class PrintHandler:
         content.append(f"Seal           : {safe_get('seal')}")
         content.append(f"Ref JOA        : {safe_get('ref_joa')}")
         content.append("")
-        content.append("-" * 80)
+        content.append("-" * 120)
         
-        # Table header
-        content.append(f"{'No':<3} {'Customer':<15} {'Nama Barang':<20} {'Jenis':<10} {'Dimensi':<12} {'M3':<8} {'Ton':<8} {'Col':<5} {'Harga':<12}")
-        content.append("-" * 80)
+        # Table header with wider columns for better text wrapping
+        content.append(f"{'No':<3} {'Customer':<20} {'Nama Barang':<35} {'Jenis':<15} {'Dimensi':<18} {'M3':<8} {'Ton':<8} {'Col':<5} {'Harga':<15}")
+        content.append("-" * 120)
+        
+        # Helper function untuk text wrapping
+        def wrap_text(text, width):
+            """Wrap text to specified width"""
+            if len(text) <= width:
+                return [text]
+            
+            words = text.split()
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                if len(current_line + " " + word) <= width:
+                    if current_line:
+                        current_line += " " + word
+                    else:
+                        current_line = word
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                        current_line = word
+                    else:
+                        # Word is longer than width, force split
+                        lines.append(word[:width])
+                        current_line = word[width:]
+            
+            if current_line:
+                lines.append(current_line)
+            
+            return lines
         
         # Table content
         total_m3 = 0
@@ -122,15 +152,15 @@ class PrintHandler:
                     except (KeyError, IndexError):
                         return default
                 
-                customer = str(safe_barang_get('nama_customer', '-'))[:14]
-                nama_barang = str(safe_barang_get('nama_barang', '-'))[:19]
-                jenis = str(safe_barang_get('jenis_barang', '-'))[:9]
+                customer = str(safe_barang_get('nama_customer', '-'))
+                nama_barang = str(safe_barang_get('nama_barang', '-'))
+                jenis = str(safe_barang_get('jenis_barang', '-'))
                 
-                # Format dimensions
+                # Format dimensions with better spacing
                 p = safe_barang_get('panjang_barang', '-')
                 l = safe_barang_get('lebar_barang', '-')
                 t = safe_barang_get('tinggi_barang', '-')
-                dimensi = f"{p}x{l}x{t}"[:11]
+                dimensi = f"{p}×{l}×{t}"
                 
                 m3 = safe_barang_get('m3_barang', 0)
                 ton = safe_barang_get('ton_barang', 0)
@@ -152,21 +182,45 @@ class PrintHandler:
                 colli_str = str(colli) if colli not in [None, '', '-'] else '-'
                 harga_str = f"{float(total_harga):,.0f}" if total_harga not in [None, '', '-'] else '-'
                 
-                content.append(f"{i:<3} {customer:<15} {nama_barang:<20} {jenis:<10} {dimensi:<12} {m3_str:<8} {ton_str:<8} {colli_str:<5} {harga_str:<12}")
+                # Wrap long text
+                customer_lines = wrap_text(customer, 19)
+                nama_barang_lines = wrap_text(nama_barang, 34)
+                jenis_lines = wrap_text(jenis, 14)
+                dimensi_lines = wrap_text(dimensi, 17)
+                
+                # Find maximum lines needed
+                max_lines = max(len(customer_lines), len(nama_barang_lines), len(jenis_lines), len(dimensi_lines))
+                
+                # Pad all arrays to same length
+                while len(customer_lines) < max_lines:
+                    customer_lines.append("")
+                while len(nama_barang_lines) < max_lines:
+                    nama_barang_lines.append("")
+                while len(jenis_lines) < max_lines:
+                    jenis_lines.append("")
+                while len(dimensi_lines) < max_lines:
+                    dimensi_lines.append("")
+                
+                # Print first line with all data
+                content.append(f"{i:<3} {customer_lines[0]:<20} {nama_barang_lines[0]:<35} {jenis_lines[0]:<15} {dimensi_lines[0]:<18} {m3_str:<8} {ton_str:<8} {colli_str:<5} {harga_str:<15}")
+                
+                # Print additional lines if needed
+                for line_idx in range(1, max_lines):
+                    content.append(f"{'':3} {customer_lines[line_idx]:<20} {nama_barang_lines[line_idx]:<35} {jenis_lines[line_idx]:<15} {dimensi_lines[line_idx]:<18} {'':8} {'':8} {'':5} {'':15}")
                 
             except Exception as e:
                 print(f"Error processing barang {i}: {e}")
                 continue
         
-        content.append("-" * 80)
-        # Fixed format string - separate the formatting
+        content.append("-" * 120)
+        # Fixed format string - separate the formatting with wider total area
         total_m3_str = f"{total_m3:.3f}"
         total_ton_str = f"{total_ton:.3f}"
         total_colli_str = str(total_colli)
         total_nilai_str = f"{total_nilai:,.0f}"
         
-        content.append(f"{'TOTAL':<60} {total_m3_str:<8} {total_ton_str:<8} {total_colli_str:<5} {total_nilai_str}")
-        content.append("=" * 80)
+        content.append(f"{'TOTAL':<95} {total_m3_str:<8} {total_ton_str:<8} {total_colli_str:<5} {total_nilai_str}")
+        content.append("=" * 120)
         content.append("")
         content.append(f"Total Items: {len(barang_list)}")
         content.append(f"Total Value: Rp {total_nilai:,.0f}")
@@ -190,12 +244,12 @@ class PrintHandler:
         
         # Header information
         content = []
-        content.append("=" * 80)
-        content.append("                        CUSTOMER PACKING LIST")
-        content.append("                          CV. CAHAYA KARUNIA")
-        content.append("                    Jl. Teluk Raya Selatan No. 6 Surabaya")
-        content.append("                         Phone: 031-60166017")
-        content.append("=" * 80)
+        content.append("=" * 120)
+        content.append("                                      CUSTOMER PACKING LIST")
+        content.append("                                        CV. CAHAYA KARUNIA")
+        content.append("                                  Jl. Teluk Raya Selatan No. 6 Surabaya")
+        content.append("                                       Phone: 031-60166017")
+        content.append("=" * 120)
         content.append("")
         
         # Get customer info (use first customer if not specified)
@@ -231,11 +285,41 @@ class PrintHandler:
         content.append(f"Invoice Number             : {invoice_number}")
         content.append(f"Tanggal (ETD)              : {safe_get('etd_sub')}")
         content.append("")
-        content.append("=" * 80)
+        content.append("=" * 120)
         
-        # Table header
-        content.append(f"{'No':<3} {'No Container':<12} {'Pengirim':<15} {'Jenis Barang':<20} {'Kubikasi':<10} {'M3':<8} {'Ton':<8} {'Col':<5} {'Catatan':<10}")
-        content.append("-" * 80)
+        # Table header with better spacing for wrapping
+        content.append(f"{'No':<3} {'No Container':<18} {'Pengirim':<22} {'Jenis Barang':<35} {'Kubikasi':<18} {'M3':<8} {'Ton':<8} {'Col':<5} {'Catatan':<10}")
+        content.append("-" * 120)
+        
+        # Helper function untuk text wrapping
+        def wrap_text(text, width):
+            """Wrap text to specified width"""
+            if len(text) <= width:
+                return [text]
+            
+            words = text.split()
+            lines = []
+            current_line = ""
+            
+            for word in words:
+                if len(current_line + " " + word) <= width:
+                    if current_line:
+                        current_line += " " + word
+                    else:
+                        current_line = word
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                        current_line = word
+                    else:
+                        # Word is longer than width, force split
+                        lines.append(word[:width])
+                        current_line = word[width:]
+            
+            if current_line:
+                lines.append(current_line)
+            
+            return lines
         
         # Table content
         for i, barang in enumerate(barang_list, 1):
@@ -248,15 +332,15 @@ class PrintHandler:
                     except (KeyError, IndexError):
                         return default
                 
-                container_no = str(safe_get('container', '-'))[:11]
-                pengirim = str(safe_barang_get('nama_customer', '-'))[:14]
-                jenis_barang = str(safe_barang_get('jenis_barang', '-'))[:19]
+                container_no = str(safe_get('container', '-'))
+                pengirim = str(safe_barang_get('nama_customer', '-'))
+                jenis_barang = str(safe_barang_get('jenis_barang', '-'))
                 
-                # Kubikasi (dimensions)
+                # Kubikasi (dimensions) with better formatting
                 p = safe_barang_get('panjang_barang', '-')
                 l = safe_barang_get('lebar_barang', '-')
                 t = safe_barang_get('tinggi_barang', '-')
-                kubikasi = f"{p}x{l}x{t}"[:9]
+                kubikasi = f"{p}×{l}×{t}"
                 
                 m3 = safe_barang_get('m3_barang', 0)
                 ton = safe_barang_get('ton_barang', 0)
@@ -267,20 +351,44 @@ class PrintHandler:
                 ton_str = f"{float(ton):.3f}" if ton not in [None, '', '-'] else '-'
                 colli_str = str(colli) if colli not in [None, '', '-'] else '-'
                 
-                content.append(f"{i:<3} {container_no:<12} {pengirim:<15} {jenis_barang:<20} {kubikasi:<10} {m3_str:<8} {ton_str:<8} {colli_str:<5} {'-':<10}")
+                # Wrap long text
+                container_lines = wrap_text(container_no, 17)
+                pengirim_lines = wrap_text(pengirim, 21)
+                jenis_lines = wrap_text(jenis_barang, 34)
+                kubikasi_lines = wrap_text(kubikasi, 17)
+                
+                # Find maximum lines needed
+                max_lines = max(len(container_lines), len(pengirim_lines), len(jenis_lines), len(kubikasi_lines))
+                
+                # Pad all arrays to same length
+                while len(container_lines) < max_lines:
+                    container_lines.append("")
+                while len(pengirim_lines) < max_lines:
+                    pengirim_lines.append("")
+                while len(jenis_lines) < max_lines:
+                    jenis_lines.append("")
+                while len(kubikasi_lines) < max_lines:
+                    kubikasi_lines.append("")
+                
+                # Print first line with all data
+                content.append(f"{i:<3} {container_lines[0]:<18} {pengirim_lines[0]:<22} {jenis_lines[0]:<35} {kubikasi_lines[0]:<18} {m3_str:<8} {ton_str:<8} {colli_str:<5} {'-':<10}")
+                
+                # Print additional lines if needed
+                for line_idx in range(1, max_lines):
+                    content.append(f"{'':3} {container_lines[line_idx]:<18} {pengirim_lines[line_idx]:<22} {jenis_lines[line_idx]:<35} {kubikasi_lines[line_idx]:<18} {'':8} {'':8} {'':5} {'':10}")
                 
             except Exception as e:
                 print(f"Error processing barang {i}: {e}")
                 continue
         
-        content.append("-" * 80)
+        content.append("-" * 120)
         # Fixed format string for packing list total
         total_m3_str = f"{total_m3:.3f}"
         total_ton_str = f"{total_ton:.3f}"
         total_colli_str = str(total_colli)
         
-        content.append(f"{'TOTAL':<60} {total_m3_str:<8} {total_ton_str:<8} {total_colli_str}")
-        content.append("=" * 80)
+        content.append(f"{'TOTAL':<95} {total_m3_str:<8} {total_ton_str:<8} {total_colli_str}")
+        content.append("=" * 120)
         content.append("")
         content.append(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
@@ -292,8 +400,10 @@ class PrintHandler:
             # Create print dialog window
             print_window = tk.Toplevel()
             print_window.title(f"Print {doc_type}")
-            print_window.geometry("800x600")
+            print_window.geometry("1000x700")  # Diperbesar
             print_window.configure(bg='#ecf0f1')
+            print_window.focus_set()  # Set focus ke window
+            print_window.grab_set()   # Grab focus
             
             # Header
             header = tk.Label(
@@ -310,23 +420,43 @@ class PrintHandler:
             preview_frame = tk.Frame(print_window, bg='#ffffff', relief='solid', bd=1)
             preview_frame.pack(fill='both', expand=True, padx=20, pady=20)
             
-            text_widget = tk.Text(preview_frame, font=('Courier', 9), wrap='none')
+            # Configure grid weights untuk preview_frame
+            preview_frame.grid_rowconfigure(0, weight=1)
+            preview_frame.grid_columnconfigure(0, weight=1)
+            
+            # Text widget dengan font yang lebih besar
+            text_widget = tk.Text(preview_frame, font=('Courier New', 10), wrap='none', 
+                                cursor='arrow', state='normal')
             
             # Scrollbars
             v_scrollbar = tk.Scrollbar(preview_frame, orient='vertical', command=text_widget.yview)
             h_scrollbar = tk.Scrollbar(preview_frame, orient='horizontal', command=text_widget.xview)
             text_widget.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
             
+            # Grid layout
             text_widget.grid(row=0, column=0, sticky='nsew')
             v_scrollbar.grid(row=0, column=1, sticky='ns')
             h_scrollbar.grid(row=1, column=0, sticky='ew')
             
-            preview_frame.grid_rowconfigure(0, weight=1)
-            preview_frame.grid_columnconfigure(0, weight=1)
-            
             # Insert content
             text_widget.insert('1.0', content)
-            text_widget.config(state='disabled')
+            text_widget.config(state='disabled')  # Make read-only
+            
+            # Enable mouse wheel scrolling
+            def on_mousewheel(event):
+                text_widget.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            def on_shift_mousewheel(event):
+                text_widget.xview_scroll(int(-1*(event.delta/120)), "units")
+            
+            # Bind mouse wheel events
+            text_widget.bind("<MouseWheel>", on_mousewheel)
+            text_widget.bind("<Shift-MouseWheel>", on_shift_mousewheel)
+            print_window.bind("<MouseWheel>", on_mousewheel)
+            
+            # For Linux
+            text_widget.bind("<Button-4>", lambda e: text_widget.yview_scroll(-1, "units"))
+            text_widget.bind("<Button-5>", lambda e: text_widget.yview_scroll(1, "units"))
             
             # Button frame
             btn_frame = tk.Frame(print_window, bg='#ecf0f1')
@@ -369,45 +499,48 @@ class PrintHandler:
                 except Exception as e:
                     messagebox.showerror("Error", f"Gagal mencetak: {str(e)}\nSilakan simpan file dan cetak manual.")
             
-            # Buttons
+            # Buttons dengan ukuran yang lebih besar
             tk.Button(
                 btn_frame,
                 text="🖨️ Print",
-                font=('Arial', 12, 'bold'),
+                font=('Arial', 14, 'bold'),
                 bg='#27ae60',
                 fg='white',
-                padx=20,
-                pady=8,
+                padx=25,
+                pady=10,
                 command=print_document
-            ).pack(side='left', padx=(0, 10))
+            ).pack(side='left', padx=(0, 15))
             
             tk.Button(
                 btn_frame,
                 text="💾 Save to File",
-                font=('Arial', 12, 'bold'),
+                font=('Arial', 14, 'bold'),
                 bg='#3498db',
                 fg='white',
-                padx=20,
-                pady=8,
+                padx=25,
+                pady=10,
                 command=save_to_file
-            ).pack(side='left', padx=(0, 10))
+            ).pack(side='left', padx=(0, 15))
             
             tk.Button(
                 btn_frame,
                 text="❌ Close",
-                font=('Arial', 12, 'bold'),
+                font=('Arial', 14, 'bold'),
                 bg='#e74c3c',
                 fg='white',
-                padx=20,
-                pady=8,
+                padx=25,
+                pady=10,
                 command=print_window.destroy
             ).pack(side='right')
             
             # Center window
             print_window.update_idletasks()
-            x = (print_window.winfo_screenwidth() // 2) - (400)
-            y = (print_window.winfo_screenheight() // 2) - (300)
-            print_window.geometry(f"800x600+{x}+{y}")
+            x = (print_window.winfo_screenwidth() // 2) - (500)
+            y = (print_window.winfo_screenheight() // 2) - (350)
+            print_window.geometry(f"1000x700+{x}+{y}")
+            
+            # Focus on the window after creation
+            print_window.after(100, lambda: print_window.focus_force())
             
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat preview: {str(e)}")
@@ -431,10 +564,10 @@ class PrintHandler:
             # Multiple customers, show selection dialog
             selection_window = tk.Toplevel()
             selection_window.title("Pilih Customer")
-            selection_window.geometry("400x300")
+            selection_window.geometry("500x400")
             selection_window.configure(bg='#ecf0f1')
-            selection_window.transient()
-            selection_window.grab_set()
+            selection_window.focus_set()  # Set focus
+            selection_window.grab_set()   # Grab focus
             
             # Header
             header = tk.Label(
@@ -459,7 +592,12 @@ class PrintHandler:
             list_frame = tk.Frame(selection_window, bg='#ecf0f1')
             list_frame.pack(fill='both', expand=True, padx=20, pady=10)
             
-            customer_listbox = tk.Listbox(list_frame, font=('Arial', 10), height=8)
+            # Configure grid weights untuk list_frame
+            list_frame.grid_rowconfigure(0, weight=1)
+            list_frame.grid_columnconfigure(0, weight=1)
+            
+            customer_listbox = tk.Listbox(list_frame, font=('Arial', 11), height=10,
+                                        selectmode='single', activestyle='dotbox')
             
             # Add "All Customers" option
             customer_listbox.insert(tk.END, "📊 ALL CUSTOMERS")
@@ -468,16 +606,32 @@ class PrintHandler:
             for customer in sorted(customers):
                 customer_listbox.insert(tk.END, f"👤 {customer}")
             
+            # Select first item by default
+            customer_listbox.selection_set(0)
+            customer_listbox.activate(0)
+            
             # Scrollbar for listbox
             scrollbar = tk.Scrollbar(list_frame, orient='vertical', command=customer_listbox.yview)
             customer_listbox.configure(yscrollcommand=scrollbar.set)
             
-            customer_listbox.pack(side='left', fill='both', expand=True)
-            scrollbar.pack(side='right', fill='y')
+            # Grid layout
+            customer_listbox.grid(row=0, column=0, sticky='nsew')
+            scrollbar.grid(row=0, column=1, sticky='ns')
+            
+            # Enable mouse wheel scrolling
+            def on_mousewheel(event):
+                customer_listbox.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            customer_listbox.bind("<MouseWheel>", on_mousewheel)
+            selection_window.bind("<MouseWheel>", on_mousewheel)
+            
+            # For Linux
+            customer_listbox.bind("<Button-4>", lambda e: customer_listbox.yview_scroll(-1, "units"))
+            customer_listbox.bind("<Button-5>", lambda e: customer_listbox.yview_scroll(1, "units"))
             
             # Buttons
             btn_frame = tk.Frame(selection_window, bg='#ecf0f1')
-            btn_frame.pack(fill='x', padx=20, pady=10)
+            btn_frame.pack(fill='x', padx=20, pady=15)
             
             def print_selected():
                 selection = customer_listbox.curselection()
@@ -497,16 +651,29 @@ class PrintHandler:
                 
                 selection_window.destroy()
             
+            def on_double_click(event):
+                print_selected()
+            
+            # Bind double click
+            customer_listbox.bind("<Double-Button-1>", on_double_click)
+            
+            # Bind Enter key
+            def on_enter(event):
+                print_selected()
+            
+            selection_window.bind("<Return>", on_enter)
+            customer_listbox.bind("<Return>", on_enter)
+            
             tk.Button(
                 btn_frame,
                 text="📄 Print Packing List",
                 font=('Arial', 12, 'bold'),
                 bg='#27ae60',
                 fg='white',
-                padx=20,
-                pady=8,
+                padx=25,
+                pady=10,
                 command=print_selected
-            ).pack(side='left')
+            ).pack(side='left', padx=(0, 15))
             
             tk.Button(
                 btn_frame,
@@ -514,16 +681,19 @@ class PrintHandler:
                 font=('Arial', 12, 'bold'),
                 bg='#e74c3c',
                 fg='white',
-                padx=20,
-                pady=8,
+                padx=25,
+                pady=10,
                 command=selection_window.destroy
             ).pack(side='right')
             
             # Center window
             selection_window.update_idletasks()
-            x = (selection_window.winfo_screenwidth() // 2) - (200)
-            y = (selection_window.winfo_screenheight() // 2) - (150)
-            selection_window.geometry(f"400x300+{x}+{y}")
+            x = (selection_window.winfo_screenwidth() // 2) - (250)
+            y = (selection_window.winfo_screenheight() // 2) - (200)
+            selection_window.geometry(f"500x400+{x}+{y}")
+            
+            # Focus on listbox after creation
+            selection_window.after(100, lambda: customer_listbox.focus_set())
             
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat dialog selection: {str(e)}")
