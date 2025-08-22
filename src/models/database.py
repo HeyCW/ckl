@@ -211,21 +211,27 @@ class SQLiteDatabase:
         query = '''
         CREATE TABLE IF NOT EXISTS barang (
             barang_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            customer_id INTEGER,
+            pengirim TEXT NOT NULL,
+            penerima TEXT NOT NULL,
             nama_barang TEXT NOT NULL,
             jenis_barang TEXT NOT NULL,
-            panjang_barang REAL NOT NULL,
-            lebar_barang REAL NOT NULL,
-            tinggi_barang REAL NOT NULL,
-            m3_barang REAL NOT NULL,
-            ton_barang REAL NOT NULL,
-            col_barang INTEGER NOT NULL,
-            harga_m3 REAL,
-            harga_ton REAL,
-            harga_col REAL,
+            panjang_barang  REAL,
+            lebar_barang REAL,
+            tinggi_barang REAL,
+            m3_barang REAL,
+            ton_barang REAL,
+            col_barang  INTEGER,
+            m3_pp REAL,
+            m3_pd REAL,
+            m3_dd REAL,
+            ton_pp REAL,
+            ton_pd REAL,
+            ton_dd REAL,
+            col_pp INTEGER,
+            col_pd INTEGER,
+            col_dd INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (customer_id) REFERENCES customers (customer_id)
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         '''
         try:
@@ -236,26 +242,31 @@ class SQLiteDatabase:
             raise
     
     def create_detail_container_table(self):
-        """Create detail container table with pricing columns"""
+        """Create detail container table with pricing columns and sender/receiver info"""
         query = '''
         CREATE TABLE IF NOT EXISTS detail_container (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             barang_id INTEGER NOT NULL,
             container_id INTEGER NOT NULL,
-            colli_amount INTEGER NOT NULL,
+            sender_id INTEGER,
+            receiver_id INTEGER,
+            colli_amount INTEGER NOT NULL DEFAULT 1,
             harga_per_unit DECIMAL(15,2) DEFAULT 0,
             total_harga DECIMAL(15,2) DEFAULT 0,
             assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT,
             FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
-            FOREIGN KEY (container_id) REFERENCES containers (container_id)
+            FOREIGN KEY (container_id) REFERENCES containers (container_id),
+            FOREIGN KEY (sender_id) REFERENCES customers (customer_id),
+            FOREIGN KEY (receiver_id) REFERENCES customers (customer_id)
         )
         '''
         try:
             self.execute(query)
-            logger.info("Detail container table created successfully")
+            print("✅ Detail container table created/updated successfully")
         except Exception as e:
-            logger.error(f"Failed to create detail container table: {e}")
+            print(f"❌ Failed to create detail container table: {e}")
             raise
     
     def insert_default_data(self):
@@ -555,83 +566,87 @@ class ContainerDatabase(SQLiteDatabase):
 class BarangDatabase(SQLiteDatabase):
     """Extended database class with barang-specific methods"""
     
-    def create_barang(self, customer_id, nama_barang, jenis_barang=None, 
-                     panjang_barang=None, lebar_barang=None, tinggi_barang=None, 
-                     m3_barang=None, ton_barang=None, col_barang=None, 
-                     harga_m3=None, harga_ton=None, harga_col=None):
+    def create_barang(self, pengirim, penerima, jenis_barang, nama_barang,
+                 panjang_barang=None, lebar_barang=None, tinggi_barang=None, m3_barang=None, ton_barang=None, col_barang=None,
+                 m3_pp=None, m3_pd=None, m3_dd=None,
+                 ton_pp=None, ton_pd=None, ton_dd=None,
+                 col_pp=None, col_pd=None, col_dd=None):
         """Create new barang with error handling"""
-        if not customer_id or not nama_barang:
-            raise ValueError("Customer ID and barang name are required")
-        
+        if not pengirim or not penerima or not nama_barang:
+            raise ValueError("Pengirim, Penerima, and Nama Barang are required")
+    
         try:
             barang_id = self.execute_insert('''
-                INSERT INTO barang (customer_id, nama_barang, jenis_barang, panjang_barang, 
-                                   lebar_barang, tinggi_barang, m3_barang, ton_barang, 
-                                   col_barang, harga_m3, harga_ton, harga_col)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (customer_id, nama_barang, jenis_barang, panjang_barang, lebar_barang, 
-                  tinggi_barang, m3_barang, ton_barang, col_barang, harga_m3, harga_ton, harga_col))
-            
+                INSERT INTO barang (pengirim, penerima, jenis_barang, nama_barang, 
+                                panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, col_barang,
+                                m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd,
+                                col_pp, col_pd, col_dd)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (pengirim, penerima, jenis_barang, nama_barang, panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, col_barang,
+                m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd, col_pp, col_pd, col_dd))
+        
             logger.info(f"Barang created successfully: {nama_barang}")
             return barang_id
-            
+        
         except Exception as e:
             logger.error(f"Failed to create barang {nama_barang}: {e}")
             raise DatabaseError(f"Failed to create barang: {e}")
-    
+
     def update_barang(self, barang_data):
         """Update existing barang with error handling"""
         if not barang_data or not barang_data.get('barang_id'):
             raise ValueError("Barang data and ID are required")
-    
-        required_fields = ['nama_barang', 'barang_id']
+
+        required_fields = ['nama_barang', 'barang_id', 'pengirim', 'penerima']
         for field in required_fields:
             if field not in barang_data:
                 raise ValueError(f"Required field missing: {field}")
-    
+
         try:
             # Cek apakah barang_id ada sebelum update
             existing_barang = self.execute_one(
-                "SELECT barang_id FROM barang WHERE barang_id = ?", 
+                "SELECT barang_id FROM barang WHERE barang_id = ?",
                 (barang_data['barang_id'],)
             )
-            
+        
             if not existing_barang:
                 raise ValueError(f"Barang dengan ID {barang_data['barang_id']} tidak ditemukan")
-            
+        
             # Lakukan update
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
                     UPDATE barang
-                    SET nama_barang = ?, jenis_barang = ?, panjang_barang = ?, lebar_barang = ?,
-                        tinggi_barang = ?, m3_barang = ?, ton_barang = ?, col_barang = ?,
-                        harga_m3 = ?, harga_ton = ?, harga_col = ?, updated_at = CURRENT_TIMESTAMP
+                    SET pengirim = ?, penerima = ?, jenis_barang = ?, nama_barang = ?,
+                        p = ?, l = ?, t = ?, m3 = ?, ton = ?, colli = ?,
+                        m3_pp = ?, m3_pd = ?, m3_dd = ?, ton_pp = ?, ton_pd = ?, ton_dd = ?,
+                        colli_pp = ?, colli_pd = ?, colli_dd = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE barang_id = ?
                 ''', (
-                    barang_data.get('nama_barang'), barang_data.get('jenis_barang'),
-                    barang_data.get('panjang_barang'), barang_data.get('lebar_barang'),
-                    barang_data.get('tinggi_barang'), barang_data.get('m3_barang'),
-                    barang_data.get('ton_barang'), barang_data.get('col_barang'),
-                    barang_data.get('harga_m3'), barang_data.get('harga_ton'),
-                    barang_data.get('harga_col'), barang_data['barang_id']
+                    barang_data.get('pengirim'), barang_data.get('penerima'),
+                    barang_data.get('jenis_barang'), barang_data.get('nama_barang'),
+                    barang_data.get('p'), barang_data.get('l'), barang_data.get('t'),
+                    barang_data.get('m3'), barang_data.get('ton'), barang_data.get('colli'),
+                    barang_data.get('m3_pp'), barang_data.get('m3_pd'), barang_data.get('m3_dd'),
+                    barang_data.get('ton_pp'), barang_data.get('ton_pd'), barang_data.get('ton_dd'),
+                    barang_data.get('colli_pp'), barang_data.get('colli_pd'), barang_data.get('colli_dd'),
+                    barang_data['barang_id']
                 ))
-                
+            
                 # Cek berapa row yang terpengaruh
                 rows_affected = cursor.rowcount
-                
+            
                 if rows_affected == 0:
                     raise ValueError(f"Gagal mengupdate barang ID {barang_data['barang_id']} - data tidak ditemukan")
-        
+
             logger.info(f"Barang updated successfully: ID {barang_data['barang_id']}")
-        
+
         except ValueError:
             # Re-raise ValueError tanpa wrap ke DatabaseError
             raise
         except Exception as e:
             logger.error(f"Failed to update barang ID {barang_data.get('barang_id')}: {e}")
             raise DatabaseError(f"Failed to update barang: {e}")
-        
     
     def delete_barang(self, barang_id):
         """Delete barang with error handling"""
@@ -683,9 +698,8 @@ class BarangDatabase(SQLiteDatabase):
         
         try:
             barang_list = self.execute('''
-                SELECT b.*, c.nama_customer 
+                SELECT b.*
                 FROM barang b
-                JOIN customers c ON b.customer_id = c.customer_id
                 ORDER BY b.barang_id ASC
             ''')
             

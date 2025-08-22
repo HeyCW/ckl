@@ -82,9 +82,44 @@ class BarangWindow:
         close_btn.pack(pady=10)
     
     def create_manual_tab(self, parent):
-        """Create manual input tab"""
-        # Form frame
-        form_frame = tk.Frame(parent, bg='#ecf0f1')
+        """Create manual input tab with scrollable content"""
+        # Main container
+        main_container = tk.Frame(parent, bg='#ecf0f1')
+        main_container.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Create canvas and scrollbar
+        canvas = tk.Canvas(main_container, bg='#ecf0f1', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
+        
+        # Configure scrolling
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Bind mouse wheel to canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _bind_to_mousewheel(event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        def _unbind_from_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+        
+        canvas.bind('<Enter>', _bind_to_mousewheel)
+        canvas.bind('<Leave>', _unbind_from_mousewheel)
+        
+        # Form frame (now inside scrollable_frame)
+        form_frame = tk.Frame(scrollable_frame, bg='#ecf0f1')
         form_frame.pack(fill='x', padx=20, pady=20)
         
         # Instructions
@@ -97,13 +132,28 @@ class BarangWindow:
         )
         instruction_label.pack(pady=(0, 20))
         
-        # Customer selection
-        tk.Label(form_frame, text="Pilih Customer:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
-        self.customer_var = tk.StringVar()
-        self.customer_combo = ttk.Combobox(form_frame, textvariable=self.customer_var, font=('Arial', 11), width=47, state='readonly')
-        self.customer_combo.pack(fill='x', pady=(5, 10))
+        # Customer selection frame
+        customer_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        customer_frame.pack(fill='x', pady=10)
         
-        # Load customers into combobox
+        # Pengirim selection
+        pengirim_frame = tk.Frame(customer_frame, bg='#ecf0f1')
+        pengirim_frame.pack(fill='x', pady=(0, 10))
+        
+        tk.Label(pengirim_frame, text="Pilih Pengirim:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        self.pengirim_var = tk.StringVar()
+        self.pengirim_combo = ttk.Combobox(pengirim_frame, textvariable=self.pengirim_var, font=('Arial', 11), width=47, state='readonly')
+        self.pengirim_combo.pack(fill='x', pady=(5, 0))
+        
+        # Penerima selection
+        penerima_frame = tk.Frame(customer_frame, bg='#ecf0f1')
+        penerima_frame.pack(fill='x', pady=(10, 0))
+        
+        tk.Label(penerima_frame, text="Pilih Penerima:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        self.penerima_var = tk.StringVar()
+        self.penerima_combo = ttk.Combobox(penerima_frame, textvariable=self.penerima_var, font=('Arial', 11), width=47, state='readonly')
+        self.penerima_combo.pack(fill='x', pady=(5, 0))
+        
         self.load_customer_combo()
         
         # Jenis Barang
@@ -158,37 +208,94 @@ class BarangWindow:
         price_frame = tk.Frame(form_frame, bg='#ecf0f1')
         price_frame.pack(fill='x', pady=10)
         
-        tk.Label(price_frame, text="Harga Satuan:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
+        tk.Label(price_frame, text="Harga Satuan:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 10))
         
         # Pricing options sub-frame
         pricing_subframe = tk.Frame(price_frame, bg='#ecf0f1')
         pricing_subframe.pack(fill='x')
         
-        # Harga per m3
-        harga_m3_frame = tk.Frame(pricing_subframe, bg='#ecf0f1')
-        harga_m3_frame.pack(fill='x', pady=2)
-        tk.Label(harga_m3_frame, text="Harga/m³ (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.harga_m3_entry = tk.Entry(harga_m3_frame, font=('Arial', 10), width=20)
-        self.harga_m3_entry.pack(side='left', padx=(5, 0))
+        # === HARGA PER M³ SECTION ===
+        m3_section = tk.LabelFrame(pricing_subframe, text="💰 Harga per m³", font=('Arial', 10, 'bold'), 
+                                  bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
+        m3_section.pack(fill='x', pady=(0, 10))
         
-        # Harga per ton
-        harga_ton_frame = tk.Frame(pricing_subframe, bg='#ecf0f1')
-        harga_ton_frame.pack(fill='x', pady=2)
-        tk.Label(harga_ton_frame, text="Harga/ton (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.harga_ton_entry = tk.Entry(harga_ton_frame, font=('Arial', 10), width=20)
-        self.harga_ton_entry.pack(side='left', padx=(5, 0))
+        # Harga m3 - Pelabuhan ke Pelabuhan
+        m3_pp_frame = tk.Frame(m3_section, bg='#ecf0f1')
+        m3_pp_frame.pack(fill='x', pady=2)
+        tk.Label(m3_pp_frame, text="Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_m3_pp_entry = tk.Entry(m3_pp_frame, font=('Arial', 9), width=15)
+        self.harga_m3_pp_entry.pack(side='right', padx=(5, 0))
         
-        # Harga per colli
-        harga_coll_frame = tk.Frame(pricing_subframe, bg='#ecf0f1')
-        harga_coll_frame.pack(fill='x', pady=2)
-        tk.Label(harga_coll_frame, text="Harga/colli (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.harga_coll_entry = tk.Entry(harga_coll_frame, font=('Arial', 10), width=20)
-        self.harga_coll_entry.pack(side='left', padx=(5, 0))
+        # Harga m3 - Pelabuhan ke Door
+        m3_pd_frame = tk.Frame(m3_section, bg='#ecf0f1')
+        m3_pd_frame.pack(fill='x', pady=2)
+        tk.Label(m3_pd_frame, text="Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_m3_pd_entry = tk.Entry(m3_pd_frame, font=('Arial', 9), width=15)
+        self.harga_m3_pd_entry.pack(side='right', padx=(5, 0))
+        
+        # Harga m3 - Door ke Door
+        m3_dd_frame = tk.Frame(m3_section, bg='#ecf0f1')
+        m3_dd_frame.pack(fill='x', pady=2)
+        tk.Label(m3_dd_frame, text="Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_m3_dd_entry = tk.Entry(m3_dd_frame, font=('Arial', 9), width=15)
+        self.harga_m3_dd_entry.pack(side='right', padx=(5, 0))
+        
+        # === HARGA PER TON SECTION ===
+        ton_section = tk.LabelFrame(pricing_subframe, text="⚖️ Harga per Ton", font=('Arial', 10, 'bold'), 
+                                   bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
+        ton_section.pack(fill='x', pady=(0, 10))
+        
+        # Harga ton - Pelabuhan ke Pelabuhan
+        ton_pp_frame = tk.Frame(ton_section, bg='#ecf0f1')
+        ton_pp_frame.pack(fill='x', pady=2)
+        tk.Label(ton_pp_frame, text="Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_ton_pp_entry = tk.Entry(ton_pp_frame, font=('Arial', 9), width=15)
+        self.harga_ton_pp_entry.pack(side='right', padx=(5, 0))
+        
+        # Harga ton - Pelabuhan ke Door
+        ton_pd_frame = tk.Frame(ton_section, bg='#ecf0f1')
+        ton_pd_frame.pack(fill='x', pady=2)
+        tk.Label(ton_pd_frame, text="Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_ton_pd_entry = tk.Entry(ton_pd_frame, font=('Arial', 9), width=15)
+        self.harga_ton_pd_entry.pack(side='right', padx=(5, 0))
+        
+        # Harga ton - Door ke Door
+        ton_dd_frame = tk.Frame(ton_section, bg='#ecf0f1')
+        ton_dd_frame.pack(fill='x', pady=2)
+        tk.Label(ton_dd_frame, text="Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_ton_dd_entry = tk.Entry(ton_dd_frame, font=('Arial', 9), width=15)
+        self.harga_ton_dd_entry.pack(side='right', padx=(5, 0))
+        
+        # === HARGA PER COLLI SECTION ===
+        colli_section = tk.LabelFrame(pricing_subframe, text="📦 Harga per Colli", font=('Arial', 10, 'bold'), 
+                                     bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
+        colli_section.pack(fill='x', pady=(0, 10))
+        
+        # Harga colli - Pelabuhan ke Pelabuhan
+        colli_pp_frame = tk.Frame(colli_section, bg='#ecf0f1')
+        colli_pp_frame.pack(fill='x', pady=2)
+        tk.Label(colli_pp_frame, text="Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_colli_pp_entry = tk.Entry(colli_pp_frame, font=('Arial', 9), width=15)
+        self.harga_colli_pp_entry.pack(side='right', padx=(5, 0))
+        
+        # Harga colli - Pelabuhan ke Door
+        colli_pd_frame = tk.Frame(colli_section, bg='#ecf0f1')
+        colli_pd_frame.pack(fill='x', pady=2)
+        tk.Label(colli_pd_frame, text="Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_colli_pd_entry = tk.Entry(colli_pd_frame, font=('Arial', 9), width=15)
+        self.harga_colli_pd_entry.pack(side='right', padx=(5, 0))
+        
+        # Harga colli - Door ke Door
+        colli_dd_frame = tk.Frame(colli_section, bg='#ecf0f1')
+        colli_dd_frame.pack(fill='x', pady=2)
+        tk.Label(colli_dd_frame, text="Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_colli_dd_entry = tk.Entry(colli_dd_frame, font=('Arial', 9), width=15)
+        self.harga_colli_dd_entry.pack(side='right', padx=(5, 0))
         
         # Note
         note_label = tk.Label(
             price_frame,
-            text="💡 Isi salah satu metode pricing atau lebih",
+            text="💡 Isi sesuai jenis layanan dan metode pricing yang digunakan",
             font=('Arial', 9),
             fg='#7f8c8d',
             bg='#ecf0f1'
@@ -223,17 +330,60 @@ class BarangWindow:
         )
         clear_btn.pack(side='left')
         
-        # Focus on customer combo
-        self.customer_combo.focus()
+        # Store canvas reference for later use if needed
+        self.canvas = canvas
+        self.scrollable_frame = scrollable_frame
+        
+        # Focus on pengirim combo
+        self.pengirim_combo.focus()
     
     def create_excel_tab(self, parent):
-        """Create Excel upload tab"""
-        # Main container
+        """Create Excel upload tab with scrollable content"""
+        # Main container with scroll
         main_container = tk.Frame(parent, bg='#ecf0f1')
-        main_container.pack(fill='both', expand=True, padx=20, pady=20)
+        main_container.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        canvas = tk.Canvas(main_container, bg='#ecf0f1', highlightthickness=0)
+        v_scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=canvas.yview)
+        h_scrollbar = ttk.Scrollbar(main_container, orient="horizontal", command=canvas.xview)
+
+        scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+        # Pack
+        h_scrollbar.pack(side="bottom", fill="x")
+        v_scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+          
+        # Bind mouse wheel to canvas
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _bind_to_mousewheel(event):
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        def _unbind_from_mousewheel(event):
+            canvas.unbind_all("<MouseWheel>")
+        
+        canvas.bind('<Enter>', _bind_to_mousewheel)
+        canvas.bind('<Leave>', _unbind_from_mousewheel)
+        
+        # Content frame (now inside scrollable_frame)
+        content_frame = tk.Frame(scrollable_frame, bg='#ecf0f1')
+        content_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         # Instructions
-        instruction_frame = tk.Frame(main_container, bg='#ffffff', relief='solid', bd=1)
+        instruction_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
         instruction_frame.pack(fill='x', pady=(0, 20))
         
         instruction_title = tk.Label(
@@ -248,13 +398,17 @@ class BarangWindow:
         instruction_text = tk.Label(
             instruction_frame,
             text="Format Excel yang dibutuhkan:\n\n" +
-                 "• Customer: Nama customer yang sudah terdaftar (WAJIB)\n" +
-                 "• Nama Barang: Nama produk/barang (WAJIB)\n" +
+                 "• Pengirim: Nama pengirim yang sudah terdaftar (WAJIB)\n" +
+                 "• Penerima: Nama penerima yang sudah terdaftar (WAJIB)\n" +
                  "• Jenis Barang: Kategori barang (opsional)\n" +
+                 "• Nama Barang: Nama produk/barang (WAJIB)\n" +
                  "• P, L, T: Panjang, Lebar, Tinggi (cm)\n" +
-                 "• M3: Volume (m³), Ton: Berat (ton), Colli: Jumlah kemasan\n" +
-                 "• Harga/m3, Harga/ton, Harga/coll: Harga satuan per metode\n\n" +
-                 "Pastikan customer sudah terdaftar di sistem!",
+                 "• M3: Volume (m³), Ton: Berat (ton), Colli: Jumlah kemasan\n\n" +
+                 "Harga per Jenis Layanan:\n" +
+                 "• M3_PP, M3_PD, M3_DD: Harga/m³ (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n" +
+                 "• TON_PP, TON_PD, TON_DD: Harga/ton (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n" +
+                 "• COLLI_PP, COLLI_PD, COLLI_DD: Harga/colli (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n\n" +
+                 "Pastikan pengirim dan penerima sudah terdaftar di sistem!",
             font=('Arial', 10),
             fg='#34495e',
             bg='#ffffff',
@@ -263,7 +417,7 @@ class BarangWindow:
         instruction_text.pack(pady=(0, 10), padx=20)
         
         # File selection
-        file_frame = tk.Frame(main_container, bg='#ecf0f1')
+        file_frame = tk.Frame(content_frame, bg='#ecf0f1')
         file_frame.pack(fill='x', pady=10)
         
         tk.Label(file_frame, text="Pilih File Excel:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
@@ -288,74 +442,111 @@ class BarangWindow:
         browse_btn.pack(side='right', padx=(5, 0))
         
         # Preview area
-        preview_frame = tk.Frame(main_container, bg='#ecf0f1')
+        preview_frame = tk.Frame(content_frame, bg='#ecf0f1')
         preview_frame.pack(fill='both', expand=True, pady=10)
         
-        tk.Label(preview_frame, text="📋 Preview Data:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        tk.Label(preview_frame, text="📋 Preview Data:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
         
-        # Preview treeview with horizontal scroll
-        preview_tree_frame = tk.Frame(preview_frame, bg='#ecf0f1')
-        preview_tree_frame.pack(fill='x', pady=5)
+        # Create container frame for treeview and scrollbars
+        tree_container = tk.Frame(preview_frame, bg='#ecf0f1')
+        tree_container.pack(fill='both', expand=True, pady=5)
         
-        preview_container = tk.Frame(preview_tree_frame, bg='#ecf0f1')
-        preview_container.pack(fill='both', expand=True)
+        # Updated columns with Pengirim, Penerima and all pricing types
+        columns = ('Pengirim', 'Penerima', 'Jenis', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 'Colli', 
+                  'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD')
         
-        self.preview_tree = ttk.Treeview(preview_container, 
-                                       columns=('Customer', 'Jenis', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 'Colli', 'Harga/m3', 'Harga/ton', 'Harga/coll'), 
-                                       show='headings', height=6)
+        # Create Treeview with scrollbars - using ONLY pack manager
+        self.preview_tree = ttk.Treeview(tree_container, 
+                                       columns=columns, 
+                                       show='headings',
+                                       height=10)
         
-        # Configure columns
+        # Configure column headers
         headers = {
-            'Customer': 'Customer',
+            'Pengirim': 'Pengirim',
+            'Penerima': 'Penerima',
             'Jenis': 'Jenis Barang', 
             'Nama': 'Nama Barang',
             'P': 'P(cm)',
             'L': 'L(cm)', 
             'T': 'T(cm)',
-            'M3': 'M3',
+            'M3': 'M³',
             'Ton': 'Ton',
             'Colli': 'Colli',
-            'Harga/m3': 'Harga/m3',
-            'Harga/ton': 'Harga/ton',
-            'Harga/coll': 'Harga/coll'
+            'M3_PP': 'M³ P→P',
+            'M3_PD': 'M³ P→D',
+            'M3_DD': 'M³ D→D',
+            'TON_PP': 'Ton P→P',
+            'TON_PD': 'Ton P→D',
+            'TON_DD': 'Ton D→D',
+            'COLLI_PP': 'Colli P→P',
+            'COLLI_PD': 'Colli P→D',
+            'COLLI_DD': 'Colli D→D'
         }
         
         for col_id, header_text in headers.items():
             self.preview_tree.heading(col_id, text=header_text)
         
-        # Configure column widths
+        # Configure column widths - make them fixed and wide enough to force horizontal scroll
         column_widths = {
-            'Customer': 120,
-            'Jenis': 100,
+            'Pengirim': 150,
+            'Penerima': 150,
+            'Jenis': 120,
             'Nama': 180,
-            'P': 50,
-            'L': 50,
-            'T': 50,
-            'M3': 70,
-            'Ton': 70,
-            'Colli': 60,
-            'Harga/m3': 100,
-            'Harga/ton': 100,
-            'Harga/coll': 100
+            'P': 70,
+            'L': 70,
+            'T': 70,
+            'M3': 80,
+            'Ton': 80,
+            'Colli': 80,
+            'M3_PP': 100,
+            'M3_PD': 100,
+            'M3_DD': 100,
+            'TON_PP': 100,
+            'TON_PD': 100,
+            'TON_DD': 100,
+            'COLLI_PP': 100,
+            'COLLI_PD': 100,
+            'COLLI_DD': 100
         }
         
+        # Total width will be about 2000px, forcing horizontal scroll
         for col_id, width in column_widths.items():
-            self.preview_tree.column(col_id, width=width)
+            self.preview_tree.column(col_id, width=width, minwidth=width, stretch=False)
         
-        # Scrollbars
-        v_scrollbar = ttk.Scrollbar(preview_container, orient='vertical', command=self.preview_tree.yview)
-        h_scrollbar = ttk.Scrollbar(preview_container, orient='horizontal', command=self.preview_tree.xview)
+        # Create scrollbars - using ONLY pack manager
+        v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical', command=self.preview_tree.yview)
+        h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal', command=self.preview_tree.xview)
+        
+        # Configure treeview scrollbars
         self.preview_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
         
-        self.preview_tree.grid(row=0, column=0, sticky='nsew')
-        v_scrollbar.grid(row=0, column=1, sticky='ns')
-        h_scrollbar.grid(row=1, column=0, sticky='ew')
+        # Pack everything using pack manager only - NO GRID!
+        h_scrollbar.pack(side='bottom', fill='x')
+        v_scrollbar.pack(side='right', fill='y')
+        self.preview_tree.pack(fill='both', expand=True)
         
-        preview_container.grid_rowconfigure(0, weight=1)
-        preview_container.grid_columnconfigure(0, weight=1)
+        # Bind keyboard events for navigation
+        def on_key_press(event):
+            if event.keysym == 'Right':
+                self.preview_tree.xview_scroll(1, "units")
+                return "break"
+            elif event.keysym == 'Left':
+                self.preview_tree.xview_scroll(-1, "units")
+                return "break"
+            elif event.keysym == 'Down':
+                self.preview_tree.yview_scroll(1, "units")
+                return "break"
+            elif event.keysym == 'Up':
+                self.preview_tree.yview_scroll(-1, "units")
+                return "break"
+        
+        # Bind events
+        self.preview_tree.bind('<Key>', on_key_press)
+        self.preview_tree.bind('<Button-1>', lambda e: self.preview_tree.focus_set())
         
         # Upload buttons
-        upload_btn_frame = tk.Frame(main_container, bg='#ecf0f1')
+        upload_btn_frame = tk.Frame(content_frame, bg='#ecf0f1')
         upload_btn_frame.pack(fill='x', pady=15)
         
         self.upload_btn = tk.Button(
@@ -385,7 +576,7 @@ class BarangWindow:
         
         # Status label
         self.status_label = tk.Label(
-            main_container,
+            content_frame,
             text="",
             font=('Arial', 11),
             fg='#e74c3c',
@@ -394,7 +585,11 @@ class BarangWindow:
             justify='left'
         )
         self.status_label.pack(pady=10, fill='x')
-    
+        
+        # Store canvas reference
+        self.excel_canvas = canvas
+        self.excel_scrollable_frame = scrollable_frame
+   
     def create_list_tab(self, parent):
         """Create barang list tab with search, update, delete functionality"""
         # Container
@@ -1335,8 +1530,9 @@ class BarangWindow:
         """Load customers into combobox"""
         customers = self.db.get_all_customers()
         customer_list = [f"{c['customer_id']} - {c['nama_customer']}" for c in customers]
-        self.customer_combo['values'] = customer_list
-    
+        self.penerima_combo['values'] = customer_list
+        self.pengirim_combo['values'] = customer_list
+        
     def browse_file(self):
         """Browse for Excel file"""
         file_types = [
@@ -1355,7 +1551,7 @@ class BarangWindow:
             self.preview_excel_file(filename)
     
     def preview_excel_file(self, filename):
-        """Preview Excel file content with enhanced field mapping"""
+        """Preview Excel file content with enhanced field mapping for Pengirim-Penerima system"""
         try:
             self.status_label.config(text="📄 Membaca file Excel...", fg='#3498db')
             
@@ -1370,26 +1566,45 @@ class BarangWindow:
             # Clean column names
             df.columns = df.columns.astype(str).str.strip()
             
-            # Enhanced column mapping for barang data with better matching logic
+            # ✅ UPDATED: Enhanced column mapping for Pengirim-Penerima system
             column_mapping = {
-                'customer': ['customer', 'nama customer', 'client'],
+                # Required fields
+                'pengirim': ['pengirim', 'sender', 'from', 'asal', 'customer_asal'],
+                'penerima': ['penerima', 'receiver', 'to', 'tujuan', 'customer_tujuan'],
+                'nama_barang': ['nama barang', 'nama_barang', 'barang', 'product', 'nama', 'item'],
+                
+                # Optional fields  
                 'jenis_barang': ['jenis barang', 'jenis_barang', 'kategori', 'category', 'type'],
-                'nama_barang': ['nama barang', 'nama_barang', 'barang', 'product', 'nama'],
                 'panjang': ['p', 'panjang', 'length'],
                 'lebar': ['l', 'lebar', 'width'], 
                 'tinggi': ['t', 'tinggi', 'height'],
                 'm3': ['m3', 'volume', 'vol'],
                 'ton': ['ton', 'berat', 'weight'],
                 'colli': ['colli', 'col', 'kemasan', 'package'],
+                
+                # ✅ NEW: All pricing fields (PP, PD, DD)
+                'harga_m3_pp': ['m3_pp', 'harga_m3_pp', 'harga m3 pp', 'm³ p→p', 'm3 pelabuhan-pelabuhan'],
+                'harga_m3_pd': ['m3_pd', 'harga_m3_pd', 'harga m3 pd', 'm³ p→d', 'm3 pelabuhan-door'],
+                'harga_m3_dd': ['m3_dd', 'harga_m3_dd', 'harga m3 dd', 'm³ d→d', 'm3 door-door'],
+                
+                'harga_ton_pp': ['ton_pp', 'harga_ton_pp', 'harga ton pp', 'ton p→p', 'ton pelabuhan-pelabuhan'],
+                'harga_ton_pd': ['ton_pd', 'harga_ton_pd', 'harga ton pd', 'ton p→d', 'ton pelabuhan-door'],
+                'harga_ton_dd': ['ton_dd', 'harga_ton_dd', 'harga ton dd', 'ton d→d', 'ton door-door'],
+                
+                'harga_col_pp': ['colli_pp', 'harga_col_pp', 'harga colli pp', 'colli p→p', 'colli pelabuhan-pelabuhan'],
+                'harga_col_pd': ['colli_pd', 'harga_col_pd', 'harga colli pd', 'colli p→d', 'colli pelabuhan-door'],
+                'harga_col_dd': ['colli_dd', 'harga_col_dd', 'harga colli dd', 'colli d→d', 'colli door-door'],
+                
+                # Legacy fallback fields
                 'harga_m3': ['harga/m3', 'harga per m3', 'harga_m3', 'price_m3'],
                 'harga_ton': ['harga/ton', 'harga per ton', 'harga_ton', 'price_ton'],
                 'harga_coll': ['harga/col', 'harga per coll', 'harga_coll', 'price_coll', 'harga/colli'],
                 'harga': ['harga', 'price']  # Generic price field as fallback
             }
             
-            # Improved column finding algorithm - find exact matches first, then partial matches
+            # ✅ IMPROVED: Enhanced column finding algorithm
             found_columns = {}
-            used_columns = set()  # Track which Excel columns are already used
+            used_columns = set()
             
             # First pass: Look for exact matches (highest priority)
             for field, possible_names in column_mapping.items():
@@ -1404,28 +1619,36 @@ class BarangWindow:
                     
                     # Calculate match score
                     for possible_name in possible_names:
-                        if col_lower == possible_name:  # Exact match
+                        possible_lower = possible_name.lower()
+                        
+                        if col_lower == possible_lower:  # Exact match
                             best_match = col
                             best_score = 100
                             break
-                        elif possible_name in col_lower:  # Partial match
+                        elif possible_lower in col_lower:  # Partial match
                             # Prefer shorter matches and those that start with the pattern
-                            score = len(possible_name) / len(col_lower) * 50
-                            if col_lower.startswith(possible_name):
+                            score = len(possible_lower) / len(col_lower) * 50
+                            if col_lower.startswith(possible_lower):
                                 score += 25
+                            # Bonus for service type indicators (PP, PD, DD)
+                            if any(indicator in col_lower for indicator in ['pp', 'pd', 'dd', 'p→p', 'p→d', 'd→d']):
+                                score += 15
                             if score > best_score:
                                 best_match = col
                                 best_score = score
+                    
+                    if best_score >= 100:  # Perfect match found
+                        break
                 
-                if best_match and best_score >= 25:  # Minimum threshold for acceptance
+                if best_match and best_score >= 25:  # Minimum threshold
                     found_columns[field] = best_match
                     used_columns.add(best_match)
-                    print(f"🎯 Mapped '{field}' to '{best_match}' (score: {best_score})")
+                    print(f"🎯 Mapped '{field}' to '{best_match}' (score: {best_score:.1f})")
             
             print(f"🎯 Found columns mapping: {found_columns}")
             
-            # Check required columns
-            required_fields = ['customer', 'nama_barang']
+            # ✅ UPDATED: Check required columns for new system
+            required_fields = ['pengirim', 'penerima', 'nama_barang']
             missing_fields = [field for field in required_fields if field not in found_columns]
             
             if missing_fields:
@@ -1437,19 +1660,23 @@ class BarangWindow:
                 self.upload_btn.config(state='disabled')
                 return
             
-            # Preview data
-            valid_rows = df.dropna(subset=[found_columns['customer'], found_columns['nama_barang']])
+            # ✅ UPDATED: Preview data with pengirim-penerima validation
+            valid_rows = df.dropna(subset=[found_columns['pengirim'], found_columns['penerima'], found_columns['nama_barang']])
             preview_data = valid_rows.head(50)
             
             # Get existing customers for validation
             existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
             
             preview_count = 0
+            pengirim_errors = set()
+            penerima_errors = set()
+            
             for _, row in preview_data.iterrows():
-                customer = str(row[found_columns['customer']]).strip()
+                pengirim = str(row[found_columns['pengirim']]).strip()
+                penerima = str(row[found_columns['penerima']]).strip()
                 nama_barang = str(row[found_columns['nama_barang']]).strip()
                 
-                # Get other fields with better handling
+                # ✅ ENHANCED: Better field value extraction
                 def get_field_value(field_name, default=''):
                     if field_name in found_columns:
                         value = row.get(found_columns[field_name], default)
@@ -1458,6 +1685,7 @@ class BarangWindow:
                         return str(value).strip()
                     return default
                 
+                # Get basic fields
                 jenis_barang = get_field_value('jenis_barang')
                 panjang = get_field_value('panjang')
                 lebar = get_field_value('lebar') 
@@ -1465,66 +1693,124 @@ class BarangWindow:
                 m3 = get_field_value('m3')
                 ton = get_field_value('ton')
                 colli = get_field_value('colli')
-                harga_m3 = get_field_value('harga_m3')
-                harga_ton = get_field_value('harga_ton')
-                harga_coll = get_field_value('harga_coll')
-
-                print(f"Previewing row: {row.name}")
-                print(f"Customer: {customer}, Nama Barang: {nama_barang}")
-                print(f"Jenis Barang: {jenis_barang}, Panjang: {panjang}, Lebar: {lebar}, Tinggi: {tinggi}")
-                print(f"Volume (m3): {m3}, Tonase: {ton}, Colli: {colli}")
-                print(f"Harga/m3: {harga_m3}, Harga/Ton: {harga_ton}, Harga/Colli: {harga_coll}")
-
-                # If specific price fields not found, try generic harga
-                if not any([harga_m3, harga_ton, harga_coll]):
-                    generic_harga = get_field_value('harga')
-                    if generic_harga:
-                        harga_m3 = generic_harga  # Default to m3 pricing
                 
-                if customer and nama_barang:
-                    # Check if customer exists
-                    customer_status = "✅" if customer.upper() in existing_customers else "❌"
-                    display_customer = f"{customer_status} {customer}"
+                # ✅ NEW: Get all pricing fields
+                harga_m3_pp = get_field_value('harga_m3_pp')
+                harga_m3_pd = get_field_value('harga_m3_pd')
+                harga_m3_dd = get_field_value('harga_m3_dd')
+                harga_ton_pp = get_field_value('harga_ton_pp')
+                harga_ton_pd = get_field_value('harga_ton_pd')
+                harga_ton_dd = get_field_value('harga_ton_dd')
+                harga_col_pp = get_field_value('harga_col_pp')
+                harga_col_pd = get_field_value('harga_col_pd')
+                harga_col_dd = get_field_value('harga_col_dd')
+                
+                # Fallback to legacy pricing if new fields not found
+                if not any([harga_m3_pp, harga_m3_pd, harga_m3_dd]):
+                    legacy_harga_m3 = get_field_value('harga_m3')
+                    if legacy_harga_m3:
+                        harga_m3_pp = legacy_harga_m3  # Default to PP
+                
+                if not any([harga_ton_pp, harga_ton_pd, harga_ton_dd]):
+                    legacy_harga_ton = get_field_value('harga_ton')
+                    if legacy_harga_ton:
+                        harga_ton_pp = legacy_harga_ton
+                
+                if not any([harga_col_pp, harga_col_pd, harga_col_dd]):
+                    legacy_harga_coll = get_field_value('harga_coll')
+                    if legacy_harga_coll:
+                        harga_col_pp = legacy_harga_coll
+                
+                print(f"Previewing row: {row.name}")
+                print(f"Pengirim: {pengirim}, Penerima: {penerima}, Nama Barang: {nama_barang}")
+                print(f"Pricing - M3(PP/PD/DD): {harga_m3_pp}/{harga_m3_pd}/{harga_m3_dd}")
+                print(f"Pricing - TON(PP/PD/DD): {harga_ton_pp}/{harga_ton_pd}/{harga_ton_dd}")
+                print(f"Pricing - COL(PP/PD/DD): {harga_col_pp}/{harga_col_pd}/{harga_col_dd}")
+                
+                if pengirim and penerima and nama_barang:
+                    # ✅ UPDATED: Check if pengirim and penerima exist
+                    pengirim_exists = pengirim.upper() in existing_customers
+                    penerima_exists = penerima.upper() in existing_customers
                     
-                    # Format currency values
+                    if not pengirim_exists:
+                        pengirim_errors.add(pengirim)
+                    if not penerima_exists:
+                        penerima_errors.add(penerima)
+                    
+                    pengirim_status = "✅" if pengirim_exists else "❌"
+                    penerima_status = "✅" if penerima_exists else "❌"
+                    
+                    display_pengirim = f"{pengirim_status} {pengirim}"
+                    display_penerima = f"{penerima_status} {penerima}"
+                    
+                    # ✅ ENHANCED: Format currency values
                     def format_currency(value):
                         if value and str(value).strip():
                             try:
-                                return f"{float(value):,.0f}"
+                                # Handle Indonesian number format
+                                clean_value = str(value).replace(',', '').replace(' ', '')
+                                return f"{float(clean_value):,.0f}"
                             except:
                                 return value
                         return ''
                     
+                    # ✅ UPDATED: Insert with all new columns (matching treeview structure)
                     self.preview_tree.insert('', tk.END, values=(
-                        display_customer, 
-                        jenis_barang,
-                        nama_barang, 
-                        panjang, 
-                        lebar, 
-                        tinggi, 
-                        m3, 
-                        ton,
-                        colli,
-                        format_currency(harga_m3),
-                        format_currency(harga_ton), 
-                        format_currency(harga_coll)
+                        display_pengirim,           # Pengirim
+                        display_penerima,           # Penerima  
+                        jenis_barang,               # Jenis
+                        nama_barang,                # Nama
+                        panjang,                    # P
+                        lebar,                      # L
+                        tinggi,                     # T
+                        m3,                         # M3
+                        ton,                        # Ton
+                        colli,                      # Colli
+                        format_currency(harga_m3_pp),   # M3_PP
+                        format_currency(harga_m3_pd),   # M3_PD
+                        format_currency(harga_m3_dd),   # M3_DD
+                        format_currency(harga_ton_pp),  # TON_PP
+                        format_currency(harga_ton_pd),  # TON_PD
+                        format_currency(harga_ton_dd),  # TON_DD
+                        format_currency(harga_col_pp),  # COLLI_PP
+                        format_currency(harga_col_pd),  # COLLI_PD
+                        format_currency(harga_col_dd)   # COLLI_DD
                     ))
                     preview_count += 1
             
-            # Store column mapping for upload
+            # ✅ UPDATED: Store column mapping for upload
             self.column_mapping = found_columns
             
-            # Create status message with found columns
+            # ✅ ENHANCED: Create comprehensive status message
             found_fields = list(found_columns.keys())
+            required_fields_found = [f for f in required_fields if f in found_columns]
             optional_fields = [f for f in found_fields if f not in required_fields]
             
-            status_msg = f"✅ File berhasil dibaca: {preview_count} baris data\n"
-            status_msg += f"📋 Kolom wajib: {', '.join([found_columns[f] for f in required_fields])}\n"
-            if optional_fields:
-                status_msg += f"📊 Kolom opsional: {', '.join([found_columns[f] for f in optional_fields])}\n"
-            status_msg += f"⚠️ Pastikan customer dengan tanda ❌ sudah terdaftar di sistem!"
+            # Categorize optional fields
+            basic_fields = [f for f in optional_fields if f in ['jenis_barang', 'panjang', 'lebar', 'tinggi', 'm3', 'ton', 'colli']]
+            pricing_fields = [f for f in optional_fields if 'harga' in f]
             
-            self.status_label.config(text=status_msg, fg='#27ae60')
+            status_msg = f"✅ File berhasil dibaca: {preview_count} baris data\n\n"
+            status_msg += f"📋 Kolom wajib: {', '.join([found_columns[f] for f in required_fields_found])}\n"
+            
+            if basic_fields:
+                status_msg += f"📊 Data barang: {', '.join([found_columns[f] for f in basic_fields])}\n"
+            
+            if pricing_fields:
+                status_msg += f"💰 Harga: {', '.join([found_columns[f] for f in pricing_fields])}\n"
+            
+            # ✅ UPDATED: Warning for missing customers
+            warning_msg = ""
+            if pengirim_errors:
+                warning_msg += f"⚠️ Pengirim tidak terdaftar: {', '.join(list(pengirim_errors)[:3])}{'...' if len(pengirim_errors) > 3 else ''}\n"
+            if penerima_errors:
+                warning_msg += f"⚠️ Penerima tidak terdaftar: {', '.join(list(penerima_errors)[:3])}{'...' if len(penerima_errors) > 3 else ''}\n"
+            
+            if warning_msg:
+                status_msg += f"\n{warning_msg}"
+                status_msg += "❗ Pastikan customer dengan tanda ❌ sudah terdaftar sebelum upload!"
+            
+            self.status_label.config(text=status_msg, fg='#27ae60' if not warning_msg else '#f39c12')
             self.upload_btn.config(state='normal')
             
         except Exception as e:
@@ -1537,468 +1823,912 @@ class BarangWindow:
                 fg='#e74c3c'
             )
             self.upload_btn.config(state='disabled')
-    
+
+
+    def download_template(self):
+        """Download Excel template with updated column structure"""
+        try:
+            # ✅ UPDATED: Create template with new column structure
+            template_data = {
+                'Pengirim': [
+                    'PT. ANEKA PLASTIK INDONESIA',
+                    'CV. MAJU BERSAMA',
+                    'PT. TEKNOLOGI MODERN',
+                ],
+                'Penerima': [
+                    'PT. TEKNOLOGI MODERN',
+                    'UD. SUMBER REZEKI',
+                    'PT. GLOBAL TRADING'
+                ],
+                'Jenis Barang': ['Elektronik', 'Makanan', 'Tekstil'],
+                'Nama Barang': ['TV LED 32 inch', 'Mie Instan 1 Karton', 'Kain Katun 50 Yard'],
+                'P': [50, 40, 30],
+                'L': [30, 30, 25],
+                'T': [10, 25, 20],
+                'M3': [0.015, 0.030, 0.015],
+                'Ton': [0.012, 0.008, 0.005],
+                'Colli': [1, 5, 2],
+                'M3_PP': [150000, 175000, 200000],
+                'M3_PD': [180000, 200000, 230000],
+                'M3_DD': [220000, 250000, 280000],
+                'TON_PP': [500000, 450000, 600000],
+                'TON_PD': [600000, 550000, 700000],
+                'TON_DD': [750000, 700000, 850000],
+                'COLLI_PP': [25000, 30000, 35000],
+                'COLLI_PD': [35000, 40000, 45000],
+                'COLLI_DD': [50000, 55000, 60000]
+            }
+            
+            # Create DataFrame
+            template_df = pd.DataFrame(template_data)
+            
+            # Save template
+            filename = filedialog.asksaveasfilename(
+                parent=self.window,  # ✅ FIXED: Added parent window
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="Simpan Template Excel",
+                initialfile="template_barang_lengkap.xlsx"
+            )
+            
+            if filename:
+                try:
+                    # ✅ FIXED: Try different methods to create Excel file
+                    # Method 1: Try with openpyxl engine
+                    try:
+                        with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                            template_df.to_excel(writer, sheet_name='Data Barang', index=False)
+                            
+                            # Add instruction sheet
+                            instructions = pd.DataFrame({
+                                'PANDUAN PENGGUNAAN TEMPLATE': [
+                                    '1. Isi kolom Pengirim dengan nama customer yang sudah terdaftar',
+                                    '2. Isi kolom Penerima dengan nama customer yang sudah terdaftar',
+                                    '3. Nama Barang wajib diisi',
+                                    '4. P, L, T dalam satuan cm',
+                                    '5. M3 dalam satuan meter kubik',
+                                    '6. Ton dalam satuan ton',
+                                    '7. Colli adalah jumlah kemasan',
+                                    '8. Harga menggunakan kode:',
+                                    '   - PP = Pelabuhan ke Pelabuhan',
+                                    '   - PD = Pelabuhan ke Door',
+                                    '   - DD = Door ke Door',
+                                    '9. Hapus baris contoh ini sebelum upload',
+                                    '10. Pastikan tidak ada baris kosong di tengah data'
+                                ]
+                            })
+                            instructions.to_excel(writer, sheet_name='Panduan', index=False)
+                            
+                    except Exception as openpyxl_error:
+                        print(f"⚠️ Openpyxl method failed: {openpyxl_error}")
+                        
+                        # Method 2: Try with xlsxwriter engine
+                        try:
+                            with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
+                                template_df.to_excel(writer, sheet_name='Data Barang', index=False)
+                                
+                                # Add instruction sheet
+                                instructions = pd.DataFrame({
+                                    'PANDUAN PENGGUNAAN TEMPLATE': [
+                                        '1. Isi kolom Pengirim dengan nama customer yang sudah terdaftar',
+                                        '2. Isi kolom Penerima dengan nama customer yang sudah terdaftar',
+                                        '3. Nama Barang wajib diisi',
+                                        '4. P, L, T dalam satuan cm',
+                                        '5. M3 dalam satuan meter kubik',
+                                        '6. Ton dalam satuan ton',
+                                        '7. Colli adalah jumlah kemasan',
+                                        '8. Harga menggunakan kode:',
+                                        '   - PP = Pelabuhan ke Pelabuhan',
+                                        '   - PD = Pelabuhan ke Door',
+                                        '   - DD = Door ke Door',
+                                        '9. Hapus baris contoh ini sebelum upload',
+                                        '10. Pastikan tidak ada baris kosong di tengah data'
+                                    ]
+                                })
+                                instructions.to_excel(writer, sheet_name='Panduan', index=False)
+                                
+                        except Exception as xlsxwriter_error:
+                            print(f"⚠️ Xlsxwriter method failed: {xlsxwriter_error}")
+                            
+                            # Method 3: Fallback - save as simple Excel without multiple sheets
+                            template_df.to_excel(filename, index=False, sheet_name='Data Barang')
+                            print("✅ Template saved using fallback method (single sheet)")
+                    
+                    messagebox.showinfo(
+                        "Template Berhasil Disimpan",
+                        f"Template Excel berhasil disimpan:\n{filename}\n\n" +
+                        "📋 Template berisi:\n" +
+                        "• Sheet 'Data Barang' dengan contoh data\n" +
+                        "• Sheet 'Panduan' dengan instruksi penggunaan\n\n" +
+                        "Silakan isi data sesuai panduan yang tersedia."
+                    )
+                    
+                except Exception as save_error:
+                    raise Exception(f"Gagal menyimpan file Excel: {str(save_error)}")
+                    
+            else:
+                print("👤 User cancelled template download")
+                
+        except Exception as e:
+            error_msg = str(e)
+            print(f"💥 Error in download_template: {error_msg}")
+            
+            # ✅ ENHANCED: Better error handling with suggestions
+            if "initialname" in error_msg.lower():
+                error_dialog = (
+                    "❌ GAGAL MENYIMPAN TEMPLATE\n\n"
+                    "Error terkait pengaturan nama file.\n\n"
+                    "💡 SOLUSI:\n"
+                    "• Pastikan lokasi penyimpanan dapat diakses\n"
+                    "• Coba simpan dengan nama file yang berbeda\n"
+                    "• Periksa izin folder tujuan"
+                )
+            elif "engine" in error_msg.lower() or "openpyxl" in error_msg.lower():
+                error_dialog = (
+                    "❌ GAGAL MENYIMPAN TEMPLATE\n\n"
+                    "Error terkait engine Excel.\n\n"
+                    "💡 SOLUSI:\n"
+                    "• Install: pip install openpyxl\n"
+                    "• Install: pip install xlsxwriter\n"
+                    "• Restart aplikasi setelah install"
+                )
+            else:
+                error_dialog = (
+                    f"❌ GAGAL MENYIMPAN TEMPLATE\n\n"
+                    f"Error: {error_msg}\n\n"
+                    f"💡 SOLUSI:\n"
+                    f"• Pastikan folder tujuan dapat diakses\n"
+                    f"• Tutup Excel jika sedang membuka file yang sama\n"
+                    f"• Coba lokasi penyimpanan yang berbeda"
+                )
+            
+            messagebox.showerror("Error Download Template", error_dialog)     
+        
+        
+        
     def validate_excel_row(self, row_data, column_mapping, existing_customers, row_index):
-        """Validate single row from Excel data"""
+        """Validate single row from Excel data - UPDATED for Pengirim-Penerima system"""
         errors = []
         
         try:
-            # 1. Validasi Customer
-            customer_name = str(row_data.get(column_mapping.get('customer', ''), '')).strip()
-            if not customer_name:
-                errors.append("Customer tidak boleh kosong")
-            elif customer_name.upper() not in existing_customers:
-                errors.append(f"Customer '{customer_name}' tidak ditemukan di database")
+            # ✅ UPDATED: 1. Validasi Pengirim
+            pengirim_name = str(row_data.get(column_mapping.get('pengirim', ''), '')).strip()
+            pengirim_id = None
             
-            # 2. Validasi Nama Barang
+            if not pengirim_name or pengirim_name.upper() == 'NAN':
+                errors.append("Pengirim tidak boleh kosong")
+            else:
+                pengirim_id = existing_customers.get(pengirim_name.upper())
+                if not pengirim_id:
+                    errors.append(f"Pengirim '{pengirim_name}' tidak ditemukan di database")
+            
+            # ✅ UPDATED: 2. Validasi Penerima
+            penerima_name = str(row_data.get(column_mapping.get('penerima', ''), '')).strip()
+            penerima_id = None
+            
+            if not penerima_name or penerima_name.upper() == 'NAN':
+                errors.append("Penerima tidak boleh kosong")
+            else:
+                penerima_id = existing_customers.get(penerima_name.upper())
+                if not penerima_id:
+                    errors.append(f"Penerima '{penerima_name}' tidak ditemukan di database")
+            
+            # 3. Validasi Nama Barang (sama seperti sebelumnya)
             nama_barang = str(row_data.get(column_mapping.get('nama_barang', ''), '')).strip()
-            if not nama_barang:
+            if not nama_barang or nama_barang.upper() == 'NAN':
                 errors.append("Nama Barang tidak boleh kosong")
             
-            # 3. Validasi Dimensi (jika ada)
-            for field in ['panjang', 'lebar', 'tinggi']:
-                if field in column_mapping:
-                    value = row_data.get(column_mapping[field])
-                    if pd.notna(value) and value != '':
-                        try:
-                            float_val = float(str(value).replace(',', ''))
-                            if float_val <= 0:
-                                errors.append(f"{field.title()} harus lebih besar dari 0")
-                        except (ValueError, TypeError):
-                            errors.append(f"Format {field} tidak valid: '{value}'")
+            # 4. Validasi Dimensi (sama seperti sebelumnya, tapi lebih robust)
+            dimension_fields = {
+                'panjang': 'Panjang',
+                'lebar': 'Lebar', 
+                'tinggi': 'Tinggi'
+            }
             
-            # 4. Validasi Volume, Berat, Colli
-            for field, field_name in [('m3', 'Volume'), ('ton', 'Berat'), ('colli', 'Colli')]:
+            for field, field_name in dimension_fields.items():
                 if field in column_mapping:
                     value = row_data.get(column_mapping[field])
-                    if pd.notna(value) and value != '':
+                    if pd.notna(value) and str(value).strip() != '' and str(value).upper() != 'NAN':
                         try:
-                            if field == 'colli':
-                                int_val = int(float(str(value)))
+                            # Handle Indonesian number format (comma as thousand separator)
+                            clean_value = str(value).replace(',', '').replace(' ', '')
+                            float_val = float(clean_value)
+                            if float_val <= 0:
+                                errors.append(f"{field_name} harus lebih besar dari 0")
+                        except (ValueError, TypeError):
+                            errors.append(f"Format {field_name} tidak valid: '{value}' (gunakan angka)")
+            
+            # 5. Validasi Volume, Berat, Colli (enhanced)
+            measurement_fields = {
+                'm3': ('Volume (M³)', 'float'),
+                'ton': ('Berat (Ton)', 'float'),
+                'colli': ('Colli', 'int')
+            }
+            
+            for field, (field_name, data_type) in measurement_fields.items():
+                if field in column_mapping:
+                    value = row_data.get(column_mapping[field])
+                    if pd.notna(value) and str(value).strip() != '' and str(value).upper() != 'NAN':
+                        try:
+                            clean_value = str(value).replace(',', '').replace(' ', '')
+                            if data_type == 'int':
+                                int_val = int(float(clean_value))
                                 if int_val <= 0:
                                     errors.append(f"{field_name} harus lebih besar dari 0")
                             else:
-                                float_val = float(str(value).replace(',', ''))
+                                float_val = float(clean_value)
                                 if float_val <= 0:
                                     errors.append(f"{field_name} harus lebih besar dari 0")
                         except (ValueError, TypeError):
-                            errors.append(f"Format {field_name} tidak valid: '{value}'")
+                            errors.append(f"Format {field_name} tidak valid: '{value}' (gunakan angka)")
             
-            # 5. Validasi Harga (minimal salah satu harus ada)
-            harga_fields = ['harga_m3', 'harga_ton', 'harga_coll']
-            has_price = False
+            # ✅ UPDATED: 6. Validasi Harga - Support all pricing fields (PP/PD/DD)
+            pricing_fields = {
+                # M3 pricing
+                'harga_m3_pp': 'Harga M³ (Pelabuhan-Pelabuhan)',
+                'harga_m3_pd': 'Harga M³ (Pelabuhan-Door)',
+                'harga_m3_dd': 'Harga M³ (Door-Door)',
+                
+                # TON pricing  
+                'harga_ton_pp': 'Harga Ton (Pelabuhan-Pelabuhan)',
+                'harga_ton_pd': 'Harga Ton (Pelabuhan-Door)',
+                'harga_ton_dd': 'Harga Ton (Door-Door)',
+                
+                # COLLI pricing
+                'harga_col_pp': 'Harga Colli (Pelabuhan-Pelabuhan)',
+                'harga_col_pd': 'Harga Colli (Pelabuhan-Door)',
+                'harga_col_dd': 'Harga Colli (Door-Door)',
+                
+                # Legacy pricing (backward compatibility)
+                'harga_m3': 'Harga M³',
+                'harga_ton': 'Harga Ton',
+                'harga_coll': 'Harga Colli'
+            }
             
-            for field in harga_fields:
+            has_valid_price = False
+            price_errors = []
+            
+            for field, field_name in pricing_fields.items():
                 if field in column_mapping:
                     value = row_data.get(column_mapping[field])
-                    if pd.notna(value) and str(value).strip():
+                    if pd.notna(value) and str(value).strip() != '' and str(value).upper() != 'NAN':
                         try:
-                            price = float(str(value).replace(',', ''))
+                            # Handle Indonesian currency format
+                            clean_value = str(value).replace(',', '').replace(' ', '').replace('Rp', '').replace('.', '')
+                            price = float(clean_value)
                             if price > 0:
-                                has_price = True
+                                has_valid_price = True
+                            elif price == 0:
+                                price_errors.append(f"{field_name} tidak boleh 0")
                             else:
-                                errors.append(f"Harga {field.replace('harga_', '')} harus lebih besar dari 0")
+                                price_errors.append(f"{field_name} harus lebih besar dari 0")
                         except (ValueError, TypeError):
-                            errors.append(f"Format harga {field.replace('harga_', '')} tidak valid: '{value}'")
+                            price_errors.append(f"Format {field_name} tidak valid: '{value}' (gunakan angka)")
             
-            if not has_price:
-                errors.append("Minimal salah satu harga (m³/ton/colli) harus diisi")
+            # Add price-related errors
+            errors.extend(price_errors)
             
+            # Check if at least one valid price exists
+            if not has_valid_price and any(field in column_mapping for field in pricing_fields.keys()):
+                # Only require price if price columns exist in the mapping
+                price_columns_found = [field for field in pricing_fields.keys() if field in column_mapping]
+                if price_columns_found:
+                    errors.append(f"Minimal salah satu harga harus diisi dengan nilai > 0 dari kolom: {', '.join(price_columns_found)}")
+            
+            # ✅ UPDATED: 7. Business Logic Validation
+            # Check if pengirim and penerima are different
+            if pengirim_name and penerima_name and pengirim_name.upper() == penerima_name.upper():
+                errors.append("Pengirim dan Penerima tidak boleh sama")
+            
+            # ✅ UPDATED: Return comprehensive validation result
             return {
                 'valid': len(errors) == 0,
                 'errors': errors,
-                'customer_name': customer_name,
-                'nama_barang': nama_barang
+                'pengirim_name': pengirim_name,
+                'penerima_name': penerima_name,
+                'pengirim_id': pengirim_id,
+                'penerima_id': penerima_id,
+                'nama_barang': nama_barang,
+                'row_index': row_index
             }
             
         except Exception as e:
             return {
                 'valid': False,
-                'errors': [f"Error validasi: {str(e)}"],
-                'customer_name': '',
-                'nama_barang': ''
+                'errors': [f"Error validasi baris {row_index}: {str(e)}"],
+                'pengirim_name': '',
+                'penerima_name': '',
+                'pengirim_id': None,
+                'penerima_id': None,
+                'nama_barang': '',
+                'row_index': row_index
             }
 
+
+    def validate_excel_row_enhanced(self, row, column_mapping, existing_customers, row_number):
+        """Enhanced validation for Excel row with better error handling - UPDATED"""
+        errors = []
+        result = {
+            'valid': False, 
+            'errors': [], 
+            'row_number': row_number,
+            'pengirim_name': '',
+            'penerima_name': '',
+            'pengirim_id': None,
+            'penerima_id': None,
+            'nama_barang': ''
+        }
+        
+        try:
+            # ✅ UPDATED: Get pengirim
+            pengirim_name = str(row.get(column_mapping.get('pengirim', ''), '')).strip()
+            if not pengirim_name or pengirim_name.upper() == 'NAN':
+                errors.append("Pengirim tidak boleh kosong")
+            else:
+                pengirim_id = existing_customers.get(pengirim_name.upper())
+                if not pengirim_id:
+                    errors.append(f"Pengirim '{pengirim_name}' tidak ditemukan di database")
+                else:
+                    result['pengirim_id'] = pengirim_id
+                    result['pengirim_name'] = pengirim_name
+            
+            # ✅ UPDATED: Get penerima
+            penerima_name = str(row.get(column_mapping.get('penerima', ''), '')).strip()
+            if not penerima_name or penerima_name.upper() == 'NAN':
+                errors.append("Penerima tidak boleh kosong")
+            else:
+                penerima_id = existing_customers.get(penerima_name.upper())
+                if not penerima_id:
+                    errors.append(f"Penerima '{penerima_name}' tidak ditemukan di database")
+                else:
+                    result['penerima_id'] = penerima_id
+                    result['penerima_name'] = penerima_name
+            
+            # Get nama barang
+            nama_barang = str(row.get(column_mapping.get('nama_barang', ''), '')).strip()
+            if not nama_barang or nama_barang.upper() == 'NAN':
+                errors.append("Nama barang tidak boleh kosong")
+            else:
+                result['nama_barang'] = nama_barang
+            
+            # ✅ UPDATED: Validate numeric fields (optional) - Enhanced validation
+            numeric_fields = {
+                'panjang': ('Panjang', 'float'),
+                'lebar': ('Lebar', 'float'),
+                'tinggi': ('Tinggi', 'float'),
+                'm3': ('Volume M³', 'float'),
+                'ton': ('Berat Ton', 'float'),
+                'colli': ('Colli', 'int')
+            }
+            
+            for field, (field_name, data_type) in numeric_fields.items():
+                if field in column_mapping:
+                    value = row.get(column_mapping[field])
+                    if pd.notna(value) and str(value).strip() != '' and str(value).upper() != 'NAN':
+                        try:
+                            clean_value = str(value).replace(',', '').replace(' ', '')
+                            if data_type == 'int':
+                                test_val = int(float(clean_value))
+                                if test_val <= 0:
+                                    errors.append(f"{field_name} harus lebih besar dari 0")
+                            else:
+                                test_val = float(clean_value)
+                                if test_val <= 0:
+                                    errors.append(f"{field_name} harus lebih besar dari 0")
+                        except (ValueError, TypeError):
+                            errors.append(f"{field_name} harus berupa angka valid (ditemukan: '{value}')")
+            
+            # ✅ UPDATED: Validate pricing fields
+            pricing_fields = [
+                'harga_m3_pp', 'harga_m3_pd', 'harga_m3_dd',
+                'harga_ton_pp', 'harga_ton_pd', 'harga_ton_dd', 
+                'harga_col_pp', 'harga_col_pd', 'harga_col_dd',
+                'harga_m3', 'harga_ton', 'harga_coll'  # Legacy support
+            ]
+            
+            has_valid_price = False
+            for field in pricing_fields:
+                if field in column_mapping:
+                    value = row.get(column_mapping[field])
+                    if pd.notna(value) and str(value).strip() != '' and str(value).upper() != 'NAN':
+                        try:
+                            clean_value = str(value).replace(',', '').replace(' ', '').replace('Rp', '')
+                            test_price = float(clean_value)
+                            if test_price > 0:
+                                has_valid_price = True
+                            elif test_price <= 0:
+                                errors.append(f"Harga {field} harus lebih besar dari 0")
+                        except (ValueError, TypeError):
+                            errors.append(f"Format harga {field} tidak valid (ditemukan: '{value}')")
+            
+            # Business rules
+            if pengirim_name and penerima_name and pengirim_name.upper() == penerima_name.upper():
+                errors.append("Pengirim dan Penerima tidak boleh sama")
+            
+            result['errors'] = errors
+            result['valid'] = len(errors) == 0
+            
+            return result
+            
+        except Exception as e:
+            result['errors'] = [f"Error validasi: {str(e)}"]
+            return result
+        
     def upload_excel_data(self):
-        """Upload Excel data with validation"""
+        """Upload Excel data with enhanced validation and error handling - CLEANED VERSION"""
         filename = self.file_path_var.get()
         if not filename:
             messagebox.showerror("Error", "Pilih file Excel terlebih dahulu!")
             return
         
+        # ✅ ENHANCED: Check file exists and accessible
+        if not os.path.exists(filename):
+            messagebox.showerror("Error", f"File tidak ditemukan: {filename}")
+            return
+        
+        # Disable upload button during process
+        original_btn_text = self.upload_btn.cget('text')
+        self.upload_btn.config(state='disabled', text="Processing...")
+        self.status_label.config(text="Memproses file Excel...", fg='#3498db')
+        self.window.update()
+        
         try:
-            print(f"🔄 Starting enhanced barang upload from file: {filename}")
+            print(f"Starting barang upload from file: {filename}")
+
+            # Step 1: Read and validate Excel file
+            try:
+                self.status_label.config(text="Membaca file Excel...", fg='#3498db')
+                self.window.update()
+                
+                df = pd.read_excel(filename, engine='openpyxl')
+                if df.empty:
+                    raise ValueError("File Excel kosong atau tidak memiliki data")
+                
+                # ✅ ENHANCED: Clean and validate data
+                df.columns = df.columns.astype(str).str.strip()
+                
+                # Remove completely empty rows
+                df = df.dropna(how='all')
+                
+                if df.empty:
+                    raise ValueError("File Excel tidak memiliki data yang valid (semua baris kosong)")
+                
+                print(f"Found {len(df)} rows in Excel file (after removing empty rows)")
+                
+            except Exception as e:
+                raise ValueError(f"Gagal membaca file Excel: {str(e)}")
             
-            # Read Excel file
-            df = pd.read_excel(filename, engine='openpyxl')
-            df.columns = df.columns.astype(str).str.strip()
-            
-            # Use stored column mapping
+            # Step 2: Check column mapping
             column_mapping = getattr(self, 'column_mapping', {})
+            if not column_mapping:
+                raise ValueError("Column mapping tidak tersedia. Silakan preview file terlebih dahulu dengan klik 'Browse' dan pilih file.")
             
-            # Get existing customers
-            existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
+            # ✅ ENHANCED: Validate required columns exist and accessible
+            required_fields = ['pengirim', 'penerima', 'nama_barang']
+            missing_fields = []
+            invalid_columns = []
             
-            # Filter valid data
-            valid_rows = df.dropna(subset=[column_mapping['customer'], column_mapping['nama_barang']])
+            for field in required_fields:
+                if field not in column_mapping:
+                    missing_fields.append(field)
+                elif column_mapping[field] not in df.columns:
+                    invalid_columns.append(f"{field} -> {column_mapping[field]}")
             
-            if len(valid_rows) == 0:
-                messagebox.showerror("Error", "Tidak ada data valid untuk diupload!")
-                return
+            if missing_fields:
+                raise ValueError(f"Kolom wajib tidak ditemukan dalam mapping: {', '.join(missing_fields)}")
+            
+            if invalid_columns:
+                raise ValueError(f"Kolom mapped tidak ada dalam file Excel: {', '.join(invalid_columns)}")
+            
+            # Step 3: Get existing customers (pengirim & penerima)
+            self.status_label.config(text="Memvalidasi data customer...", fg='#3498db')
+            self.window.update()
+
+            try:
+                existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
+                print(f"Found {len(existing_customers)} existing customers in database")
+                
+                if not existing_customers:
+                    raise ValueError("Tidak ada customer yang terdaftar dalam database. Silakan tambahkan customer terlebih dahulu.")
+                    
+            except Exception as e:
+                raise ValueError(f"Gagal mengambil data customer: {str(e)}")
+            
+            # Step 4: Filter and validate data
+            self.status_label.config(text="Memfilter data valid...", fg='#3498db')
+            self.window.update()
+            
+            # Filter rows with required data - more thorough checking
+            required_cols = [column_mapping['pengirim'], column_mapping['penerima'], column_mapping['nama_barang']]
+            
+            # Check each required column individually for better error reporting
+            for col in required_cols:
+                if col not in df.columns:
+                    raise ValueError(f"Kolom '{col}' tidak ditemukan dalam file Excel")
+            
+            # Filter valid rows
+            valid_rows = df.dropna(subset=required_cols)
+            
+            # ✅ ENHANCED: Additional filtering for meaningful data
+            def is_meaningful_value(value):
+                if pd.isna(value):
+                    return False
+                str_val = str(value).strip().upper()
+                return str_val not in ['', 'NAN', 'NONE', 'NULL', '#N/A', '#NULL!']
+            
+            # Further filter rows with meaningful data
+            meaningful_rows = []
+            for _, row in valid_rows.iterrows():
+                if (is_meaningful_value(row[column_mapping['pengirim']]) and 
+                    is_meaningful_value(row[column_mapping['penerima']]) and 
+                    is_meaningful_value(row[column_mapping['nama_barang']])):
+                    meaningful_rows.append(row)
+            
+            if not meaningful_rows:
+                raise ValueError(
+                    "Tidak ada data valid untuk diupload!\n\n" +
+                    "Pastikan kolom Pengirim, Penerima, dan Nama Barang terisi dengan data yang valid.\n" +
+                    f"Total baris dalam file: {len(df)}\n" +
+                    f"Baris dengan data tidak kosong: {len(valid_rows)}\n" +
+                    f"Baris dengan data bermakna: {len(meaningful_rows)}"
+                )
+            
+            valid_rows = pd.DataFrame(meaningful_rows)
+            print(f"Processing {len(valid_rows)} valid rows (filtered from {len(df)} total rows)")
+            
+            # Step 5: Detailed validation with progress
+            self.status_label.config(text="Memvalidasi data barang...", fg='#3498db')
+            self.window.update()
             
             validation_errors = []
             customer_not_found_list = []
             valid_data_for_upload = []
             
             for idx, (_, row) in enumerate(valid_rows.iterrows()):
-                validation_result = self.validate_excel_row(
-                    row, column_mapping, existing_customers, idx + 2
-                )
-                
-                if validation_result['valid']:
-                    valid_data_for_upload.append((idx, row))
-                else:
-                    # Pisahkan error berdasarkan jenis
-                    customer_errors = [e for e in validation_result['errors'] if 'tidak ditemukan' in e]
-                    other_errors = [e for e in validation_result['errors'] if 'tidak ditemukan' not in e]
-                    
-                    if customer_errors:
-                        customer_not_found_list.append({
-                            'nama_barang': validation_result['nama_barang'],
-                            'customer': validation_result['customer_name'],
-                            'row_number': idx + 2
-                        })
-                    
-                    if other_errors:
-                        validation_errors.append({
-                            'nama_barang': validation_result['nama_barang'],
-                            'customer': validation_result['customer_name'],
-                            'error': '; '.join(other_errors),
-                            'row_number': idx + 2
-                        })
-            
-            # Jika ada error validasi, tampilkan dan stop
-            if validation_errors or customer_not_found_list:
-                error_msg = f"Ditemukan {len(validation_errors + customer_not_found_list)} error validasi!\n\n"
-                error_msg += "Perbaiki error berikut sebelum upload:\n"
-                
-                if not messagebox.askyesno(
-                    "Error Validasi", 
-                    error_msg + "Lanjutkan untuk melihat detail error?"
-                ):
-                    return
-                
-                # Tampilkan detail error
-                self.show_error_details(
-                    validation_errors, 
-                    customer_not_found_list, 
-                    0,  # success_count = 0 karena belum upload
-                    len(valid_rows)
-                )
-                return
-            
-            # Confirm upload jika semua data valid
-            if not messagebox.askyesno(
-                "Konfirmasi Upload", 
-                f"Semua data valid!\n\nUpload {len(valid_data_for_upload)} barang ke database?"
-            ):
-                return
-            
-            # ✅ UPLOAD DATA YANG SUDAH TERVALIDASI
-            success_count = 0
-            upload_errors = []  # Error saat proses database
-            
-            for idx, (original_idx, row) in enumerate(valid_data_for_upload):
                 try:
-                    customer_name = str(row[column_mapping['customer']]).strip()
-                    customer_id = existing_customers[customer_name.upper()]
-                    nama_barang = str(row[column_mapping['nama_barang']]).strip()
+                    validation_result = self.validate_excel_row_enhanced(
+                        row, column_mapping, existing_customers, idx + 2
+                    )
                     
-                    # ✅ Extract semua field data seperti kode asli
-                    def get_safe_value(field_name, value_type='str'):
-                        if field_name not in column_mapping:
-                            return None
+                    if validation_result['valid']:
+                        valid_data_for_upload.append((idx, row, validation_result))
+                    else:
+                        # ✅ ENHANCED: Better error categorization
+                        customer_errors = [e for e in validation_result['errors'] 
+                                        if any(keyword in e.lower() for keyword in ['tidak ditemukan', 'tidak terdaftar', 'not found'])]
+                        other_errors = [e for e in validation_result['errors'] 
+                                    if not any(keyword in e.lower() for keyword in ['tidak ditemukan', 'tidak terdaftar', 'not found'])]
                         
-                        value = row.get(column_mapping[field_name])
-                        if pd.isna(value) or str(value).strip() == '':
-                            return None
+                        if customer_errors:
+                            customer_not_found_list.append({
+                                'nama_barang': validation_result.get('nama_barang', 'N/A'),
+                                'pengirim': validation_result.get('pengirim_name', 'N/A'),
+                                'penerima': validation_result.get('penerima_name', 'N/A'),
+                                'row_number': idx + 2,
+                                'errors': customer_errors
+                            })
                         
-                        try:
-                            if value_type == 'float':
-                                # Handle comma separated numbers (Indonesian format)
-                                if isinstance(value, str):
-                                    value = value.replace(',', '')
-                                return float(str(value).strip())
-                            elif value_type == 'int':
-                                return int(float(str(value).strip()))
-                            else:
-                                return str(value).strip()
-                        except Exception as ve:
-                            raise ValueError(f"Format {field_name} tidak valid: '{value}' - {str(ve)}")
+                        if other_errors:
+                            validation_errors.append({
+                                'nama_barang': validation_result.get('nama_barang', 'N/A'),
+                                'pengirim': validation_result.get('pengirim_name', 'N/A'),
+                                'penerima': validation_result.get('penerima_name', 'N/A'),
+                                'error': '; '.join(other_errors),
+                                'row_number': idx + 2
+                            })
+                            
+                except Exception as e:
+                    print(f"Validation exception at row {idx + 2}: {str(e)}")
+                    validation_errors.append({
+                        'nama_barang': str(row.get(column_mapping.get('nama_barang', ''), 'N/A'))[:50],
+                        'pengirim': str(row.get(column_mapping.get('pengirim', ''), 'N/A'))[:30],
+                        'penerima': str(row.get(column_mapping.get('penerima', ''), 'N/A'))[:30],
+                        'error': f"Validation exception: {str(e)}",
+                        'row_number': idx + 2
+                    })
+            
+            # Step 6: Handle validation errors with detailed reporting
+            total_errors = len(validation_errors) + len(customer_not_found_list)
+            if total_errors > 0:
+                self.status_label.config(
+                    text=f"Ditemukan {total_errors} error validasi!", 
+                    fg='#e74c3c'
+                )
+                
+                # ✅ ENHANCED: More informative error dialog
+                error_summary = (
+                    f"HASIL VALIDASI:\n\n"
+                    f"Data valid siap upload: {len(valid_data_for_upload)}\n"
+                    f"Customer tidak ditemukan: {len(customer_not_found_list)}\n"
+                    f"Error validasi lainnya: {len(validation_errors)}\n"
+                    f"Total baris diproses: {len(valid_rows)}\n\n"
+                )
+                
+                if customer_not_found_list:
+                    # Show sample of missing customers
+                    sample_missing = list(set([item['pengirim'] for item in customer_not_found_list[:3]] + 
+                                            [item['penerima'] for item in customer_not_found_list[:3]]))
+                    error_summary += f"Contoh customer tidak ditemukan: {', '.join(sample_missing[:5])}\n\n"
+                
+                error_summary += "Lihat detail lengkap error?"
+                
+                if messagebox.askyesno("Hasil Validasi", error_summary):
+                    self.show_enhanced_error_details(
+                        validation_errors, 
+                        customer_not_found_list, 
+                        0,  # success_count = 0 karena belum upload
+                        len(valid_rows)
+                    )
+                return
+            
+            # Step 7: Confirm upload with detailed summary
+            self.status_label.config(text="Semua data valid! Siap upload...", fg='#27ae60')
+            
+            # ✅ ENHANCED: More informative confirmation dialog
+            confirmation_msg = (
+                f"VALIDASI BERHASIL!\n\n"
+                f"Total barang siap upload: {len(valid_data_for_upload)}\n"
+                f"File: {os.path.basename(filename)}\n\n"
+                f"Lanjutkan upload ke database?"
+            )
+            
+            if not messagebox.askyesno("Konfirmasi Upload", confirmation_msg):
+                self.status_label.config(text="Upload dibatalkan oleh user", fg='#95a5a6')
+                return
+            
+            # Step 8: Upload to database with simple progress tracking
+            self.status_label.config(text="Mengupload data ke database...", fg='#3498db')
+            self.window.update()
+            
+            success_count = 0
+            upload_errors = []
+            
+            total_upload_items = len(valid_data_for_upload)
+            
+            for idx, (original_idx, row, validation_data) in enumerate(valid_data_for_upload):
+                try:
+                    # Simple progress update
+                    progress = int((idx + 1) / total_upload_items * 100)
+                    self.status_label.config(
+                        text=f"Uploading... {progress}% ({idx + 1}/{total_upload_items})",
+                        fg='#3498db'
+                    )
+                    self.window.update()
                     
-                    # Get all fields
-                    jenis_barang = get_safe_value('jenis_barang')
-                    panjang = get_safe_value('panjang', 'float')
-                    lebar = get_safe_value('lebar', 'float')
-                    tinggi = get_safe_value('tinggi', 'float')
-                    m3 = get_safe_value('m3', 'float')
-                    ton = get_safe_value('ton', 'float')
-                    colli = get_safe_value('colli', 'int')
-                    harga_m3 = get_safe_value('harga_m3', 'float')
-                    harga_ton = get_safe_value('harga_ton', 'float')
-                    harga_coll = get_safe_value('harga_coll', 'float')
-
-                    print(f"Processing row {original_idx + 1}: {nama_barang} - Customer: {customer_name}")
-                    print(f"  Jenis: {jenis_barang}, Panjang: {panjang}, Lebar: {lebar}, Tinggi: {tinggi}")
-                    print(f"  M3: {m3}, Ton: {ton}, Colli: {colli}")
-                    print(f"  Harga/m3: {harga_m3}, Harga/Ton: {harga_ton}, Harga/Colli: {harga_coll}")
+                    # Get validated data
+                    pengirim_id = validation_data['pengirim_id']
+                    penerima_id = validation_data['penerima_id']
+                    nama_barang = validation_data['nama_barang']
                     
-                    # ✅ Create barang dengan parameter lengkap
+                    # Extract all fields with enhanced error handling
+                    extracted_data = self.extract_row_data(row, column_mapping)
+                    
+                    print(f"Processing row {original_idx + 1}: {nama_barang}")
+                    print(f"  Pengirim ID: {pengirim_id}, Penerima ID: {penerima_id}")
+                    print(f"  Extracted data keys: {list(extracted_data.keys())}")
+                    
+                    # Create barang in database
                     barang_id = self.db.create_barang(
-                        customer_id=customer_id,
+                        pengirim=pengirim_id,
+                        penerima=penerima_id,
                         nama_barang=nama_barang,
-                        jenis_barang=jenis_barang,
-                        panjang_barang=panjang,
-                        lebar_barang=lebar,
-                        tinggi_barang=tinggi,
-                        m3_barang=m3,
-                        ton_barang=ton,
-                        col_barang=colli,
-                        harga_m3=harga_m3,
-                        harga_ton=harga_ton,
-                        harga_col=harga_coll
+                        **extracted_data  # Spread all extracted data
                     )
                     
                     success_count += 1
-                    print(f"✅ Barang created successfully with ID: {barang_id}")
+                    print(f"Barang created successfully with ID: {barang_id}")
                     
                 except Exception as e:
                     error_detail = str(e)
-                    print(f"💥 Error creating barang '{nama_barang}': {error_detail}")
+                    print(f"Error creating barang '{nama_barang}': {error_detail}")
                     
                     upload_errors.append({
-                        'nama_barang': nama_barang,
-                        'customer': customer_name,
-                        'error': f"Database error: {error_detail}",
+                        'nama_barang': nama_barang[:50],  # Truncate long names
+                        'pengirim': validation_data.get('pengirim_name', 'N/A')[:30],
+                        'penerima': validation_data.get('penerima_name', 'N/A')[:30],
+                        'error': f"Database error: {error_detail}"[:200],  # Truncate long errors
                         'row_number': original_idx + 2
                     })
             
-            # Show results
+            # Step 9: Show comprehensive results
             if upload_errors:
-                self.show_error_details(upload_errors, [], success_count, len(valid_data_for_upload))
-            else:
-                messagebox.showinfo(
-                    "Upload Berhasil! 🎉", 
-                    f"Semua data berhasil diupload!\n\n" +
-                    f"✅ Total berhasil: {success_count} barang"
+                self.status_label.config(
+                    text=f"Upload selesai: {success_count} berhasil, {len(upload_errors)} error",
+                    fg='#f39c12'
                 )
+                self.show_enhanced_error_details(
+                    upload_errors, [], success_count, len(valid_data_for_upload)
+                )
+            else:
+                self.status_label.config(
+                    text=f"Upload berhasil! {success_count} barang ditambahkan",
+                    fg='#27ae60'
+                )
+                
+                # ✅ ENHANCED: More detailed success message
+                success_msg = (
+                    f"UPLOAD BERHASIL!\n\n"
+                    f"Total berhasil: {success_count} barang\n"
+                    f"File: {os.path.basename(filename)}\n\n"
+                    f"Data telah tersimpan dalam database."
+                )
+                
+                messagebox.showinfo("Upload Berhasil!", success_msg)
             
-            # Refresh dan cleanup
-            self.load_barang()
-            if self.refresh_callback:
-                self.refresh_callback()
-            
+            # Step 10: Refresh and cleanup
+            try:
+                self.load_barang()
+                if hasattr(self, 'refresh_callback') and self.refresh_callback:
+                    self.refresh_callback()
+            except Exception as e:
+                print(f"Warning: Failed to refresh data: {str(e)}")
+                    
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal upload data:\n{str(e)}")
-    
-    def download_template(self):
-        """Download Excel template for barang with enhanced fields"""
-        try:
-            print("📥 Creating enhanced barang template...")
+            error_msg = str(e)
+            print(f"Fatal error during upload: {error_msg}")
             
-            # Get existing customers for template
-            customers = self.db.get_all_customers()
-            if not customers:
-                messagebox.showwarning("Warning", "Belum ada customer yang terdaftar!\nTambahkan customer terlebih dahulu.")
-                return
-            
-            # Create enhanced sample data with all required fields
-            template_data = {
-                'Customer': [
-                    customers[0]['nama_customer'] if customers else 'ANEKA PLASTIK',
-                    customers[1]['nama_customer'] if len(customers) > 1 else 'ASIA VARIASI', 
-                    customers[2]['nama_customer'] if len(customers) > 2 else 'ABADI KERAMIK',
-                    customers[0]['nama_customer'] if customers else 'ANEKA PLASTIK'
-                ],
-                'Jenis Barang': [
-                    'Bahan Baku',
-                    'Makanan',
-                    'Kemasan',
-                    'Peralatan'
-                ],
-                'Nama Barang': [
-                    'D ZAAN COKLAT BUBUK 25 KG',
-                    'ABON JAMBU 15KG', 
-                    'ABON PIALA, STEREOFOM BULAT',
-                    'MIXER INDUSTRIAL 50L'
-                ],
-                'P': [77, 33, 134, 120],  # Panjang (cm)
-                'L': [18, 28, 27, 80],    # Lebar (cm)
-                'T': [38, 33, 72, 150],   # Tinggi (cm)
-                'M3': [0.053, 0.030, 0.260, 1.44],  # Volume
-                'Ton': [0.025, 0.015, 0.050, 0.500], # Berat
-                'Colli': [1, 1, 50, 1],   # Jumlah colli
-                'Harga/m3': [2830189, 6666667, 288462, 694444],    # Harga per m3
-                'Harga/ton': [6000000, 13333333, 1500000, 2000000], # Harga per ton
-                'Harga/coll': [150000, 200000, 75000, 1000000]     # Harga per colli
-            }
-            
-            df = pd.DataFrame(template_data)
-            print("✅ Enhanced template data created")
-            
-            # Save file
-            filename = filedialog.asksaveasfilename(
-                parent=self.window,
-                title="Simpan Template Excel Barang",
-                defaultextension=".xlsx",
-                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
-                initialfile="template_barang_lengkap.xlsx"
+            self.status_label.config(
+                text=f"Error: {error_msg[:80]}...",
+                fg='#e74c3c'
             )
             
-            if filename:
-                print(f"💾 Saving enhanced template to: {filename}")
-                
-                # Create Excel with styling and instructions
-                with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-                    # Main data sheet
-                    df.to_excel(writer, index=False, sheet_name='Data Barang')
-                    
-                    # Create instructions sheet
-                    instructions_data = {
-                        'Kolom': [
-                            'Customer',
-                            'Jenis Barang', 
-                            'Nama Barang',
-                            'P (Panjang)',
-                            'L (Lebar)',
-                            'T (Tinggi)',
-                            'M3 (Volume)',
-                            'Ton (Berat)',
-                            'Colli',
-                            'Harga/m3',
-                            'Harga/ton',
-                            'Harga/coll'
-                        ],
-                        'Keterangan': [
-                            'Nama customer yang sudah terdaftar di sistem (WAJIB)',
-                            'Kategori/jenis barang (opsional)',
-                            'Nama lengkap barang/produk (WAJIB)',
-                            'Panjang barang dalam cm (opsional)',
-                            'Lebar barang dalam cm (opsional)',
-                            'Tinggi barang dalam cm (opsional)',
-                            'Volume barang dalam meter kubik (opsional)',
-                            'Berat barang dalam ton (opsional)',
-                            'Jumlah colli/kemasan (opsional)',
-                            'Harga per meter kubik dalam Rupiah (opsional)',
-                            'Harga per ton dalam Rupiah (opsional)',
-                            'Harga per colli dalam Rupiah (opsional)'
-                        ],
-                        'Contoh': [
-                            'ANEKA PLASTIK',
-                            'Bahan Baku / Makanan / Kemasan',
-                            'D ZAAN COKLAT BUBUK 25 KG',
-                            '77',
-                            '18', 
-                            '38',
-                            '0.053',
-                            '0.025',
-                            '1',
-                            '2830189',
-                            '6000000',
-                            '150000'
-                        ]
-                    }
-                    
-                    instructions_df = pd.DataFrame(instructions_data)
-                    instructions_df.to_excel(writer, index=False, sheet_name='Petunjuk')
-                    
-                    # Get workbook and worksheets
-                    workbook = writer.book
-                    data_worksheet = writer.sheets['Data Barang']
-                    instructions_worksheet = writer.sheets['Petunjuk']
-                    
-                    # Style headers
-                    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-                    
-                    # Header styling
-                    header_font = Font(bold=True, color="FFFFFF")
-                    header_fill = PatternFill(start_color="27AE60", end_color="27AE60", fill_type="solid")
-                    center_alignment = Alignment(horizontal="center", vertical="center")
-                    
-                    # Border
-                    thin_border = Border(
-                        left=Side(style='thin'),
-                        right=Side(style='thin'),
-                        top=Side(style='thin'),
-                        bottom=Side(style='thin')
-                    )
-                    
-                    # Style data sheet headers
-                    for col_num, column_title in enumerate(df.columns, 1):
-                        cell = data_worksheet.cell(row=1, column=col_num)
-                        cell.font = header_font
-                        cell.fill = header_fill
-                        cell.alignment = center_alignment
-                        cell.border = thin_border
-                    
-                    # Style instructions sheet headers
-                    instructions_header_fill = PatternFill(start_color="3498DB", end_color="3498DB", fill_type="solid")
-                    for col_num, column_title in enumerate(instructions_df.columns, 1):
-                        cell = instructions_worksheet.cell(row=1, column=col_num)
-                        cell.font = header_font
-                        cell.fill = instructions_header_fill
-                        cell.alignment = center_alignment
-                        cell.border = thin_border
-                    
-                    # Auto-adjust column widths for both sheets
-                    for worksheet in [data_worksheet, instructions_worksheet]:
-                        for column in worksheet.columns:
-                            max_length = 0
-                            column_letter = column[0].column_letter
-                            for cell in column:
-                                try:
-                                    if len(str(cell.value)) > max_length:
-                                        max_length = len(str(cell.value))
-                                except:
-                                    pass
-                            adjusted_width = min(max_length + 3, 50)
-                            worksheet.column_dimensions[column_letter].width = adjusted_width
-                    
-                    # Add some formatting to data cells
-                    for row in data_worksheet.iter_rows(min_row=2, max_row=len(df)+1):
-                        for cell in row:
-                            cell.border = thin_border
-                            cell.alignment = Alignment(vertical="center")
-                    
-                    # Format currency columns in data sheet
-                    currency_columns = ['Harga/m3', 'Harga/ton', 'Harga/coll']
-                    for col_name in currency_columns:
-                        if col_name in df.columns:
-                            col_idx = list(df.columns).index(col_name) + 1
-                            for row in range(2, len(df) + 2):
-                                cell = data_worksheet.cell(row=row, column=col_idx)
-                                cell.number_format = '#,##0'
-                
-                print("✅ Enhanced template saved successfully")
-                messagebox.showinfo(
-                    "Sukses", 
-                    f"Template lengkap berhasil disimpan:\n{filename}\n\n" +
-                    "Template berisi:\n" +
-                    "• Sheet 'Data Barang' - contoh data dengan semua kolom\n" +
-                    "• Sheet 'Petunjuk' - penjelasan setiap kolom\n" +
-                    "• Harga/m3, Harga/ton, Harga/coll untuk berbagai metode pricing\n" +
-                    "• Kolom Jenis Barang untuk kategorisasi\n\n" +
-                    "Pastikan customer sudah terdaftar di sistem sebelum upload!"
-                )
-            else:
-                print("❌ Save cancelled by user")
-        
-        except Exception as e:
-            import traceback
-            error_detail = traceback.format_exc()
-            print(f"💥 Template download error: {error_detail}")
+            # ✅ ENHANCED: Better error dialog with troubleshooting tips
+            error_dialog = (
+                f"GAGAL UPLOAD DATA\n\n"
+                f"Error: {error_msg}\n\n"
+                f"TIPS MENGATASI:\n"
+                f"• Pastikan file Excel tidak sedang dibuka\n"
+                f"• Periksa format data dalam file Excel\n"
+                f"• Pastikan customer Pengirim & Penerima sudah terdaftar\n"
+                f"• Coba preview file terlebih dahulu\n"
+                f"• Gunakan template Excel yang disediakan"
+            )
             
-            messagebox.showerror("Error", f"Gagal membuat template:\n\nError: {str(e)}")
+            messagebox.showerror("Error Upload", error_dialog)
+            
+        finally:
+            # ✅ ENHANCED: Always restore button state
+            self.upload_btn.config(state='normal', text=original_btn_text)
+
+    def extract_row_data(self, row, column_mapping):
+        """Extract and convert row data with proper type handling"""
+        def get_safe_value(field_name, value_type='str', default_value=None):
+            if field_name not in column_mapping:
+                return default_value
+            
+            value = row.get(column_mapping[field_name])
+            if pd.isna(value) or str(value).strip() == '' or str(value).upper() == 'NAN':
+                return default_value
+            
+            try:
+                if value_type == 'float':
+                    # Handle comma separated numbers (Indonesian format)
+                    if isinstance(value, str):
+                        value = value.replace(',', '').replace(' ', '')
+                    return float(str(value).strip()) if str(value).strip() else default_value
+                elif value_type == 'int':
+                    if isinstance(value, str):
+                        value = value.replace(',', '').replace(' ', '')
+                    return int(float(str(value).strip())) if str(value).strip() else default_value
+                else:
+                    return str(value).strip() if str(value).strip() else default_value
+            except Exception as e:
+                raise ValueError(f"Format {field_name} tidak valid: '{value}' - {str(e)}")
+        
+        return {
+            'jenis_barang': get_safe_value('jenis_barang'),
+            'panjang_barang': get_safe_value('panjang', 'float'),
+            'lebar_barang': get_safe_value('lebar', 'float'),
+            'tinggi_barang': get_safe_value('tinggi', 'float'),
+            'm3_barang': get_safe_value('m3', 'float'),
+            'ton_barang': get_safe_value('ton', 'float'),
+            'col_barang': get_safe_value('colli', 'int'),
+            # Pricing fields
+            'm3_pp': get_safe_value('harga_m3_pp', 'float'),
+            'm3_pd': get_safe_value('harga_m3_pd', 'float'),
+            'm3_dd': get_safe_value('harga_m3_dd', 'float'),
+            'ton_pp': get_safe_value('harga_ton_pp', 'float'),
+            'ton_pd': get_safe_value('harga_ton_pd', 'float'),
+            'ton_dd': get_safe_value('harga_ton_dd', 'float'),
+            'col_pp': get_safe_value('harga_col_pp', 'float'),
+            'col_pd': get_safe_value('harga_col_pd', 'float'),
+            'col_dd': get_safe_value('harga_col_dd', 'float'),
+        }
+
+
+    def show_enhanced_error_details(self, validation_errors, customer_not_found, success_count, total_count):
+        """Show enhanced error details in a popup window"""
+        error_window = tk.Toplevel(self.window)
+        error_window.title("📋 Detail Error Upload")
+        error_window.geometry("1000x600")
+        error_window.configure(bg='#ecf0f1')
+        
+        # Header
+        header_frame = tk.Frame(error_window, bg='#e74c3c', height=60)
+        header_frame.pack(fill='x')
+        header_frame.pack_propagate(False)
+        
+        tk.Label(
+            header_frame,
+            text=f"📋 LAPORAN UPLOAD EXCEL",
+            font=('Arial', 16, 'bold'),
+            fg='white',
+            bg='#e74c3c'
+        ).pack(expand=True)
+        
+        # Summary
+        summary_frame = tk.Frame(error_window, bg='#ffffff', relief='solid', bd=1)
+        summary_frame.pack(fill='x', padx=10, pady=10)
+        
+        summary_text = f"📊 RINGKASAN:\n"
+        summary_text += f"✅ Berhasil: {success_count}/{total_count}\n"
+        summary_text += f"❌ Customer tidak ditemukan: {len(customer_not_found)}\n"
+        summary_text += f"⚠️ Error validasi: {len(validation_errors)}"
+        
+        tk.Label(
+            summary_frame,
+            text=summary_text,
+            font=('Arial', 12, 'bold'),
+            bg='#ffffff',
+            fg='#2c3e50',
+            justify='left'
+        ).pack(pady=10, padx=20)
+        
+        # Error details in notebook
+        notebook = ttk.Notebook(error_window)
+        notebook.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Customer not found tab
+        if customer_not_found:
+            customer_frame = tk.Frame(notebook, bg='#ecf0f1')
+            notebook.add(customer_frame, text=f"👥 Customer Tidak Ditemukan ({len(customer_not_found)})")
+            
+            customer_text = tk.Text(customer_frame, wrap='word', font=('Consolas', 10))
+            customer_scroll = ttk.Scrollbar(customer_frame, orient='vertical', command=customer_text.yview)
+            customer_text.configure(yscrollcommand=customer_scroll.set)
+            
+            customer_text.pack(side='left', fill='both', expand=True)
+            customer_scroll.pack(side='right', fill='y')
+            
+            for error in customer_not_found:
+                customer_text.insert('end', 
+                    f"Baris {error['row_number']}: {error['nama_barang']}\n" +
+                    f"  Pengirim: {error['pengirim']}\n" +
+                    f"  Penerima: {error['penerima']}\n" +
+                    f"  Error: {'; '.join(error['errors'])}\n\n"
+                )
+        
+        # Validation errors tab
+        if validation_errors:
+            validation_frame = tk.Frame(notebook, bg='#ecf0f1')
+            notebook.add(validation_frame, text=f"⚠️ Error Validasi ({len(validation_errors)})")
+            
+            validation_text = tk.Text(validation_frame, wrap='word', font=('Consolas', 10))
+            validation_scroll = ttk.Scrollbar(validation_frame, orient='vertical', command=validation_text.yview)
+            validation_text.configure(yscrollcommand=validation_scroll.set)
+            
+            validation_text.pack(side='left', fill='both', expand=True)
+            validation_scroll.pack(side='right', fill='y')
+            
+            for error in validation_errors:
+                validation_text.insert('end',
+                    f"Baris {error['row_number']}: {error['nama_barang']}\n" +
+                    f"  Pengirim: {error['pengirim']}\n" +
+                    f"  Penerima: {error['penerima']}\n" +
+                    f"  Error: {error['error']}\n\n"
+                )
+        
+        # Close button
+        tk.Button(
+            error_window,
+            text="🚪 Tutup",
+            font=('Arial', 12, 'bold'),
+            bg='#95a5a6',
+            fg='white',
+            padx=20,
+            pady=10,
+            command=error_window.destroy
+        ).pack(pady=10)
     
     def add_barang(self):
         """Add new barang manually with enhanced pricing"""

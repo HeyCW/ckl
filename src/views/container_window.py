@@ -328,7 +328,7 @@ class ContainerWindow:
         self.print_handler.show_customer_selection_dialog(container_id)
     
     def create_container_barang_tab(self, parent):
-        """Create container-barang management tab with pricing"""
+        """Create container-barang management tab with pricing and sender/receiver selection"""
         # Container selection frame
         selection_frame = tk.Frame(parent, bg='#ecf0f1')
         selection_frame.pack(fill='x', padx=20, pady=20)
@@ -342,7 +342,7 @@ class ContainerWindow:
         tk.Label(container_select_frame, text="Pilih Container:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(side='left')
         self.selected_container_var = tk.StringVar()
         self.container_combo = ttk.Combobox(container_select_frame, textvariable=self.selected_container_var, 
-                                          font=('Arial', 11), width=40, state='readonly')
+                                        font=('Arial', 11), width=40, state='readonly')
         self.container_combo.pack(side='left', padx=(5, 20))
         
         # Load containers into combobox
@@ -355,27 +355,41 @@ class ContainerWindow:
         search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         search_add_frame.pack(fill='x', pady=15)
         
-        # Customer search
-        customer_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        customer_frame.pack(fill='x', pady=5)
+        # Sender selection frame
+        sender_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+        sender_frame.pack(fill='x', pady=5)
         
-        tk.Label(customer_frame, text="🔍 Pilih Customer:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.customer_search_var = tk.StringVar()
-        self.customer_search_combo = ttk.Combobox(customer_frame, textvariable=self.customer_search_var,
+        tk.Label(sender_frame, text="📤 Pilih Pengirim:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.sender_search_var = tk.StringVar()
+        self.sender_search_combo = ttk.Combobox(sender_frame, textvariable=self.sender_search_var,
+                                            font=('Arial', 10), width=25)
+        self.sender_search_combo.pack(side='left', padx=(5, 20))
+        
+        # Receiver selection frame
+        receiver_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+        receiver_frame.pack(fill='x', pady=5)
+        
+        tk.Label(receiver_frame, text="📥 Pilih Penerima:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.receiver_search_var = tk.StringVar()
+        self.receiver_search_combo = ttk.Combobox(receiver_frame, textvariable=self.receiver_search_var,
                                                 font=('Arial', 10), width=25)
-        self.customer_search_combo.pack(side='left', padx=(5, 20))
+        self.receiver_search_combo.pack(side='left', padx=(5, 20))
         
-        # Colli input
-        tk.Label(customer_frame, text="Jumlah Colli:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
+        # Colli input frame
+        colli_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+        colli_frame.pack(fill='x', pady=5)
+        
+        tk.Label(colli_frame, text="📦 Jumlah Colli:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
         self.colli_var = tk.StringVar(value="1")
-        self.colli_entry = tk.Entry(customer_frame, textvariable=self.colli_var, font=('Arial', 10), width=8)
+        self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, font=('Arial', 10), width=8)
         self.colli_entry.pack(side='left', padx=(5, 10))
         
-        # Bind customer selection to load barang
-        self.customer_search_combo.bind('<<ComboboxSelected>>', self.on_customer_select)
-        self.customer_search_combo.bind('<KeyRelease>', self.filter_customers)
+        # Bind selections to load barang
+        self.sender_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
+        self.sender_search_combo.bind('<KeyRelease>', self.filter_senders)
+        self.receiver_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
+        self.receiver_search_combo.bind('<KeyRelease>', self.filter_receivers)
         
-        # Load customers
         self.load_customers()
         
         # Actions frame
@@ -462,19 +476,21 @@ class ContainerWindow:
         available_tree_container.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
         self.available_tree = ttk.Treeview(available_tree_container,
-                                         columns=('ID', 'Customer', 'Nama', 'Dimensi', 'Volume', 'Berat'),
-                                         show='headings', height=12)
+                                        columns=('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat'),
+                                        show='headings', height=12)
         
         self.available_tree.heading('ID', text='ID')
-        self.available_tree.heading('Customer', text='Customer')
+        self.available_tree.heading('Pengirim', text='Pengirim')
+        self.available_tree.heading('Penerima', text='Penerima')
         self.available_tree.heading('Nama', text='Nama Barang')
         self.available_tree.heading('Dimensi', text='P×L×T (cm)')
         self.available_tree.heading('Volume', text='Volume (m³)')
         self.available_tree.heading('Berat', text='Berat (ton)')
         
         self.available_tree.column('ID', width=40)
-        self.available_tree.column('Customer', width=100)
-        self.available_tree.column('Nama', width=150)
+        self.available_tree.column('Pengirim', width=90)
+        self.available_tree.column('Penerima', width=90)
+        self.available_tree.column('Nama', width=130)
         self.available_tree.column('Dimensi', width=80)
         self.available_tree.column('Volume', width=70)
         self.available_tree.column('Berat', width=70)
@@ -503,10 +519,11 @@ class ContainerWindow:
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
         self.container_barang_tree = ttk.Treeview(container_tree_frame,
-                                                columns=('Customer', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
+                                                columns=('Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
                                                 show='headings', height=12)
         
-        self.container_barang_tree.heading('Customer', text='Customer')
+        self.container_barang_tree.heading('Pengirim', text='Pengirim')
+        self.container_barang_tree.heading('Penerima', text='Penerima')
         self.container_barang_tree.heading('Nama', text='Nama Barang')
         self.container_barang_tree.heading('Dimensi', text='P×L×T (cm)')
         self.container_barang_tree.heading('Volume', text='Volume (m³)')
@@ -516,15 +533,16 @@ class ContainerWindow:
         self.container_barang_tree.heading('Total_Harga', text='Total Harga')
         self.container_barang_tree.heading('Tanggal', text='Ditambahkan')
         
-        self.container_barang_tree.column('Customer', width=80)
-        self.container_barang_tree.column('Nama', width=100)
-        self.container_barang_tree.column('Dimensi', width=70)
-        self.container_barang_tree.column('Volume', width=50)
-        self.container_barang_tree.column('Berat', width=50)
+        self.container_barang_tree.column('Pengirim', width=70)
+        self.container_barang_tree.column('Penerima', width=70)
+        self.container_barang_tree.column('Nama', width=90)
+        self.container_barang_tree.column('Dimensi', width=65)
+        self.container_barang_tree.column('Volume', width=45)
+        self.container_barang_tree.column('Berat', width=45)
         self.container_barang_tree.column('Colli', width=40)
-        self.container_barang_tree.column('Harga_Unit', width=80)
-        self.container_barang_tree.column('Total_Harga', width=90)
-        self.container_barang_tree.column('Tanggal', width=70)
+        self.container_barang_tree.column('Harga_Unit', width=75)
+        self.container_barang_tree.column('Total_Harga', width=85)
+        self.container_barang_tree.column('Tanggal', width=65)
         
         # Scrollbars for container barang tree
         container_barang_v_scroll = ttk.Scrollbar(container_tree_frame, orient='vertical', command=self.container_barang_tree.yview)
@@ -540,7 +558,241 @@ class ContainerWindow:
         
         # Load initial data
         self.load_available_barang()
-    
+        
+        # Add these methods to your ContainerWindow class
+
+    def filter_senders(self, event=None):
+        """Filter sender combobox based on typed text"""
+        try:
+            typed = self.sender_search_var.get().lower()
+            
+            if not typed:
+                # Reload all customers if nothing typed
+                customers = self.db.execute("SELECT customer_id, nama_customer FROM customers ORDER BY customer_id")
+                customer_list = [f"{customer[0]} - {customer[1]}" for customer in customers]
+                self.sender_search_combo['values'] = customer_list
+                return
+                
+            # Get all customer values and filter
+            all_customers = list(self.sender_search_combo['values'])
+            filtered = [customer for customer in all_customers if typed in customer.lower()]
+            self.sender_search_combo['values'] = filtered
+            
+        except Exception as e:
+            print(f"Error filtering senders: {e}")
+        
+    def filter_receivers(self, event=None):
+        """Filter receiver combobox based on typed text"""
+        try:
+            typed = self.receiver_search_var.get().lower()
+            
+            if not typed:
+                # Reload all customers if nothing typed
+                customers = self.db.execute("SELECT customer_id, nama_customer FROM customers ORDER BY customer_id")
+                customer_list = [f"{customer[0]} - {customer[1]}" for customer in customers]
+                self.receiver_search_combo['values'] = customer_list
+                return
+                
+            # Get all customer values and filter
+            all_customers = list(self.receiver_search_combo['values'])
+            filtered = [customer for customer in all_customers if typed in customer.lower()]
+            self.receiver_search_combo['values'] = filtered
+            
+        except Exception as e:
+            print(f"Error filtering receivers: {e}")
+
+    def on_sender_receiver_select(self, event=None):
+        """Handle selection of sender or receiver to load available barang"""
+        print(f"Sender/Receiver selection changed - Sender: {self.sender_search_var.get()}, Receiver: {self.receiver_search_var.get()}")
+        self.load_available_barang()
+
+
+    def view_container_summary(self):
+        """View detailed summary of container with sender/receiver breakdown"""
+        try:
+            if not self.selected_container_var.get():
+                messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+                return
+            
+            container_id = self.selected_container_var.get().split(' - ')[0]
+            
+            # Get container info
+            container = self.db.get_container_by_id(container_id)
+            if not container:
+                messagebox.showerror("Error", "Container tidak ditemukan!")
+                return
+            
+            # Get summary data with sender/receiver breakdown
+            summary_query = """
+            SELECT 
+                sender.nama_customer as pengirim,
+                receiver.nama_customer as penerima,
+                COUNT(dc.id) as jumlah_item,
+                SUM(dc.colli_amount) as total_colli,
+                SUM(b.m3_barang * dc.colli_amount) as total_volume,
+                SUM(b.ton_barang * dc.colli_amount) as total_berat,
+                SUM(dc.total_harga) as total_harga
+            FROM detail_container dc
+            JOIN barang b ON dc.barang_id = b.barang_id
+            LEFT JOIN customers sender ON dc.sender_id = sender.customer_id
+            LEFT JOIN customers receiver ON dc.receiver_id = receiver.customer_id
+            WHERE dc.container_id = ?
+            GROUP BY dc.sender_id, dc.receiver_id
+            ORDER BY pengirim, penerima
+            """
+            
+            summary_data = self.db.execute(summary_query, (container_id,))
+            
+            # Create summary window
+            self.show_sender_receiver_summary_dialog(container, summary_data)
+            
+        except Exception as e:
+            print(f"Error viewing container summary: {e}")
+            messagebox.showerror("Error", f"Gagal menampilkan summary: {e}")
+
+    def show_sender_receiver_summary_dialog(self, container, summary_data):
+        """Show container summary dialog with sender/receiver breakdown"""
+        try:
+            summary_window = tk.Toplevel(self.window)
+            summary_window.title(f"Summary Container - {container.get('container', 'N/A')}")
+            summary_window.geometry("900x600")
+            summary_window.transient(self.window)
+            summary_window.grab_set()
+            
+            # Center window
+            summary_window.update_idletasks()
+            x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (450)
+            y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (300)
+            summary_window.geometry(f"900x600+{x}+{y}")
+            
+            # Header
+            header = tk.Label(
+                summary_window,
+                text=f"📊 SUMMARY CONTAINER: {container.get('container', 'N/A')}",
+                font=('Arial', 16, 'bold'),
+                bg='#e67e22',
+                fg='white',
+                pady=15
+            )
+            header.pack(fill='x')
+            
+            # Container info
+            info_frame = tk.Frame(summary_window, bg='#ecf0f1', relief='solid', bd=1)
+            info_frame.pack(fill='x', padx=20, pady=10)
+            
+            tk.Label(info_frame, text=f"📦 Container: {container.get('container', 'N/A')}", 
+                    font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
+            
+            details_frame = tk.Frame(info_frame, bg='#ecf0f1')
+            details_frame.pack(pady=(0, 10))
+            
+            tk.Label(details_frame, text=f"Feeder: {container.get('feeder', 'N/A')}", 
+                    font=('Arial', 11), bg='#ecf0f1').pack(side='left', padx=20)
+            tk.Label(details_frame, text=f"Destination: {container.get('destination', 'N/A')}", 
+                    font=('Arial', 11), bg='#ecf0f1').pack(side='left', padx=20)
+            tk.Label(details_frame, text=f"ETD: {container.get('etd_sub', 'N/A')}", 
+                    font=('Arial', 11), bg='#ecf0f1').pack(side='left', padx=20)
+            
+            # Summary by sender-receiver
+            tk.Label(summary_window, text="📊 Ringkasan per Pengirim-Penerima", 
+                    font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', padx=20, pady=(10, 5))
+            
+            # Summary tree
+            tree_frame = tk.Frame(summary_window)
+            tree_frame.pack(fill='both', expand=True, padx=20, pady=10)
+            
+            summary_tree = ttk.Treeview(tree_frame,
+                                    columns=('Pengirim', 'Penerima', 'Items', 'Colli', 'Volume', 'Berat', 'Total_Harga'),
+                                    show='headings', height=15)
+            
+            summary_tree.heading('Pengirim', text='Pengirim')
+            summary_tree.heading('Penerima', text='Penerima')
+            summary_tree.heading('Items', text='Jumlah Item')
+            summary_tree.heading('Colli', text='Total Colli')
+            summary_tree.heading('Volume', text='Volume (m³)')
+            summary_tree.heading('Berat', text='Berat (ton)')
+            summary_tree.heading('Total_Harga', text='Total Harga')
+            
+            summary_tree.column('Pengirim', width=120)
+            summary_tree.column('Penerima', width=120)
+            summary_tree.column('Items', width=80)
+            summary_tree.column('Colli', width=80)
+            summary_tree.column('Volume', width=80)
+            summary_tree.column('Berat', width=80)
+            summary_tree.column('Total_Harga', width=120)
+            
+            # Scrollbars
+            v_scroll = ttk.Scrollbar(tree_frame, orient='vertical', command=summary_tree.yview)
+            h_scroll = ttk.Scrollbar(tree_frame, orient='horizontal', command=summary_tree.xview)
+            summary_tree.configure(yscrollcommand=v_scroll.set, xscrollcommand=h_scroll.set)
+            
+            summary_tree.grid(row=0, column=0, sticky='nsew')
+            v_scroll.grid(row=0, column=1, sticky='ns')
+            h_scroll.grid(row=1, column=0, sticky='ew')
+            
+            tree_frame.grid_rowconfigure(0, weight=1)
+            tree_frame.grid_columnconfigure(0, weight=1)
+            
+            # Populate data and calculate totals
+            grand_total_items = 0
+            grand_total_colli = 0
+            grand_total_volume = 0
+            grand_total_berat = 0
+            grand_total_harga = 0
+            
+            for row in summary_data:
+                pengirim, penerima, items, colli, volume, berat, harga = row
+                
+                grand_total_items += items or 0
+                grand_total_colli += colli or 0
+                grand_total_volume += volume or 0
+                grand_total_berat += berat or 0
+                grand_total_harga += harga or 0
+                
+                summary_tree.insert('', 'end', values=(
+                    pengirim or "N/A",
+                    penerima or "N/A",
+                    items or 0,
+                    colli or 0,
+                    f"{volume:.3f}" if volume else "0.000",
+                    f"{berat:.3f}" if berat else "0.000",
+                    f"Rp {harga:,.0f}" if harga else "Rp 0"
+                ))
+            
+            # Add grand total row
+            summary_tree.insert('', 'end', values=(
+                "TOTAL",
+                "",
+                grand_total_items,
+                grand_total_colli,
+                f"{grand_total_volume:.3f}",
+                f"{grand_total_berat:.3f}",
+                f"Rp {grand_total_harga:,.0f}"
+            ), tags=('total',))
+            
+            # Style total row
+            summary_tree.tag_configure('total', background='#3498db', foreground='white')
+            
+            # Close button
+            tk.Button(summary_window, text="Tutup", command=summary_window.destroy,
+                    bg='#95a5a6', fg='white', font=('Arial', 12, 'bold'), 
+                    padx=30, pady=8).pack(pady=20)
+            
+        except Exception as e:
+            print(f"Error creating sender/receiver summary dialog: {e}")
+            messagebox.showerror("Error", f"Gagal menampilkan summary: {e}")
+
+    def on_container_select(self, event=None):
+        """Handle container selection - updated for sender/receiver"""
+        selection = self.selected_container_var.get()
+        if selection:
+            container_id = int(selection.split(' - ')[0])
+            self.load_container_barang_with_sender_receiver()  # Updated method name
+            
+            # Update label
+            container_info = selection.split(' - ', 1)[1] if ' - ' in selection else selection
+            self.container_label.config(text=f"📦 Barang dalam Container: {container_info}")
+          
     def create_pricing_dialog(self, selected_items, colli_amount):
         """Create dialog for pricing input with auto-price selection"""
         pricing_window = tk.Toplevel(self.window)
@@ -1309,7 +1561,8 @@ class ContainerWindow:
             # Get unique customers from barang table
             customers = self.db.execute("SELECT DISTINCT c.nama_customer FROM barang b JOIN customers c ON b.customer_id = c.customer_id ORDER BY c.nama_customer")
             customer_list = [row[0] for row in customers if row[0]]
-            self.customer_search_combo['values'] = customer_list
+            self.sender_search_combo['values'] = customer_list
+            self.receiver_search_combo['values'] = customer_list
         except Exception as e:
             print(f"Error loading customers: {e}")
     
@@ -1333,17 +1586,6 @@ class ContainerWindow:
         except Exception as e:
             print(f"Error filtering customers: {e}")
     
-    def on_customer_select(self, event=None):
-        """Handle customer selection to load their barang"""
-        customer = self.customer_search_var.get()
-        print(f"Customer selected: '{customer}'") 
-        if customer:
-            # Filter treeview to show only this customer's barang
-            self.load_customer_barang_tree(customer)
-        else:
-            # Reset tabel ke semua barang hanya jika customer dikosongkan
-            self.load_available_barang()
-
     def load_customer_barang_tree(self, customer_name):
         """Load barang for specific customer in the left tree"""
         try:
