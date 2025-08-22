@@ -602,18 +602,6 @@ class BarangWindow:
         
         tk.Label(header_frame, text="📋 DAFTAR BARANG", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(side='left')
         
-        refresh_btn = tk.Button(
-            header_frame,
-            text="🔄 Refresh",
-            font=('Arial', 10),
-            bg='#95a5a6',
-            fg='white',
-            padx=15,
-            pady=5,
-            command=self.load_barang
-        )
-        refresh_btn.pack(side='right')
-        
         # Search/Filter Frame
         search_frame = tk.Frame(list_container, bg='#ffffff', relief='solid', bd=1)
         search_frame.pack(fill='x', pady=(0, 10))
@@ -628,33 +616,20 @@ class BarangWindow:
         )
         search_label.pack(anchor='w', padx=10, pady=(10, 5))
         
-        # Search controls frame
-        search_controls = tk.Frame(search_frame, bg='#ffffff')
-        search_controls.pack(fill='x', padx=10, pady=(0, 10))
+        # Search controls frame - First row
+        search_controls_row1 = tk.Frame(search_frame, bg='#ffffff')
+        search_controls_row1.pack(fill='x', padx=10, pady=(0, 5))
         
         # Search by name
-        tk.Label(search_controls, text="Nama Barang:", font=('Arial', 10), bg='#ffffff').pack(side='left')
+        tk.Label(search_controls_row1, text="Nama Barang:", font=('Arial', 10), bg='#ffffff').pack(side='left')
         self.search_name_var = tk.StringVar()
         self.search_name_var.trace('w', self.on_search_change)
-        search_name_entry = tk.Entry(search_controls, textvariable=self.search_name_var, font=('Arial', 10), width=20)
+        search_name_entry = tk.Entry(search_controls_row1, textvariable=self.search_name_var, font=('Arial', 10), width=20)
         search_name_entry.pack(side='left', padx=(5, 15))
-        
-        # Filter by customer
-        tk.Label(search_controls, text="Customer:", font=('Arial', 10), bg='#ffffff').pack(side='left')
-        self.filter_customer_var = tk.StringVar()
-        self.filter_customer_var.trace('w', self.on_search_change)
-        self.filter_customer_combo = ttk.Combobox(
-            search_controls, 
-            textvariable=self.filter_customer_var, 
-            font=('Arial', 10), 
-            width=18,
-            state='readonly'
-        )
-        self.filter_customer_combo.pack(side='left', padx=(5, 15))
         
         # Clear search button
         clear_search_btn = tk.Button(
-            search_controls,
+            search_controls_row1,
             text="❌ Clear",
             font=('Arial', 9),
             bg='#e67e22',
@@ -663,7 +638,37 @@ class BarangWindow:
             pady=2,
             command=self.clear_search
         )
-        clear_search_btn.pack(side='left', padx=5)
+        clear_search_btn.pack(side='right', padx=5)
+        
+        # Search controls frame - Second row
+        search_controls_row2 = tk.Frame(search_frame, bg='#ffffff')
+        search_controls_row2.pack(fill='x', padx=10, pady=(0, 10))
+        
+        # Filter by Pengirim
+        tk.Label(search_controls_row2, text="Pengirim:", font=('Arial', 10), bg='#ffffff').pack(side='left')
+        self.filter_pengirim_var = tk.StringVar()
+        self.filter_pengirim_var.trace('w', self.on_search_change)
+        self.filter_pengirim_combo = ttk.Combobox(
+            search_controls_row2, 
+            textvariable=self.filter_pengirim_var, 
+            font=('Arial', 10), 
+            width=18,
+            state='readonly'
+        )
+        self.filter_pengirim_combo.pack(side='left', padx=(5, 15))
+        
+        # Filter by Penerima
+        tk.Label(search_controls_row2, text="Penerima:", font=('Arial', 10), bg='#ffffff').pack(side='left')
+        self.filter_penerima_var = tk.StringVar()
+        self.filter_penerima_var.trace('w', self.on_search_change)
+        self.filter_penerima_combo = ttk.Combobox(
+            search_controls_row2, 
+            textvariable=self.filter_penerima_var, 
+            font=('Arial', 10), 
+            width=18,
+            state='readonly'
+        )
+        self.filter_penerima_combo.pack(side='left', padx=(5, 15))
         
         # Action buttons frame
         action_frame = tk.Frame(list_container, bg='#ecf0f1')
@@ -726,34 +731,48 @@ class BarangWindow:
         tree_container.pack(fill='both', expand=True)
         
         self.tree = ttk.Treeview(tree_container,
-                               columns=('ID', 'Customer', 'Nama', 'Jenis', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga/M3', 'Harga/Ton', 'Harga/Col', 'Created'),
-                               show='headings', height=12)
+                            columns=('ID', 'Pengirim', 'Penerima', 'Nama', 'Jenis', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD', 'Created'),
+                            show='headings', height=12)
         
         # Configure columns
         self.tree.heading('ID', text='ID')
-        self.tree.heading('Customer', text='Customer')
+        self.tree.heading('Pengirim', text='Pengirim')
+        self.tree.heading('Penerima', text='Penerima')
         self.tree.heading('Nama', text='Nama Barang')
         self.tree.heading('Jenis', text='Jenis Barang')
         self.tree.heading('Dimensi', text='P×L×T (cm)')
         self.tree.heading('Volume', text='Volume (m³)')
         self.tree.heading('Berat', text='Berat (ton)')
         self.tree.heading('Colli', text='Colli')
-        self.tree.heading('Harga/M3', text='Harga/M3 (Rp)')
-        self.tree.heading('Harga/Ton', text='Harga/Ton (Rp)')
-        self.tree.heading('Harga/Col', text='Harga/Col (Rp)')
+        self.tree.heading('Harga/M3_PP', text='Harga/M3_PP (Rp)')
+        self.tree.heading('Harga/M3_PD', text='Harga/M3_PD (Rp)')
+        self.tree.heading('Harga/M3_DD', text='Harga/M3_DD (Rp)')
+        self.tree.heading('Harga/Ton_PP', text='Harga/Ton_PP (Rp)')
+        self.tree.heading('Harga/Ton_PD', text='Harga/Ton_PD (Rp)')
+        self.tree.heading('Harga/Ton_DD', text='Harga/Ton_DD (Rp)')
+        self.tree.heading('Harga/Col_PP', text='Harga/Col_PP (Rp)')
+        self.tree.heading('Harga/Col_PD', text='Harga/Col_PD (Rp)')
+        self.tree.heading('Harga/Col_DD', text='Harga/Col_DD (Rp)')
         self.tree.heading('Created', text='Tanggal Dibuat')
         
         self.tree.column('ID', width=40)
-        self.tree.column('Customer', width=120)
+        self.tree.column('Pengirim', width=150)
+        self.tree.column('Penerima', width=150)
         self.tree.column('Nama', width=200)
         self.tree.column('Jenis', width=100)
         self.tree.column('Dimensi', width=100)
         self.tree.column('Volume', width=80)
         self.tree.column('Berat', width=80)
         self.tree.column('Colli', width=60)
-        self.tree.column('Harga/M3', width=100)
-        self.tree.column('Harga/Ton', width=100)
-        self.tree.column('Harga/Col', width=100)
+        self.tree.column('Harga/M3_PP', width=100)
+        self.tree.column('Harga/M3_PD', width=100)
+        self.tree.column('Harga/M3_DD', width=100)
+        self.tree.column('Harga/Ton_PP', width=100)
+        self.tree.column('Harga/Ton_PD', width=100)
+        self.tree.column('Harga/Ton_DD', width=100)
+        self.tree.column('Harga/Col_PP', width=100)
+        self.tree.column('Harga/Col_PD', width=100)
+        self.tree.column('Harga/Col_DD', width=100)
         self.tree.column('Created', width=120)
         
         # Scrollbars
@@ -778,22 +797,34 @@ class BarangWindow:
         self.original_barang_data = []
         
         # Load existing barang
-        self.load_barang()
-        self.load_customer_filter()
+        self.load_pengirim_penerima_filter()
         
         # Add tab change event to refresh data when switching to this tab
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
-
-    def load_customer_filter(self):
-        """Load customers for filter dropdown"""
+        
+    def load_pengirim_penerima_filter(self):
+        """Load unique pengirim and penerima for filter dropdowns"""
         try:
+            
             customers = self.db.get_all_customers()
-            customer_names = ['-- Semua Customer --'] + [c['nama_customer'] for c in customers]
-            self.filter_customer_combo['values'] = customer_names
-            self.filter_customer_combo.set('-- Semua Customer --')
+            pengirim_list = [c['nama_customer'] for c in customers if 'nama_customer' in c]
+            penerima_list = [c['nama_customer'] for c in customers if 'nama_customer' in c]
+
+            
+            # Update combobox values
+            pengirim_list = ['-- Semua Pengirim --'] + sorted(list(pengirim_list))
+            penerima_list = ['-- Semua Penerima --'] + sorted(list(penerima_list))
+            
+            self.filter_pengirim_combo['values'] = pengirim_list
+            self.filter_penerima_combo['values'] = penerima_list
+            
+            # Set default values
+            self.filter_pengirim_var.set('-- Semua Pengirim --')
+            self.filter_penerima_var.set('-- Semua Penerima --')
+            
         except Exception as e:
-            print(f"Error loading customer filter: {e}")
-    
+            print(f"Error loading pengirim/penerima filter: {e}")
+            
     def on_search_change(self, *args):
         """Handle search input changes"""
         self.filter_barang()
@@ -801,20 +832,24 @@ class BarangWindow:
     def clear_search(self):
         """Clear all search filters"""
         self.search_name_var.set('')
-        self.filter_customer_var.set('-- Semua Customer --')
+        self.filter_pengirim_var.set('-- Semua Pengirim --')
+        self.filter_penerima_var.set('-- Semua Penerima --')
         self.filter_barang()
     
     def filter_barang(self):
-        """Filter barang based on search criteria with fuzzy matching"""
+        """Filter barang based on search criteria"""
         # Clear current display
         for item in self.tree.get_children():
             self.tree.delete(item)
         
         # Get search criteria
         search_name = self.search_name_var.get().strip()
-        filter_customer = self.filter_customer_var.get()
+        filter_pengirim = self.filter_pengirim_var.get()
+        filter_penerima = self.filter_penerima_var.get()
         
-        print(f"Search name {search_name}")
+        print(f"Search name: {search_name}")
+        print(f"Filter pengirim: {filter_pengirim}")
+        print(f"Filter penerima: {filter_penerima}")
         
         # Filter data
         filtered_data = []
@@ -822,65 +857,94 @@ class BarangWindow:
         print(f"Filtering data with {len(self.original_barang_data)} items")
         
         for barang in self.original_barang_data:
+            show_item = True
+
+            print(f"Filtering item: {barang}")
+
+            # Determine data structure and extract values accordingly
+            if isinstance(barang, dict):
+                # Dictionary structure
+                nama_barang = str(barang.get('nama_barang', '')).lower()
+                pengirim_id = barang.get('pengirim', '')
+                pengirim = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '') if pengirim_id else ''
+                penerima_id = barang.get('penerima', '')
+                penerima = self.db.get_customer_by_id(penerima_id).get('nama_customer', '') if penerima_id else '' 
+            else:
+                # List/tuple structure - adjust indices based on your column order
+                nama_barang = str(barang[3]).lower() if len(barang) > 3 else ''  # Nama Barang column
+                pengirim = str(barang[1]) if len(barang) > 1 else ''  # Pengirim column
+                penerima = str(barang[2]) if len(barang) > 2 else ''  # Penerima column
+            
             # Check name filter with flexible matching
             if search_name:
-                nama_barang = barang['nama_barang'].lower()
                 search_terms = search_name.lower().split()
-                
-                print(f"search terms {search_terms}")
-                
-                # Check if any search term matches (partial matching)
                 match_found = False
+                
                 for term in search_terms:
-                    # Create regex pattern for flexible matching
-                    # Allow for minor typos and partial matches
-                    pattern = '.*'.join(re.escape(char) for char in term)
-                    print(f"pattern: {pattern}")
-                    if re.search(pattern, nama_barang, re.IGNORECASE):
-                        match_found = True
-                        break
-                    
-                    # Also check direct substring match
                     if term in nama_barang:
                         match_found = True
                         break
                 
                 if not match_found:
-                    continue
-                
-            # Check customer filter
-            if filter_customer and filter_customer != '-- Semua Customer --':
-                if barang['nama_customer'] != filter_customer:
-                    continue
+                    show_item = False
             
-            filtered_data.append(barang)
+            # Check pengirim filter
+            if filter_pengirim and filter_pengirim != '-- Semua Pengirim --':
+                if str(pengirim) != filter_pengirim:
+                    show_item = False
+            
+            # Check penerima filter
+            if filter_penerima and filter_penerima != '-- Semua Penerima --':
+                if str(penerima) != filter_penerima:
+                    show_item = False
+            
+            if show_item:
+                filtered_data.append(barang)
         
         # Display filtered data
         for barang in filtered_data:
-            # Format dimensions
-            dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
-            
-            # Format currency
-            harga_m3 = f"Rp {barang.get('harga_m3', 0):,.0f}" if barang.get('harga_m3') else '-'
-            harga_ton = f"Rp {barang.get('harga_ton', 0):,.0f}" if barang.get('harga_ton') else '-'
-            harga_col = f"Rp {barang.get('harga_col', 0):,.0f}" if barang.get('harga_col') else '-'
-            
-            # Format date
-            created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
-            
-            self.tree.insert('', tk.END, values=(
-                barang['barang_id'],
-                barang['nama_customer'],
-                barang['nama_barang'],
-                dimensi,
-                barang.get('m3_barang', '-'),
-                barang.get('ton_barang', '-'),
-                barang.get('col_barang', '-'),
-                harga_m3,
-                harga_ton,
-                harga_col,
-                created_date
-            ))
+            if isinstance(barang, dict):
+                # Dictionary structure - format for display
+                dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
+                
+                # Format currency
+                harga_m3_pp = f"Rp {barang.get('m3_pp', 0):,.0f}" if barang.get('m3_pp') else '-'
+                harga_m3_pd = f"Rp {barang.get('m3_pd', 0):,.0f}" if barang.get('m3_pd') else '-'
+                harga_m3_dd = f"Rp {barang.get('m3_dd', 0):,.0f}" if barang.get('m3_dd') else '-'
+                harga_ton_pp = f"Rp {barang.get('ton_pp', 0):,.0f}" if barang.get('ton_pp') else '-'
+                harga_ton_pd = f"Rp {barang.get('ton_pd', 0):,.0f}" if barang.get('ton_pd') else '-'
+                harga_ton_dd = f"Rp {barang.get('ton_dd', 0):,.0f}" if barang.get('ton_dd') else '-'
+                harga_col_pp = f"Rp {barang.get('col_pp', 0):,.0f}" if barang.get('col_pp') else '-'
+                harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') else '-'
+                harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') else '-'
+                
+                # Format date
+                created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
+                
+                self.tree.insert('', 'end', values=(
+                    barang.get('barang_id', ''),
+                    barang.get('sender_name', ''),
+                    barang.get('receiver_name', ''),
+                    barang.get('nama_barang', ''),
+                    barang.get('jenis_barang', ''),
+                    dimensi,
+                    barang.get('m3_barang', '-'),
+                    barang.get('ton_barang', '-'),
+                    barang.get('col_barang', '-'),
+                    harga_m3_pp,
+                    harga_m3_pd,
+                    harga_m3_dd,
+                    harga_ton_pp,
+                    harga_ton_pd,
+                    harga_ton_dd,
+                    harga_col_pp,
+                    harga_col_pd,
+                    harga_col_dd,
+                    created_date
+                ))
+            else:
+                # List/tuple structure - display as is
+                self.tree.insert('', 'end', values=barang)
         
         # Update info label
         total_count = len(self.original_barang_data)
@@ -889,7 +953,7 @@ class BarangWindow:
             self.info_label.config(text=f"📊 Menampilkan {filtered_count} dari {total_count} barang")
         else:
             self.info_label.config(text="💡 Pilih barang dari tabel untuk edit/hapus")
-
+            
     def update_barang(self):
         """Update selected barang"""
         selection = self.tree.selection()
@@ -904,9 +968,44 @@ class BarangWindow:
         # Find full barang data
         selected_barang = None
         for barang in self.original_barang_data:
-            if barang['barang_id'] == barang_id:
-                selected_barang = barang
-                break
+            # Handle both dictionary and list/tuple structures
+            if isinstance(barang, dict):
+                if barang['barang_id'] == barang_id:
+                    selected_barang = barang
+                    break
+            else:
+                # For list/tuple structure, ID is at index 0
+                if str(barang[0]) == str(barang_id):
+                    # Convert to dictionary structure for easier handling
+                    selected_barang = {
+                        'barang_id': barang[0] if len(barang) > 0 else '',
+                        'pengirim': barang[1] if len(barang) > 1 else '',
+                        'penerima': barang[2] if len(barang) > 2 else '',
+                        'nama_barang': barang[3] if len(barang) > 3 else '',
+                        'jenis_barang': barang[4] if len(barang) > 4 else '',
+                        'dimensi': barang[5] if len(barang) > 5 else '',
+                        'volume_barang': barang[6] if len(barang) > 6 else '',
+                        'berat_barang': barang[7] if len(barang) > 7 else '',
+                        'colli_barang': barang[8] if len(barang) > 8 else '',
+                        'harga_m3_pp': barang[9] if len(barang) > 9 else '',
+                        'harga_m3_pd': barang[10] if len(barang) > 10 else '',
+                        'harga_m3_dd': barang[11] if len(barang) > 11 else '',
+                        'harga_ton_pp': barang[12] if len(barang) > 12 else '',
+                        'harga_ton_pd': barang[13] if len(barang) > 13 else '',
+                        'harga_ton_dd': barang[14] if len(barang) > 14 else '',
+                        'harga_col_pp': barang[15] if len(barang) > 15 else '',
+                        'harga_col_pd': barang[16] if len(barang) > 16 else '',
+                        'harga_col_dd': barang[17] if len(barang) > 17 else '',
+                        'created_at': barang[18] if len(barang) > 18 else ''
+                    }
+                    # Parse dimensions if it's in "PxLxT" format
+                    if selected_barang['dimensi'] and '×' in selected_barang['dimensi']:
+                        dims = selected_barang['dimensi'].split('×')
+                        selected_barang['panjang_barang'] = dims[0] if len(dims) > 0 and dims[0] != '-' else ''
+                        selected_barang['lebar_barang'] = dims[1] if len(dims) > 1 and dims[1] != '-' else ''
+                        selected_barang['tinggi_barang'] = dims[2] if len(dims) > 2 and dims[2] != '-' else ''
+                    break
+        
         print(f"Selected barang: {selected_barang}")
 
         if not selected_barang:
@@ -922,25 +1021,26 @@ class BarangWindow:
             self.db.update_barang(updated_barang)
             messagebox.showinfo("Sukses", "Data barang berhasil disimpan!")
             self.load_barang()
+            self.load_pengirim_penerima_filter()  # Refresh filter options
         except Exception as e:
             print(f"Error saat menyimpan data: {e}")
             messagebox.showerror("Error", f"Gagal menyimpan data barang!\nError: {str(e)}")
-    
+
     def open_update_dialog(self, barang_data):
         """Open dialog to update barang data"""
         # Create update window
         update_window = tk.Toplevel(self.window)
-        update_window.title(f"✏️ Edit Barang - {barang_data['nama_barang']}")
-        update_window.geometry("600x700")
+        update_window.title(f"✏️ Edit Barang - {barang_data.get('nama_barang', 'Unknown')}")
+        update_window.geometry("700x800")
         update_window.configure(bg='#ecf0f1')
         update_window.transient(self.window)
         update_window.grab_set()
         
         # Center window
         update_window.update_idletasks()
-        x = (update_window.winfo_screenwidth() // 2) - (600 // 2)
-        y = (update_window.winfo_screenheight() // 2) - (700 // 2)
-        update_window.geometry(f"600x700+{x}+{y}")
+        x = (update_window.winfo_screenwidth() // 2) - (700 // 2)
+        y = (update_window.winfo_screenheight() // 2) - (800 // 2)
+        update_window.geometry(f"700x800+{x}+{y}")
         
         # Header
         header = tk.Label(
@@ -953,39 +1053,69 @@ class BarangWindow:
         )
         header.pack(fill='x')
         
-        # Form frame
-        form_frame = tk.Frame(update_window, bg='#ecf0f1')
-        form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        # Form frame with scrollbar
+        canvas = tk.Canvas(update_window, bg='#ecf0f1')
+        scrollbar = ttk.Scrollbar(update_window, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='#ecf0f1')
         
-        # Create form fields (similar to manual input but pre-filled)
-        # Customer (read-only)
-        tk.Label(form_frame, text="Customer:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
-        customer_label = tk.Label(
-            form_frame, 
-            text=barang_data['nama_customer'], 
-            font=('Arial', 11),
-            bg='#ffffff',
-            relief='solid',
-            bd=1,
-            padx=5,
-            pady=5
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
-        customer_label.pack(fill='x', pady=(5, 10))
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True, padx=20, pady=20)
+        scrollbar.pack(side="right", fill="y")
+        
+        form_frame = scrollable_frame
+        
+        customers = self.db.get_all_customers()
+        customer_names = [c['nama_customer'] for c in customers]
+
+        pengirim_name = self.db.get_customer_by_id(barang_data.get('pengirim', '')).get('nama_customer', '') if barang_data.get('pengirim') else ''
+        penerima_name = self.db.get_customer_by_id(barang_data.get('penerima', '')).get('nama_customer', '') if barang_data.get('penerima') else ''
+        # Pengirim
+        tk.Label(form_frame, text="Pengirim:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 0))
+        pengirim_var = tk.StringVar(value=pengirim_name)
+        pengirim_combo = ttk.Combobox(
+            form_frame,
+            textvariable=pengirim_var,
+            font=('Arial', 11),
+            values=customer_names,
+            state='normal'  # Allow typing new values
+        )
+        pengirim_combo.pack(fill='x', pady=(5, 10))
+        
+        # Penerima
+        tk.Label(form_frame, text="Penerima:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        penerima_var = tk.StringVar(value=penerima_name)
+        penerima_combo = ttk.Combobox(
+            form_frame,
+            textvariable=penerima_var,
+            font=('Arial', 11),
+            values=customer_names,
+            state='normal'  # Allow typing new values
+        )
+        penerima_combo.pack(fill='x', pady=(5, 10))
         
         # Nama Barang
         tk.Label(form_frame, text="Nama Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
-        nama_barang_var = tk.StringVar(value=barang_data['nama_barang'])
+        nama_barang_var = tk.StringVar(value=barang_data.get('nama_barang', ''))
         nama_barang_entry = tk.Entry(form_frame, textvariable=nama_barang_var, font=('Arial', 11))
         nama_barang_entry.pack(fill='x', pady=(5, 10))
         
+        # Jenis Barang
         tk.Label(form_frame, text="Jenis Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
-        jenis_barang_var = tk.StringVar(value=barang_data['jenis_barang'])
+        jenis_barang_var = tk.StringVar(value=barang_data.get('jenis_barang', ''))
         jenis_barang_entry = tk.Entry(form_frame, textvariable=jenis_barang_var, font=('Arial', 11))
         jenis_barang_entry.pack(fill='x', pady=(5, 10))
 
         # Dimensions
+        tk.Label(form_frame, text="Dimensi Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
         dim_frame = tk.Frame(form_frame, bg='#ecf0f1')
-        dim_frame.pack(fill='x', pady=10)
+        dim_frame.pack(fill='x', pady=(5, 10))
         
         tk.Label(dim_frame, text="Panjang (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
         panjang_var = tk.StringVar(value=str(barang_data.get('panjang_barang', '') or ''))
@@ -1003,64 +1133,133 @@ class BarangWindow:
         tinggi_entry.pack(side='left', padx=5)
         
         # Other fields
+        tk.Label(form_frame, text="Spesifikasi Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 0))
         other_frame = tk.Frame(form_frame, bg='#ecf0f1')
-        other_frame.pack(fill='x', pady=10)
+        other_frame.pack(fill='x', pady=(5, 10))
         
         tk.Label(other_frame, text="Volume (m³):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        m3_var = tk.StringVar(value=str(barang_data.get('m3_barang', '') or ''))
-        m3_entry = tk.Entry(other_frame, textvariable=m3_var, font=('Arial', 10), width=10)
-        m3_entry.pack(side='left', padx=(5, 20))
+        volume_var = tk.StringVar(value=str(barang_data.get('m3_barang', '') or ''))
+        volume_entry = tk.Entry(other_frame, textvariable=volume_var, font=('Arial', 10), width=10)
+        volume_entry.pack(side='left', padx=(5, 20))
         
         tk.Label(other_frame, text="Berat (ton):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        ton_var = tk.StringVar(value=str(barang_data.get('ton_barang', '') or ''))
-        ton_entry = tk.Entry(other_frame, textvariable=ton_var, font=('Arial', 10), width=10)
-        ton_entry.pack(side='left', padx=(5, 20))
+        berat_var = tk.StringVar(value=str(barang_data.get('ton_barang', '') or ''))
+        berat_entry = tk.Entry(other_frame, textvariable=berat_var, font=('Arial', 10), width=10)
+        berat_entry.pack(side='left', padx=(5, 20))
         
         tk.Label(other_frame, text="Colli:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        col_var = tk.StringVar(value=str(barang_data.get('col_barang', '') or ''))
-        col_entry = tk.Entry(other_frame, textvariable=col_var, font=('Arial', 10), width=10)
-        col_entry.pack(side='left', padx=5)
+        colli_var = tk.StringVar(value=str(barang_data.get('col_barang', '') or ''))
+        colli_entry = tk.Entry(other_frame, textvariable=colli_var, font=('Arial', 10), width=10)
+        colli_entry.pack(side='left', padx=5)
         
-        # Pricing fields
-        price_frame = tk.Frame(form_frame, bg='#ecf0f1')
-        price_frame.pack(fill='x', pady=10)
+        # Pricing section
+        tk.Label(form_frame, text="Harga Pickup to Pickup (PP):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(20, 5))
         
-        tk.Label(price_frame, text="Harga Satuan:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
+        # PP Prices
+        pp_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        pp_frame.pack(fill='x', pady=(0, 10))
         
-        # Harga M3
-        harga_m3_frame = tk.Frame(price_frame, bg='#ecf0f1')
-        harga_m3_frame.pack(fill='x', pady=2)
-        tk.Label(harga_m3_frame, text="Harga/m³ (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        harga_m3_var = tk.StringVar(value=str(barang_data.get('harga_m3', '') or ''))
-        harga_m3_entry = tk.Entry(harga_m3_frame, textvariable=harga_m3_var, font=('Arial', 10), width=20)
-        harga_m3_entry.pack(side='left', padx=(5, 0))
+        # Harga M3 PP
+        harga_m3_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
+        harga_m3_pp_frame.pack(fill='x', pady=2)
+        tk.Label(harga_m3_pp_frame, text="Harga/m³ (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_m3_pp_var = tk.StringVar(value=str(barang_data.get('m3_pp', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_m3_pp_entry = tk.Entry(harga_m3_pp_frame, textvariable=harga_m3_pp_var, font=('Arial', 10), width=20)
+        harga_m3_pp_entry.pack(side='left', padx=(5, 0))
         
-        # Harga Ton
-        harga_ton_frame = tk.Frame(price_frame, bg='#ecf0f1')
-        harga_ton_frame.pack(fill='x', pady=2)
-        tk.Label(harga_ton_frame, text="Harga/ton (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        harga_ton_var = tk.StringVar(value=str(barang_data.get('harga_ton', '') or ''))
-        harga_ton_entry = tk.Entry(harga_ton_frame, textvariable=harga_ton_var, font=('Arial', 10), width=20)
-        harga_ton_entry.pack(side='left', padx=(5, 0))
+        # Harga Ton PP
+        harga_ton_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
+        harga_ton_pp_frame.pack(fill='x', pady=2)
+        tk.Label(harga_ton_pp_frame, text="Harga/ton (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_ton_pp_var = tk.StringVar(value=str(barang_data.get('ton_pp', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_ton_pp_entry = tk.Entry(harga_ton_pp_frame, textvariable=harga_ton_pp_var, font=('Arial', 10), width=20)
+        harga_ton_pp_entry.pack(side='left', padx=(5, 0))
         
-        # Harga Col
-        harga_col_frame = tk.Frame(price_frame, bg='#ecf0f1')
-        harga_col_frame.pack(fill='x', pady=2)
-        tk.Label(harga_col_frame, text="Harga/colli (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        harga_col_var = tk.StringVar(value=str(barang_data.get('harga_col', '') or ''))
-        harga_col_entry = tk.Entry(harga_col_frame, textvariable=harga_col_var, font=('Arial', 10), width=20)
-        harga_col_entry.pack(side='left', padx=(5, 0))
+        # Harga Col PP
+        harga_col_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
+        harga_col_pp_frame.pack(fill='x', pady=2)
+        tk.Label(harga_col_pp_frame, text="Harga/colli (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_col_pp_var = tk.StringVar(value=str(barang_data.get('col_pp', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_col_pp_entry = tk.Entry(harga_col_pp_frame, textvariable=harga_col_pp_var, font=('Arial', 10), width=20)
+        harga_col_pp_entry.pack(side='left', padx=(5, 0))
+        
+        # PD Prices
+        tk.Label(form_frame, text="Harga Pickup to Door (PD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
+        
+        pd_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        pd_frame.pack(fill='x', pady=(0, 10))
+        
+        # Similar structure for PD prices
+        harga_m3_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
+        harga_m3_pd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_m3_pd_frame, text="Harga/m³ (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_m3_pd_var = tk.StringVar(value=str(barang_data.get('m3_pd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_m3_pd_entry = tk.Entry(harga_m3_pd_frame, textvariable=harga_m3_pd_var, font=('Arial', 10), width=20)
+        harga_m3_pd_entry.pack(side='left', padx=(5, 0))
+        
+        harga_ton_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
+        harga_ton_pd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_ton_pd_frame, text="Harga/ton (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_ton_pd_var = tk.StringVar(value=str(barang_data.get('ton_pd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_ton_pd_entry = tk.Entry(harga_ton_pd_frame, textvariable=harga_ton_pd_var, font=('Arial', 10), width=20)
+        harga_ton_pd_entry.pack(side='left', padx=(5, 0))
+        
+        harga_col_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
+        harga_col_pd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_col_pd_frame, text="Harga/colli (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_col_pd_var = tk.StringVar(value=str(barang_data.get('col_pd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_col_pd_entry = tk.Entry(harga_col_pd_frame, textvariable=harga_col_pd_var, font=('Arial', 10), width=20)
+        harga_col_pd_entry.pack(side='left', padx=(5, 0))
+        
+        # DD Prices
+        tk.Label(form_frame, text="Harga Door to Door (DD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
+        
+        dd_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        dd_frame.pack(fill='x', pady=(0, 10))
+        
+        # Similar structure for DD prices
+        harga_m3_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
+        harga_m3_dd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_m3_dd_frame, text="Harga/m³ (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_m3_dd_var = tk.StringVar(value=str(barang_data.get('m3_dd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_m3_dd_entry = tk.Entry(harga_m3_dd_frame, textvariable=harga_m3_dd_var, font=('Arial', 10), width=20)
+        harga_m3_dd_entry.pack(side='left', padx=(5, 0))
+        
+        harga_ton_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
+        harga_ton_dd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_ton_dd_frame, text="Harga/ton (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_ton_dd_var = tk.StringVar(value=str(barang_data.get('ton_dd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_ton_dd_entry = tk.Entry(harga_ton_dd_frame, textvariable=harga_ton_dd_var, font=('Arial', 10), width=20)
+        harga_ton_dd_entry.pack(side='left', padx=(5, 0))
+        
+        harga_col_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
+        harga_col_dd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_col_dd_frame, text="Harga/colli (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_col_dd_var = tk.StringVar(value=str(barang_data.get('col_dd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_col_dd_entry = tk.Entry(harga_col_dd_frame, textvariable=harga_col_dd_var, font=('Arial', 10), width=20)
+        harga_col_dd_entry.pack(side='left', padx=(5, 0))
         
         def validate_update_form():
             """Validate update form data"""
             
-            # 1. Nama Barang wajib
+            # 1. Pengirim dan Penerima wajib
+            if not pengirim_var.get().strip():
+                messagebox.showwarning("Peringatan", "Pengirim tidak boleh kosong.")
+                pengirim_var.focus()
+                return False
+                
+            if not penerima_var.get().strip():
+                messagebox.showwarning("Peringatan", "Penerima tidak boleh kosong.")
+                penerima_var.focus()
+                return False
+            
+            # 2. Nama Barang wajib
             if not nama_barang_var.get().strip():
                 messagebox.showwarning("Peringatan", "Nama Barang tidak boleh kosong.")
                 nama_barang_entry.focus()
                 return False
             
-            # 2. Validasi format angka untuk dimensi (jika diisi)
+            # 3. Validasi format angka untuk dimensi (jika diisi)
             try:
                 if panjang_var.get().strip():
                     val = float(panjang_var.get())
@@ -1081,20 +1280,20 @@ class BarangWindow:
                 messagebox.showwarning("Format Tidak Valid", f"Dimensi tidak valid: {str(e)}")
                 return False
             
-            # 3. Validasi volume, berat, colli (jika diisi)
+            # 4. Validasi volume, berat, colli (jika diisi)
             try:
-                if m3_var.get().strip():
-                    val = float(m3_var.get())
+                if volume_var.get().strip():
+                    val = float(volume_var.get())
                     if val <= 0:
                         raise ValueError("Volume harus lebih besar dari 0")
                 
-                if ton_var.get().strip():
-                    val = float(ton_var.get())
+                if berat_var.get().strip():
+                    val = float(berat_var.get())
                     if val <= 0:
                         raise ValueError("Berat harus lebih besar dari 0")
                 
-                if col_var.get().strip():
-                    val = int(float(col_var.get()))
+                if colli_var.get().strip():
+                    val = int(float(colli_var.get()))
                     if val <= 0:
                         raise ValueError("Colli harus lebih besar dari 0")
                         
@@ -1102,86 +1301,123 @@ class BarangWindow:
                 messagebox.showwarning("Format Tidak Valid", f"Volume/Berat/Colli tidak valid: {str(e)}")
                 return False
             
-            # 4. Validasi harga - minimal salah satu harus diisi
-            harga_m3 = harga_m3_var.get().strip()
-            harga_ton = harga_ton_var.get().strip()
-            harga_col = harga_col_var.get().strip()
+            # 5. Validasi harga - minimal salah satu kategori harus diisi
+            all_prices = [
+                harga_m3_pp_var.get().strip(), harga_ton_pp_var.get().strip(), harga_col_pp_var.get().strip(),
+                harga_m3_pd_var.get().strip(), harga_ton_pd_var.get().strip(), harga_col_pd_var.get().strip(),
+                harga_m3_dd_var.get().strip(), harga_ton_dd_var.get().strip(), harga_col_dd_var.get().strip()
+            ]
             
-            if not harga_m3 and not harga_ton and not harga_col:
+            if not any(all_prices):
                 messagebox.showwarning(
                     "Peringatan", 
-                    "Minimal salah satu metode pricing harus diisi!\n\n" +
+                    "Minimal salah satu harga harus diisi!\n\n" +
                     "💰 Pilihan pricing:\n" +
                     "• Harga per m³ (untuk volume)\n" +
                     "• Harga per ton (untuk berat)\n" +
-                    "• Harga per colli (untuk jumlah kemasan)"
+                    "• Harga per colli (untuk jumlah kemasan)\n\n" +
+                    "Dan minimal salah satu kategori (PP/PD/DD)"
                 )
-                harga_m3_entry.focus()
                 return False
             
-            # 5. Validasi format harga yang diisi
+            # 6. Validasi format harga yang diisi
             try:
-                if harga_m3:
-                    val = float(harga_m3)
-                    if val <= 0:
-                        raise ValueError("Harga per m³ harus lebih besar dari 0")
-                
-                if harga_ton:
-                    val = float(harga_ton)
-                    if val <= 0:
-                        raise ValueError("Harga per ton harus lebih besar dari 0")
-                
-                if harga_col:
-                    val = float(harga_col)
-                    if val <= 0:
-                        raise ValueError("Harga per colli harus lebih besar dari 0")
-                        
+                for price_var, name in [
+                    (harga_m3_pp_var, "Harga M3 PP"), (harga_ton_pp_var, "Harga Ton PP"), (harga_col_pp_var, "Harga Col PP"),
+                    (harga_m3_pd_var, "Harga M3 PD"), (harga_ton_pd_var, "Harga Ton PD"), (harga_col_pd_var, "Harga Col PD"),
+                    (harga_m3_dd_var, "Harga M3 DD"), (harga_ton_dd_var, "Harga Ton DD"), (harga_col_dd_var, "Harga Col DD")
+                ]:
+                    value = price_var.get().strip()
+                    if value:
+                        val = float(value)
+                        if val <= 0:
+                            raise ValueError(f"{name} harus lebih besar dari 0")
+                            
             except ValueError as e:
                 messagebox.showwarning("Format Harga Tidak Valid", str(e))
                 return False
             
             return True
-
-        
         
         def on_save():
             """Save updated barang data with validation"""
-        
+            
             if not validate_update_form():
                 return
             
+            pengirim_id = self.db.get_customer_id_by_name(pengirim_var.get().strip())
+            penerima_id = self.db.get_customer_id_by_name(penerima_var.get().strip())
+
             updated_barang = {
                 'barang_id': barang_data['barang_id'],
-                'nama_barang': nama_barang_var.get(),
-                'jenis_barang': jenis_barang_var.get(),
-                'panjang_barang': panjang_var.get(),
-                'lebar_barang': lebar_var.get(),
-                'tinggi_barang': tinggi_var.get(),
-                'm3_barang': m3_var.get(),
-                'ton_barang': ton_var.get(),
-                'col_barang': col_var.get(),
-                'harga_m3': harga_m3_var.get(),
-                'harga_ton': harga_ton_var.get(),
-                'harga_col': harga_col_var.get(),
+                'pengirim': pengirim_id,
+                'penerima': penerima_id,
+                'nama_barang': nama_barang_var.get().strip(),
+                'jenis_barang': jenis_barang_var.get().strip(),
+                'panjang_barang': panjang_var.get().strip() or None,
+                'lebar_barang': lebar_var.get().strip() or None,
+                'tinggi_barang': tinggi_var.get().strip() or None,
+                'volume_barang': volume_var.get().strip() or None,
+                'berat_barang': berat_var.get().strip() or None,
+                'colli_barang': colli_var.get().strip() or None,
+                'harga_m3_pp': harga_m3_pp_var.get().strip() or None,
+                'harga_ton_pp': harga_ton_pp_var.get().strip() or None,
+                'harga_col_pp': harga_col_pp_var.get().strip() or None,
+                'harga_m3_pd': harga_m3_pd_var.get().strip() or None,
+                'harga_ton_pd': harga_ton_pd_var.get().strip() or None,
+                'harga_col_pd': harga_col_pd_var.get().strip() or None,
+                'harga_m3_dd': harga_m3_dd_var.get().strip() or None,
+                'harga_ton_dd': harga_ton_dd_var.get().strip() or None,
+                'harga_col_dd': harga_col_dd_var.get().strip() or None,
                 'updated_at': datetime.datetime.now()
             }
             self.save_changes(updated_barang)
-            update_window.destroy()  
-
-        
+            update_window.destroy()
 
         # Buttons
         btn_frame = tk.Frame(form_frame, bg='#ecf0f1')
         btn_frame.pack(fill='x', pady=30)
         
-        # Tambahkan tombol Save
-        btn_save = tk.Button(btn_frame, text="Save", bg="#2ecc71", fg="white", padx=20, pady=5, command=lambda: on_save())
+        # Save button
+        btn_save = tk.Button(
+            btn_frame, 
+            text="💾 Simpan Perubahan", 
+            bg="#2ecc71", 
+            fg="white", 
+            font=('Arial', 11, 'bold'),
+            padx=20, 
+            pady=8, 
+            command=on_save
+        )
         btn_save.pack(side="right", padx=10)
 
-        # (opsional) tambahin tombol Cancel
-        btn_cancel = tk.Button(btn_frame, text="Cancel", bg="#e74c3c", fg="white", padx=20, pady=5, command= lambda: update_window.destroy())
+        # Cancel button
+        btn_cancel = tk.Button(
+            btn_frame, 
+            text="❌ Batal", 
+            bg="#e74c3c", 
+            fg="white", 
+            font=('Arial', 11, 'bold'),
+            padx=20, 
+            pady=8, 
+            command=lambda: update_window.destroy()
+        )
         btn_cancel.pack(side="right")
         
+        # Bind mouse wheel to canvas for scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Clean up when window is closed
+        def on_closing():
+            canvas.unbind_all("<MouseWheel>")
+            update_window.destroy()
+        
+        update_window.protocol("WM_DELETE_WINDOW", on_closing)
+        
+      
     def on_tree_select(self, event):
         """Handle tree selection change"""
         selection = self.tree.selection()
@@ -2486,6 +2722,7 @@ class BarangWindow:
             total_upload_items = len(valid_data_for_upload)
             
             for idx, (original_idx, row, validation_data) in enumerate(valid_data_for_upload):
+                
                 try:
                     # Simple progress update
                     progress = int((idx + 1) / total_upload_items * 100)
@@ -2801,8 +3038,11 @@ class BarangWindow:
     
     def validated_barang(self):
             # Validate input fields for barang
-            if not self.customer_var.get():
-                messagebox.showwarning("Peringatan", "Pilih Customer terlebih dahulu.")
+            if not self.pengirim_combo.get():
+                messagebox.showwarning("Peringatan", "Pilih Pengirim terlebih dahulu.")
+                return False
+            if not self.penerima_var.get():
+                messagebox.showwarning("Peringatan", "Pilih Penerima terlebih dahulu.")
                 return False
             if not self.jenis_barang_entry.get():
                 messagebox.showwarning("Peringatan", "Jenis Barang tidak boleh kosong.")
@@ -2817,11 +3057,21 @@ class BarangWindow:
                 messagebox.showwarning("Peringatan", "Volume dan Berat Barang tidak boleh kosong.")
                 return False
             
-            harga_m3 = self.harga_m3_entry.get().strip()
-            harga_ton = self.harga_ton_entry.get().strip()
-            harga_col = self.harga_coll_entry.get().strip()
+            harga_m3_pp = self.harga_m3_pp_entry.get().strip()
+            harga_m3_pd = self.harga_m3_pd_entry.get().strip()
+            harga_m3_dd = self.harga_m3_dd_entry.get().strip()
             
-            if not harga_m3 and not harga_ton and not harga_col:
+            harga_ton_pp = self.harga_ton_pp_entry.get().strip()
+            harga_ton_pd = self.harga_ton_pd_entry.get().strip()
+            harga_ton_dd = self.harga_ton_dd_entry.get().strip()
+            
+            harga_col_pp = self.harga_col_pp_entry.get().strip()
+            harga_col_pd = self.harga_col_pd_entry.get().strip()
+            harga_col_dd = self.harga_col_dd_entry.get().strip()
+
+            if not (harga_m3_pp or harga_m3_pd or harga_m3_dd or 
+                       harga_ton_pp or harga_ton_pd or harga_ton_dd or 
+                       harga_col_pp or harga_col_pd or harga_col_dd):
                 messagebox.showwarning(
                     "Peringatan", 
                     "Minimal salah satu metode pricing harus diisi!\n\n" +
@@ -2869,25 +3119,40 @@ class BarangWindow:
                 dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
                 
                 # Format currency
-                harga_m3 = f"Rp {barang.get('harga_m3', 0):,.0f}" if barang.get('harga_m3') else '-'
-                harga_ton = f"Rp {barang.get('harga_ton', 0):,.0f}" if barang.get('harga_ton') else '-'
-                harga_col = f"Rp {barang.get('harga_col', 0):,.0f}" if barang.get('harga_col') else '-'
+                harga_m3_pp = f"Rp {barang.get('m3_pp', 0):,.0f}" if barang.get('m3_pp') else '-'
+                harga_m3_pd = f"Rp {barang.get('m3_pd', 0):,.0f}" if barang.get('m3_pd') else '-'
+                harga_m3_dd = f"Rp {barang.get('m3_dd', 0):,.0f}" if barang.get('m3_dd') else '-'
+
+                harga_ton_pp = f"Rp {barang.get('ton_pp', 0):,.0f}" if barang.get('ton_pp') else '-'
+                harga_ton_pd = f"Rp {barang.get('ton_pd', 0):,.0f}" if barang.get('ton_pd') else '-'
+                harga_ton_dd = f"Rp {barang.get('ton_dd', 0):,.0f}" if barang.get('ton_dd') else '-'
+
+                harga_col_pp = f"Rp {barang.get('col_pp', 0):,.0f}" if barang.get('col_pp') else '-'
+                harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') else '-'
+                harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') else '-'
 
                 # Format date
                 created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
                 
                 self.tree.insert('', tk.END, values=(
                     barang['barang_id'],
-                    barang['nama_customer'],
+                    barang['sender_name'],
+                    barang['receiver_name'],
                     barang['nama_barang'],
                     barang['jenis_barang'],
                     dimensi,
                     barang.get('m3_barang', '-'),
                     barang.get('ton_barang', '-'),
                     barang.get('col_barang', '-'),
-                    harga_m3,
-                    harga_ton,
-                    harga_col,
+                    harga_m3_pp,
+                    harga_m3_pd,
+                    harga_m3_dd,
+                    harga_ton_pp,
+                    harga_ton_pd,
+                    harga_ton_dd,
+                    harga_col_pp,
+                    harga_col_pd,
+                    harga_col_dd,
                     created_date
                 ))
             

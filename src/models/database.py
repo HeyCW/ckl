@@ -480,7 +480,32 @@ class CustomerDatabase(SQLiteDatabase):
         except Exception as e:
             logger.error(f"Failed to get customer ID {customer_id}: {e}")
             raise DatabaseError(f"Failed to retrieve customer: {e}")
-    
+        
+    def get_customer_id_by_name(self, nama_customer):
+        """Get customer ID by name with error handling - returns int, not sqlite3.Row"""
+        if not nama_customer:
+            raise ValueError("Customer name is required")
+        try:
+            customer = self.execute_one(
+                "SELECT customer_id FROM customers WHERE nama_customer = ?",
+                (nama_customer,)
+            )
+            
+            if customer:
+                # Extract the actual integer value from sqlite3.Row
+                if hasattr(customer, '__getitem__'):  # Check if it's a Row object
+                    customer_id = customer['customer_id']  # or customer[0]
+                else:
+                    customer_id = customer
+                
+                return int(customer_id) if customer_id is not None else None
+            else:
+                return None  # Customer not found
+                
+        except Exception as e:
+            logger.error(f"Failed to get customer ID by name {nama_customer}: {e}")
+            raise DatabaseError(f"Failed to retrieve customer ID: {e}")
+
     def update_customer(self, customer_id, nama_customer=None, alamat_customer=None):
         """Update customer with error handling"""
         if not customer_id:
@@ -618,18 +643,18 @@ class BarangDatabase(SQLiteDatabase):
                 cursor.execute('''
                     UPDATE barang
                     SET pengirim = ?, penerima = ?, jenis_barang = ?, nama_barang = ?,
-                        p = ?, l = ?, t = ?, m3 = ?, ton = ?, colli = ?,
+                        panjang_barang = ?, lebar_barang = ?, tinggi_barang = ?, m3_barang = ?, ton_barang = ?, col_barang = ?,
                         m3_pp = ?, m3_pd = ?, m3_dd = ?, ton_pp = ?, ton_pd = ?, ton_dd = ?,
-                        colli_pp = ?, colli_pd = ?, colli_dd = ?, updated_at = CURRENT_TIMESTAMP
+                        col_pp = ?, col_pd = ?, col_dd = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE barang_id = ?
                 ''', (
                     barang_data.get('pengirim'), barang_data.get('penerima'),
                     barang_data.get('jenis_barang'), barang_data.get('nama_barang'),
-                    barang_data.get('p'), barang_data.get('l'), barang_data.get('t'),
-                    barang_data.get('m3'), barang_data.get('ton'), barang_data.get('colli'),
+                    barang_data.get('panjang_barang'), barang_data.get('lebar_barang'), barang_data.get('tinggi_barang'),
+                    barang_data.get('m3_barang'), barang_data.get('ton_barang'), barang_data.get('col_barang'),
                     barang_data.get('m3_pp'), barang_data.get('m3_pd'), barang_data.get('m3_dd'),
                     barang_data.get('ton_pp'), barang_data.get('ton_pd'), barang_data.get('ton_dd'),
-                    barang_data.get('colli_pp'), barang_data.get('colli_pd'), barang_data.get('colli_dd'),
+                    barang_data.get('col_pp'), barang_data.get('col_pd'), barang_data.get('col_dd'),
                     barang_data['barang_id']
                 ))
             
@@ -698,10 +723,19 @@ class BarangDatabase(SQLiteDatabase):
         
         try:
             barang_list = self.execute('''
-                SELECT b.*
+                SELECT 
+                    b.*,
+                    s.nama_customer AS sender_name,
+                    s.alamat_customer AS sender_address,
+                    r.nama_customer AS receiver_name,
+                    r.alamat_customer AS receiver_address
                 FROM barang b
-                ORDER BY b.barang_id ASC
+                LEFT JOIN customers r ON b.penerima = r.customer_id
+                LEFT JOIN customers s ON b.pengirim = s.customer_id
+                ORDER BY b.barang_id ASC;
+
             ''')
+            
             
             return [dict(barang) for barang in barang_list]
             
