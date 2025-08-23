@@ -557,9 +557,7 @@ class ContainerWindow:
         container_tree_frame.grid_columnconfigure(0, weight=1)
         
         # Load initial data
-        self.load_available_barang()
-        
-        # Add these methods to your ContainerWindow class
+        self.load_available_barang() 
 
     def filter_senders(self, event=None):
         """Filter sender combobox based on typed text"""
@@ -603,8 +601,13 @@ class ContainerWindow:
 
     def on_sender_receiver_select(self, event=None):
         """Handle selection of sender or receiver to load available barang"""
-        print(f"Sender/Receiver selection changed - Sender: {self.sender_search_var.get()}, Receiver: {self.receiver_search_var.get()}")
-        self.load_available_barang()
+        sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
+        receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
+        
+        print(f"Sender/Receiver selection changed - Sender: {sender}, Receiver: {receiver}")
+        
+        # Call the updated method with both parameters
+        self.load_customer_barang_tree(sender, receiver)
 
 
     def view_container_summary(self):
@@ -794,503 +797,486 @@ class ContainerWindow:
             self.container_label.config(text=f"📦 Barang dalam Container: {container_info}")
           
     def create_pricing_dialog(self, selected_items, colli_amount):
-        """Create dialog for pricing input with auto-price selection"""
+        """Create dialog for pricing input with auto-price selection using Treeview table"""
         pricing_window = tk.Toplevel(self.window)
         pricing_window.title("💰 Set Harga Barang")
-        pricing_window.geometry("1000x700")  # Diperbesar dari 800x600 ke 1000x700
+        pricing_window.geometry("1300x800")
         pricing_window.configure(bg='#ecf0f1')
         pricing_window.transient(self.window)
         pricing_window.grab_set()
         
         # Center window
-        pricing_window.update_idletasks()
-        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (500)  # Adjusted for new width
-        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (350)  # Adjusted for new height
-        pricing_window.geometry(f"1000x700+{x}+{y}")
+        self._center_window(pricing_window, 1300, 800)
         
-        # Header
-        header = tk.Label(
-            pricing_window,
-            text="💰 SET HARGA BARANG",
-            font=('Arial', 16, 'bold'),
-            bg='#e67e22',
-            fg='white',
-            pady=15
-        )
-        header.pack(fill='x')
+        # Initialize pricing data storage
+        pricing_data_store = {}
         
-        # Info frame
-        info_frame = tk.Frame(pricing_window, bg='#ecf0f1')
-        info_frame.pack(fill='x', padx=20, pady=10)
+        # CREATE MAIN SCROLLABLE CANVAS FOR ENTIRE DIALOG
+        main_canvas = tk.Canvas(pricing_window, bg='#ecf0f1')
+        main_scrollbar = ttk.Scrollbar(pricing_window, orient="vertical", command=main_canvas.yview)
+        scrollable_frame = tk.Frame(main_canvas, bg='#ecf0f1')
         
-        tk.Label(
-            info_frame,
-            text=f"📦 Jumlah Colli per barang: {colli_amount}",
-            font=('Arial', 12, 'bold'),
-            bg='#ecf0f1'
-        ).pack(anchor='w')
-        
-        # Auto fill all buttons - PINDAHKAN KE ATAS
-        auto_all_frame = tk.Frame(info_frame, bg='#ecf0f1')
-        auto_all_frame.pack(fill='x', pady=10)
-        
-        tk.Label(auto_all_frame, text="🚀 Auto Fill Semua:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
-        
-        # Pricing entries (harus didefinisikan sebelum auto_fill_all)
-        pricing_entries = {}
-        
-        def auto_fill_all(pricing_type):
-            """Auto fill all items with selected pricing type"""
-            for entry_data in pricing_entries.values():
-                print(f"Setting {entry_data.get('item_name', 'Unknown')} to {pricing_type}")
-                entry_data['auto_var'].set(pricing_type)
-                # Trigger auto price change
-                entry_data['combo'].event_generate('<<ComboboxSelected>>')
-        
-        auto_types = [
-            ("m³", "Harga/m³", '#3498db'),
-            ("ton", "Harga/ton", '#e74c3c'), 
-            ("colli", "Harga/colli", '#27ae60'),
-            ("Manual", "Manual", '#95a5a6')
-        ]
-        
-        for label, value, color in auto_types:
-            btn = tk.Button(
-                auto_all_frame,
-                text=label,
-                font=('Arial', 10),  # Font diperbesar dari 9 ke 10
-                bg=color,
-                fg='white',
-                padx=12,  # Padding diperbesar
-                pady=5,   # Padding diperbesar
-                command=lambda v=value: auto_fill_all(v)
-            )
-            btn.pack(side='left', padx=3)
-        
-        # Quick fill buttons - PINDAHKAN KE ATAS
-        quick_frame = tk.Frame(info_frame, bg='#ecf0f1')
-        quick_frame.pack(fill='x', pady=5)
-        
-        tk.Label(quick_frame, text="⚡ Quick Fill Manual:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
-        
-        def quick_fill(amount):
-            for entry_data in pricing_entries.values():
-                entry_data['auto_var'].set("Manual")
-                entry_data['harga_var'].set(str(amount))
-                # Trigger update
-                entry_data['entry'].event_generate('<KeyRelease>')
-        
-        quick_amounts = [50000, 100000, 150000, 200000, 250000]
-        for amount in quick_amounts:
-            btn = tk.Button(
-                quick_frame,
-                text=f"{amount//1000}K",
-                font=('Arial', 9),
-                bg='#95a5a6',
-                fg='white',
-                padx=8,
-                pady=3,
-                command=lambda a=amount: quick_fill(a)
-            )
-            btn.pack(side='left', padx=2)
-        
-        # Pricing frame - UKURAN DIPERBESAR
-        pricing_frame = tk.Frame(pricing_window, bg='#ffffff', relief='solid', bd=1)
-        pricing_frame.pack(fill='both', expand=True, padx=20, pady=10)
-        
-        # Headers - FONT DIPERBESAR
-        headers_frame = tk.Frame(pricing_frame, bg='#ffffff')
-        headers_frame.pack(fill='x', padx=10, pady=8)
-        
-        tk.Label(headers_frame, text="Nama Barang", font=('Arial', 10, 'bold'), bg='#ffffff', width=22).pack(side='left')
-        tk.Label(headers_frame, text="Customer", font=('Arial', 10, 'bold'), bg='#ffffff', width=14).pack(side='left')
-        tk.Label(headers_frame, text="Auto", font=('Arial', 10, 'bold'), bg='#ffffff', width=10).pack(side='left')
-        tk.Label(headers_frame, text="Harga/Unit", font=('Arial', 10, 'bold'), bg='#ffffff', width=14).pack(side='left')
-        tk.Label(headers_frame, text="Total", font=('Arial', 10, 'bold'), bg='#ffffff', width=14).pack(side='left')
-        tk.Label(headers_frame, text="Info Harga DB", font=('Arial', 10, 'bold'), bg='#ffffff', width=18).pack(side='left')
-        
-        canvas = tk.Canvas(pricing_frame, bg='#ffffff')
-        scrollbar = ttk.Scrollbar(pricing_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg='#ffffff')
-        
+        # Configure scrollable frame
         scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
         )
         
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        # Create window in canvas
+        canvas_window = main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         
-        # Get detailed barang data for pricing options
-        barang_details = {}
-        for item in selected_items:
-            try:
-                barang_data = self.db.execute_one("""
-                    SELECT b.*, c.nama_customer 
-                    FROM barang b 
-                    JOIN customers c ON b.customer_id = c.customer_id 
-                    WHERE b.barang_id = ?
-                """, (item['id'],))
-                
-                if barang_data:
-                    barang_details[item['id']] = dict(barang_data)
-            except Exception as e:
-                print(f"Error getting barang details for {item['id']}: {e}")
-                barang_details[item['id']] = {}
+        # Configure canvas scrolling
+        main_canvas.configure(yscrollcommand=main_scrollbar.set)
         
-        # Helper functions untuk menghindari closure issues
-        def make_update_total_func(harga_var, total_var, auto_var, pricing_data, colli):
-            """Factory function untuk membuat update_total yang unik per item"""
-            def update_total(event=None):
-                try:
-                    selection = auto_var.get()
-                    harga_str = harga_var.get().replace(',', '').strip()
-                    if not harga_str:
-                        harga_str = "0"
-                    harga = float(harga_str)
-                    
-                    # Calculate total berdasarkan metode pricing yang dipilih
-                    if selection == "Harga/m³":
-                        # Total = harga_per_m3 × total_m3_semua_barang × colli
-                        total_m3 = float(pricing_data['m3_barang']) * colli
-                        total = harga * total_m3
-                        print(f"✅ m³ total calc: {harga} × ({pricing_data['m3_barang']} × {colli}) = {total}")
-                    elif selection == "Harga/ton":
-                        # Total = harga_per_ton × total_ton_semua_barang × colli  
-                        total_ton = float(pricing_data['ton_barang']) * colli
-                        total = harga * total_ton
-                        print(f"✅ ton total calc: {harga} × ({pricing_data['ton_barang']} × {colli}) = {total}")
-                    elif selection == "Harga/colli":
-                        # Total = harga_per_colli × colli_amount
-                        total = harga * colli
-                        print(f"✅ colli total calc: {harga} × {colli} = {total}")
-                    elif selection == "Manual":
-                        # Total = harga_manual × colli_amount
-                        total = harga * colli
-                        print(f"✅ manual total calc: {harga} × {colli} = {total}")
-                    else:
-                        total = 0
-                        print(f"❌ Unknown selection: {selection}")
-                    
-                    # Format total dengan koma untuk display
-                    total_var.set(f"{total:,.0f}")
-                    print(f"✅ Final total: {total} (formatted: {total_var.get()})")
-                    
-                except ValueError as e:
-                    print(f"❌ Error updating total: {e}, harga_var = '{harga_var.get()}'")
-                    total_var.set("0")
-            return update_total
+        # Pack canvas and scrollbar
+        main_canvas.pack(side="left", fill="both", expand=True)
+        main_scrollbar.pack(side="right", fill="y")
         
-        def make_auto_price_func(auto_var, harga_var, pricing_data, update_func, item_name):
-            """Factory function untuk membuat auto_price_change yang unik per item"""
-            def auto_price_change(event):
-                selection = auto_var.get()
-                print(f"Auto pricing for {item_name}: {selection}")
-                print(f"Pricing data: m³={pricing_data['harga_m3']}, ton={pricing_data['harga_ton']}, col={pricing_data['harga_col']}")
-                print(f"Barang data: m³={pricing_data['m3_barang']}, ton={pricing_data['ton_barang']}")
-                
-                try:
-                    if selection == "Harga/m³" and pricing_data['harga_m3'] > 0:
-                        # Harga per unit = harga_m3 * m3_barang
-                        unit_price = float(pricing_data['harga_m3'])
-                        # Round to nearest integer untuk menghindari floating point errors
-                        unit_price_rounded = round(unit_price)
-                        harga_var.set(str(unit_price_rounded))  # Set tanpa format koma dulu
-                        print(f"✅ m³ calculation: {pricing_data['harga_m3']} × {pricing_data['m3_barang']} = {unit_price}")
-                        print(f"✅ Rounded to: {unit_price_rounded}")
-                        print(f"✅ Setting harga_var to: {harga_var.get()}")
-                    elif selection == "Harga/ton" and pricing_data['harga_ton'] > 0:
-                        # Harga per unit = harga_ton * ton_barang
-                        unit_price = float(pricing_data['harga_ton'])
-                        unit_price_rounded = round(unit_price)
-                        harga_var.set(str(unit_price_rounded))
-                        print(f"✅ ton calculation: {pricing_data['harga_ton']} × {pricing_data['ton_barang']} = {unit_price}")
-                        print(f"✅ Rounded to: {unit_price_rounded}")
-                        print(f"✅ Setting harga_var to: {harga_var.get()}")
-                    elif selection == "Harga/colli" and pricing_data['harga_col'] > 0:
-                        # Harga per unit = harga_col (sudah per colli)
-                        colli_price = int(float(pricing_data['harga_col']))
-                        harga_var.set(str(colli_price))
-                        print(f"✅ colli price: {pricing_data['harga_col']}")
-                        print(f"✅ Setting harga_var to: {harga_var.get()}")
-                    elif selection == "Manual":
-                        harga_var.set("0")
-                        print("✅ Manual mode set to 0")
-                    else:
-                        print(f"❌ No valid pricing data for {selection}")
-                        harga_var.set("0")
-                    
-                    # Force update total dengan direct call
-                    print(f"✅ Before update_total: harga_var = {harga_var.get()}")
-                    update_func()
-                    print(f"✅ After update_total called")
-                    
-                    # Force widget refresh
-                    harga_var.trace_add('write', lambda *args: update_func())
-                    
-                except (ValueError, TypeError) as e:
-                    print(f"❌ Error in auto pricing for {item_name}: {e}")
-                    harga_var.set("0")
-                    update_func()
-            return auto_price_change
+        # Bind mousewheel to canvas
+        def _on_mousewheel(event):
+            main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         
-        # Create pricing entries untuk setiap item
-        for i, item in enumerate(selected_items):
-            row_frame = tk.Frame(scrollable_frame, bg='#ffffff')
-            row_frame.pack(fill='x', padx=8, pady=4)  # Padding diperbesar
-            
-            barang_detail = barang_details.get(item['id'], {})
-            
-            # Barang info - FONT DAN WIDTH DIPERBESAR
-            tk.Label(row_frame, text=item['name'][:28], font=('Arial', 9), bg='#ffffff', width=22, anchor='w').pack(side='left')
-            tk.Label(row_frame, text=item['customer'][:14], font=('Arial', 9), bg='#ffffff', width=14, anchor='w').pack(side='left')
-            
-            # Auto pricing combobox - WIDTH DIPERBESAR
-            auto_var = tk.StringVar(value="Manual")
-            auto_combo = ttk.Combobox(row_frame, textvariable=auto_var, 
-                                    values=["Manual", "Harga/m³", "Harga/ton", "Harga/colli"], 
-                                    font=('Arial', 9), width=10, state='readonly')  # Width dari 8 ke 10
-            auto_combo.pack(side='left', padx=3)
-            
-            # Harga per unit entry - WIDTH DIPERBESAR
-            harga_var = tk.StringVar(value="0")
-            harga_entry = tk.Entry(row_frame, textvariable=harga_var, font=('Arial', 9), width=14)  # Width dari 12 ke 14
-            harga_entry.pack(side='left', padx=3)
-            
-            # Total label - WIDTH DIPERBESAR
-            total_var = tk.StringVar(value="0")
-            total_label = tk.Label(row_frame, textvariable=total_var, font=('Arial', 9), bg='#ffffff', width=14, anchor='w')  # Width dari 12 ke 14
-            total_label.pack(side='left', padx=3)
-            
-            # Extract pricing data untuk item ini
-            harga_m3 = barang_detail.get('harga_m3', 0) or 0
-            harga_ton = barang_detail.get('harga_ton', 0) or 0
-            harga_col = barang_detail.get('harga_col', 0) or 0
-            m3_barang = barang_detail.get('m3_barang', 0) or 0
-            ton_barang = barang_detail.get('ton_barang', 0) or 0
-            
-            # Store pricing data dalam dict untuk item ini
-            pricing_data = {
-                'harga_m3': harga_m3,
-                'harga_ton': harga_ton,
-                'harga_col': harga_col,
-                'm3_barang': m3_barang,
-                'ton_barang': ton_barang
-            }
-            
-            # Info harga dari database - WIDTH DIPERBESAR
-            info_text = f"m³:{harga_m3:,.0f} | ton:{harga_ton:,.0f} | col:{harga_col:,.0f}"
-            tk.Label(row_frame, text=info_text, font=('Arial', 8), bg='#f8f9fa', width=18, anchor='w').pack(side='left', padx=3)  # Width dari 15 ke 18
-            
-            # Create unique functions untuk item ini
-            update_total_func = make_update_total_func(harga_var, total_var, auto_var, pricing_data, colli_amount)
-            auto_price_func = make_auto_price_func(auto_var, harga_var, pricing_data, update_total_func, item['name'])
-            
-            # Bind events dengan multiple triggers
-            auto_combo.bind('<<ComboboxSelected>>', auto_price_func)
-            harga_entry.bind('<KeyRelease>', update_total_func)
-            harga_entry.bind('<FocusOut>', update_total_func)
-            
-            # Tambahkan trace untuk memastikan update saat variable berubah
-            harga_var.trace_add('write', lambda *args: update_total_func())
-            
-            # Store dalam pricing_entries
-            pricing_entries[item['id']] = {
-                'harga_var': harga_var,
-                'total_var': total_var,
-                'auto_var': auto_var,
-                'entry': harga_entry,
-                'combo': auto_combo,
-                'barang_detail': barang_detail,
-                'pricing_data': pricing_data,  # Tambahkan untuk debugging
-                'item_name': item['name']  # Tambahkan untuk debugging
-            }
+        def _on_mousewheel_linux(event):
+            if event.num == 4:
+                main_canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                main_canvas.yview_scroll(1, "units")
         
-        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=10)
-        scrollbar.pack(side="right", fill="y")
+        # Bind mouse wheel events
+        main_canvas.bind("<MouseWheel>", _on_mousewheel)  # Windows
+        main_canvas.bind("<Button-4>", _on_mousewheel_linux)  # Linux
+        main_canvas.bind("<Button-5>", _on_mousewheel_linux)  # Linux
         
-        # BUTTON FRAME - SPACING DIPERBAIKI
-        btn_frame = tk.Frame(pricing_window, bg='#ecf0f1')
-        btn_frame.pack(fill='x', padx=20, pady=(10, 15))  # Padding bottom diperbesar
+        # Update canvas scroll region when frame size changes
+        def _on_canvas_configure(event):
+            # Update scroll region
+            main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+            # Make sure canvas window width follows canvas width
+            canvas_width = event.width
+            main_canvas.itemconfig(canvas_window, width=canvas_width)
         
-        # Tips label - PINDAHKAN KE ATAS ACTION BUTTONS
-        tips_label = tk.Label(
-            btn_frame,
-            text="💡 Tips: Gunakan 'Auto Fill Semua' untuk harga dari database, atau 'Quick Fill Manual' untuk harga seragam",
-            font=('Arial', 9),
-            bg='#ecf0f1',
-            fg='#7f8c8d'
-        )
-        tips_label.pack(pady=(0, 10))
+        main_canvas.bind('<Configure>', _on_canvas_configure)
         
-        # Action buttons - DIPERBESAR DAN LEBIH VISIBLE
-        action_frame = tk.Frame(btn_frame, bg='#ecf0f1')
-        action_frame.pack(fill='x')
+        # NOW USE scrollable_frame AS PARENT INSTEAD OF pricing_window
+        parent_frame = scrollable_frame
         
+        # Create header
+        self._create_pricing_header(parent_frame, colli_amount)
+        
+        # Create control buttons (Auto Fill & Quick Fill) - Create early for reference
+        controls_frame = self._create_pricing_controls_placeholder(parent_frame, pricing_data_store)
+        
+        # Create main pricing table - FIXED HEIGHT untuk tidak terlalu tinggi
+        table_frame, pricing_tree = self._create_pricing_table_compact(parent_frame, selected_items, colli_amount, pricing_data_store)
+        
+        # Setup pricing controls with tree reference
+        self._setup_pricing_controls_with_tree(controls_frame, pricing_tree, pricing_data_store)
+        
+        # Create action buttons
         result = {'confirmed': False, 'pricing_data': {}}
+        self._create_pricing_actions(parent_frame, pricing_window, pricing_tree, pricing_data_store, selected_items, colli_amount, result)
         
-        def confirm_pricing():
-            try:
-                pricing_data = {}
-                total_amount = 0
-                summary_lines = []
-                
-                for barang_id, entry_data in pricing_entries.items():
-                    harga_str = entry_data['harga_var'].get().replace(',', '')
-                    harga = float(harga_str or 0)
-                    
-                    # Get metode pricing dan data barang
-                    auto_method = entry_data['auto_var'].get()
-                    item_pricing_data = entry_data['pricing_data']
-                    
-                    # Calculate total berdasarkan metode pricing yang dipilih
-                    if auto_method == "Harga/m³":
-                        # Total = harga_per_m3 × total_m3_semua_barang × colli
-                        total_m3 = float(item_pricing_data['m3_barang']) * colli_amount
-                        total = harga * total_m3
-                    elif auto_method == "Harga/ton":
-                        # Total = harga_per_ton × total_ton_semua_barang × colli  
-                        total_ton = float(item_pricing_data['ton_barang']) * colli_amount
-                        total = harga * total_ton
-                    elif auto_method == "Harga/colli":
-                        # Total = harga_per_colli × colli_amount
-                        total = harga * colli_amount
-                    elif auto_method == "Manual":
-                        # Total = harga_manual × colli_amount
-                        total = harga * colli_amount
-                    else:
-                        total = 0
-                    
-                    pricing_data[barang_id] = {
-                        'harga_per_unit': harga,
-                        'total_harga': total,
-                        'metode_pricing': auto_method
-                    }
-                    total_amount += total
-                    
-                    # Add to summary
-                    barang_name = next((item['name'] for item in selected_items if item['id'] == barang_id), 'Unknown')
-                    
-                    # Format summary berdasarkan metode
-                    if auto_method == "Harga/m³":
-                        detail = f"({item_pricing_data['m3_barang']}m³ × {colli_amount}colli)"
-                    elif auto_method == "Harga/ton":
-                        detail = f"({item_pricing_data['ton_barang']}ton × {colli_amount}colli)"
-                    elif auto_method == "Harga/colli":
-                        detail = f"({colli_amount}colli)"
-                    else:  # Manual
-                        detail = f"({colli_amount}colli)"
-                    
-                    summary_lines.append(f"• {barang_name[:20]} - {auto_method} - Rp {harga:,.0f} {detail} = Rp {total:,.0f}")
-                
-                # Detailed confirm dialog
-                confirm_msg = f"Konfirmasi penambahan barang dengan harga:\n\n"
-                confirm_msg += f"📊 RINGKASAN:\n"
-                confirm_msg += f"Total {len(selected_items)} barang\n"
-                confirm_msg += f"Colli per barang: {colli_amount}\n"
-                confirm_msg += f"Total nilai: Rp {total_amount:,.0f}\n\n"
-                
-                confirm_msg += f"📋 DETAIL HARGA:\n"
-                for line in summary_lines[:5]:  # Show max 5
-                    confirm_msg += line + "\n"
-                if len(summary_lines) > 5:
-                    confirm_msg += f"... dan {len(summary_lines) - 5} barang lainnya\n"
-                
-                confirm_msg += f"\n🚀 Lanjutkan?"
-                
-                if messagebox.askyesno("Konfirmasi Harga", confirm_msg):
-                    result['confirmed'] = True
-                    result['pricing_data'] = pricing_data
-                    pricing_window.destroy()
-            except ValueError as e:
-                messagebox.showerror("Error", f"Pastikan semua harga berupa angka yang valid!\nError: {str(e)}")
-            except Exception as e:
-                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
-                
-        def cancel_pricing():
-            pricing_window.destroy()
+        # Update canvas scroll region after all widgets are added
+        pricing_window.update_idletasks()
+        main_canvas.configure(scrollregion=main_canvas.bbox("all"))
         
-        # BUTTON DIPERBESAR DAN LEBIH VISIBLE
-        tk.Button(
-            action_frame,
-            text="✅ Konfirmasi & Tambah",
-            font=('Arial', 14, 'bold'),  # Font diperbesar dari 12 ke 14
-            bg='#27ae60',
-            fg='white',
-            padx=30,  # Padding diperbesar
-            pady=12,  # Padding diperbesar
-            command=confirm_pricing
-        ).pack(side='left', padx=(0, 15))
-        
-        tk.Button(
-            action_frame,
-            text="❌ Batal",
-            font=('Arial', 14, 'bold'),  # Font diperbesar dari 12 ke 14
-            bg='#e74c3c',
-            fg='white',
-            padx=30,  # Padding diperbesar
-            pady=12,  # Padding diperbesar
-            command=cancel_pricing
-        ).pack(side='left')
+        # Focus on canvas to enable mouse wheel
+        main_canvas.focus_set()
         
         # Wait for dialog to close
         pricing_window.wait_window()
         
         return result if result['confirmed'] else None
 
-    def create_edit_pricing_dialog(self, selected_items, container_id):
-        """Create dialog for editing existing prices with auto-price options"""
-        pricing_window = tk.Toplevel(self.window)
-        pricing_window.title("✏️ Edit Harga Barang")
-        pricing_window.geometry("800x500")
-        pricing_window.configure(bg='#ecf0f1')
-        pricing_window.transient(self.window)
-        pricing_window.grab_set()
+    def _create_pricing_controls_placeholder(self, parent, pricing_data_store):
+        """Create placeholder for pricing controls - will be setup later"""
+        controls_frame = tk.Frame(parent, bg='#ecf0f1')
+        controls_frame.pack(fill='x', padx=25, pady=10)
         
-        # Center window
-        pricing_window.update_idletasks()
-        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (400)
-        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (250)
-        pricing_window.geometry(f"800x500+{x}+{y}")
+        # Step 1: Select Satuan (Base Unit)
+        satuan_frame = tk.LabelFrame(controls_frame, text="📏 Step 1: Pilih Satuan Dasar", 
+                                    font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        satuan_frame.pack(fill='x', pady=(0, 10))
         
-        # Header
-        header = tk.Label(
-            pricing_window,
-            text="✏️ EDIT HARGA BARANG",
-            font=('Arial', 16, 'bold'),
-            bg='#f39c12',
+        satuan_inner = tk.Frame(satuan_frame, bg='#ecf0f1')
+        satuan_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Step 2: Select Door/Package Type
+        door_frame = tk.LabelFrame(controls_frame, text="📦 Step 2: Pilih Tipe Door/Package", 
+                                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        door_frame.pack(fill='x', pady=(0, 10))
+        
+        door_inner = tk.Frame(door_frame, bg='#ecf0f1')
+        door_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Step 3: Generated Combinations + Manual
+        result_frame = tk.LabelFrame(controls_frame, text="🚀 Step 3: Apply Kombinasi atau Manual", 
+                                    font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        result_frame.pack(fill='x')
+        
+        result_inner = tk.Frame(result_frame, bg='#ecf0f1')
+        result_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Manual section with input field and quick buttons
+        manual_inner = tk.Frame(result_frame, bg='#ecf0f1')
+        manual_inner.pack(fill='x', padx=15, pady=(0, 8))
+        
+        tk.Label(manual_inner, text="⚡ Quick Manual:", 
+                font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left', padx=(0, 10))
+        
+        # Custom amount input
+        custom_frame = tk.Frame(manual_inner, bg='#ecf0f1')
+        custom_frame.pack(side='left', padx=(0, 15))
+        
+        tk.Label(custom_frame, text="💰 Custom:", 
+                font=('Arial', 9, 'bold'), bg='#ecf0f1').pack(side='left')
+        
+        custom_var = tk.StringVar()
+        custom_entry = tk.Entry(custom_frame, textvariable=custom_var, 
+                            font=('Arial', 9), width=10)
+        custom_entry.pack(side='left', padx=(5, 5))
+        
+        # Store reference for later setup
+        return {
+            'controls_frame': controls_frame,
+            'satuan_frame': satuan_inner, 
+            'door_frame': door_inner, 
+            'result_frame': result_inner,
+            'manual_frame': manual_inner,
+            'custom_var': custom_var,
+            'custom_entry': custom_entry
+        }
+
+    def _create_pricing_table_compact(self, parent, selected_items, colli_amount, pricing_data_store):
+        """Create compact pricing table that fits in scrollable dialog"""
+        table_frame = tk.Frame(parent, bg='#ffffff', relief='solid', bd=1)
+        table_frame.pack(fill='x', padx=25, pady=15)  # Changed from fill='both' expand=True
+        
+        # Table title
+        title_frame = tk.Frame(table_frame, bg='#34495e')
+        title_frame.pack(fill='x')
+        
+        tk.Label(title_frame, text="📋 DAFTAR BARANG DAN HARGA", 
+                font=('Arial', 14, 'bold'), bg='#34495e', fg='white', pady=10).pack()
+        
+        # Create Treeview with Frame container - FIXED HEIGHT
+        tree_frame = tk.Frame(table_frame, bg='#ffffff', height=300)  # Fixed height
+        tree_frame.pack(fill='x', padx=10, pady=10)
+        tree_frame.pack_propagate(False)  # Prevent frame from shrinking
+        
+        # Create Treeview with smaller height
+        columns = ('nama_barang', 'pengirim', 'penerima', 'auto_pricing', 'harga_unit', 'total_harga')
+        pricing_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=10)  # Reduced height from 15 to 10
+        
+        # Define headings and column widths - SMALLER COLUMNS
+        column_config = {
+            'nama_barang': ('Nama Barang', 150),  # Reduced from 180
+            'pengirim': ('Pengirim', 100),        # Reduced from 120
+            'penerima': ('Penerima', 100),        # Reduced from 120
+            'auto_pricing': ('Auto Pricing', 110), # Reduced from 120
+            'harga_unit': ('Harga/Unit', 100),    # Reduced from 120
+            'total_harga': ('Total Harga', 120),  # Reduced from 140
+        }
+        
+        for col, (heading, width) in column_config.items():
+            pricing_tree.heading(col, text=heading)
+            pricing_tree.column(col, width=width, anchor='w' if col in ['nama_barang', 'pengirim', 'penerima'] else 'center')
+        
+        # Create scrollbars for table
+        v_scrollbar = ttk.Scrollbar(tree_frame, orient='vertical', command=pricing_tree.yview)
+        h_scrollbar = ttk.Scrollbar(tree_frame, orient='horizontal', command=pricing_tree.xview)
+        
+        # Configure scrollbars
+        pricing_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Pack with proper scrollbar layout
+        v_scrollbar.pack(side='right', fill='y')
+        h_scrollbar.pack(side='bottom', fill='x')
+        pricing_tree.pack(side='left', fill='both', expand=True)
+        
+        # Get barang details and populate table
+        barang_details = self._get_barang_details(selected_items)
+        self._populate_pricing_table(pricing_tree, selected_items, barang_details, colli_amount, pricing_data_store)
+        
+        # Setup table editing
+        self._setup_table_editing(pricing_tree, pricing_data_store, colli_amount)
+        
+        return table_frame, pricing_tree
+
+    def _setup_pricing_controls_with_tree(self, controls_frame, pricing_tree, pricing_data_store):
+        """Setup pricing controls after tree is created"""
+        
+        # Setup custom amount input
+        def apply_custom_amount():
+            try:
+                amount_str = controls_frame['custom_var'].get().strip()
+                if not amount_str:
+                    messagebox.showwarning("Input Error", "Masukkan nilai harga!")
+                    return
+                    
+                amount = float(amount_str.replace(',', '').replace('.', ''))
+                if amount >= 0:
+                    print(f"Applying custom amount: {amount}")
+                    self._quick_fill_manual(pricing_tree, pricing_data_store, amount)
+                    controls_frame['custom_var'].set("")  # Clear after apply
+                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!")
+                else:
+                    messagebox.showwarning("Input Error", "Masukkan angka positif!")
+            except ValueError:
+                messagebox.showwarning("Input Error", "Masukkan angka yang valid!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}")
+        
+        # Create apply button
+        custom_btn = tk.Button(
+            controls_frame['custom_entry'].master,
+            text="✓ Apply",
+            font=('Arial', 8, 'bold'),
+            bg='#34495e',
             fg='white',
-            pady=15
+            padx=8,
+            pady=3,
+            relief='flat',
+            cursor='hand2',
+            command=apply_custom_amount
+        )
+        custom_btn.pack(side='left', padx=(0, 5))
+        
+        # Bind Enter key to apply
+        controls_frame['custom_entry'].bind('<Return>', lambda e: apply_custom_amount())
+        controls_frame['custom_entry'].bind('<KP_Enter>', lambda e: apply_custom_amount())
+        
+        # Manual quick fill buttons
+        quick_amounts = [50000, 100000, 150000, 200000, 250000, 300000]
+        for amount in quick_amounts:
+            btn = tk.Button(
+                controls_frame['manual_frame'],
+                text=f"{amount//1000}K",
+                font=('Arial', 9),
+                bg='#95a5a6',
+                fg='white',
+                padx=10,
+                pady=5,
+                relief='flat',
+                cursor='hand2',
+                command=lambda a=amount: self._quick_fill_manual(pricing_tree, pricing_data_store, a)
+            )
+            btn.pack(side='left', padx=2)
+        
+        # Setup combination controls
+        self._setup_pricing_controls(controls_frame, pricing_tree, pricing_data_store)
+
+    def _center_window(self, window, width, height):
+        """Center window on parent"""
+        window.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (width // 2)
+        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (height // 2)
+        window.geometry(f"{width}x{height}+{x}+{y}")
+
+    def _create_pricing_header(self, parent, colli_amount):
+        """Create header section"""
+        header = tk.Label(
+            parent,
+            text="💰 SET HARGA BARANG",
+            font=('Arial', 18, 'bold'),
+            bg='#2c3e50',
+            fg='white',
+            pady=20
         )
         header.pack(fill='x')
         
-        # Pricing frame
-        pricing_frame = tk.Frame(pricing_window, bg='#ffffff', relief='solid', bd=1)
-        pricing_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        info_frame = tk.Frame(parent, bg='#ecf0f1')
+        info_frame.pack(fill='x', padx=25, pady=15)
         
-        # Headers
-        headers_frame = tk.Frame(pricing_frame, bg='#ffffff')
-        headers_frame.pack(fill='x', padx=10, pady=5)
+        info_label = tk.Label(
+            info_frame,
+            text=f"📦 Jumlah Colli per barang: {colli_amount}  |  💡 Klik dua kali pada cell untuk edit",
+            font=('Arial', 12, 'bold'),
+            bg='#ecf0f1',
+            fg='#2c3e50'
+        )
+        info_label.pack(anchor='w')
+
+    def _create_pricing_controls(self, parent, pricing_data_store, pricing_tree):
+        """Create auto fill and quick fill controls with combination system"""
+        controls_frame = tk.Frame(parent, bg='#ecf0f1')
+        controls_frame.pack(fill='x', padx=25, pady=10)
         
-        tk.Label(headers_frame, text="Nama Barang", font=('Arial', 9, 'bold'), bg='#ffffff', width=18).pack(side='left')
-        tk.Label(headers_frame, text="Colli", font=('Arial', 9, 'bold'), bg='#ffffff', width=6).pack(side='left')
-        tk.Label(headers_frame, text="Harga Lama", font=('Arial', 9, 'bold'), bg='#ffffff', width=10).pack(side='left')
-        tk.Label(headers_frame, text="Auto", font=('Arial', 9, 'bold'), bg='#ffffff', width=8).pack(side='left')
-        tk.Label(headers_frame, text="Harga Baru", font=('Arial', 9, 'bold'), bg='#ffffff', width=10).pack(side='left')
-        tk.Label(headers_frame, text="Total Baru", font=('Arial', 9, 'bold'), bg='#ffffff', width=10).pack(side='left')
-        tk.Label(headers_frame, text="Info DB", font=('Arial', 9, 'bold'), bg='#ffffff', width=12).pack(side='left')
+        # Step 1: Select Satuan (Base Unit)
+        satuan_frame = tk.LabelFrame(controls_frame, text="📏 Step 1: Pilih Satuan Dasar", 
+                                    font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        satuan_frame.pack(fill='x', pady=(0, 10))
         
-        # Pricing entries
-        pricing_entries = {}
+        satuan_inner = tk.Frame(satuan_frame, bg='#ecf0f1')
+        satuan_inner.pack(fill='x', padx=15, pady=8)
         
-        # Get barang details for auto pricing
+        # Step 2: Select Door/Package Type
+        door_frame = tk.LabelFrame(controls_frame, text="📦 Step 2: Pilih Tipe Door/Package", 
+                                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        door_frame.pack(fill='x', pady=(0, 10))
+        
+        door_inner = tk.Frame(door_frame, bg='#ecf0f1')
+        door_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Step 3: Generated Combinations + Manual
+        result_frame = tk.LabelFrame(controls_frame, text="🚀 Step 3: Apply Kombinasi atau Manual", 
+                                    font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        result_frame.pack(fill='x')
+        
+        result_inner = tk.Frame(result_frame, bg='#ecf0f1')
+        result_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Manual section with input field and quick buttons
+        manual_inner = tk.Frame(result_frame, bg='#ecf0f1')
+        manual_inner.pack(fill='x', padx=15, pady=(0, 8))
+        
+        tk.Label(manual_inner, text="⚡ Quick Manual:", 
+                font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left', padx=(0, 10))
+        
+        # Custom amount input
+        custom_frame = tk.Frame(manual_inner, bg='#ecf0f1')
+        custom_frame.pack(side='left', padx=(0, 15))
+        
+        tk.Label(custom_frame, text="💰 Custom:", 
+                font=('Arial', 9, 'bold'), bg='#ecf0f1').pack(side='left')
+        
+        custom_var = tk.StringVar()
+        custom_entry = tk.Entry(custom_frame, textvariable=custom_var, 
+                            font=('Arial', 9), width=10)
+        custom_entry.pack(side='left', padx=(5, 5))
+        
+        def apply_custom_amount():
+            try:
+                amount_str = custom_var.get().strip()
+                if not amount_str:
+                    messagebox.showwarning("Input Error", "Masukkan nilai harga!")
+                    return
+                    
+                amount = float(amount_str.replace(',', '').replace('.', ''))
+                if amount >= 0:
+                    # FIX: Gunakan pricing_tree yang sudah dibuat, bukan parent
+                    print(f"Applying custom amount: {amount}")
+                    self._quick_fill_manual(pricing_tree, pricing_data_store, amount)
+                    custom_var.set("")  # Clear after apply
+                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!")
+                else:
+                    messagebox.showwarning("Input Error", "Masukkan angka positif!")
+            except ValueError:
+                messagebox.showwarning("Input Error", "Masukkan angka yang valid!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}")
+        
+        custom_btn = tk.Button(
+            custom_frame,
+            text="✓ Apply",
+            font=('Arial', 8, 'bold'),
+            bg='#34495e',
+            fg='white',
+            padx=8,
+            pady=3,
+            relief='flat',
+            cursor='hand2',
+            command=apply_custom_amount
+        )
+        custom_btn.pack(side='left', padx=(0, 5))
+        
+        # Bind Enter key to apply - BOTH regular and numpad enter
+        custom_entry.bind('<Return>', lambda e: apply_custom_amount())
+        custom_entry.bind('<KP_Enter>', lambda e: apply_custom_amount())
+        
+        # Manual quick fill buttons
+        quick_amounts = [50000, 100000, 150000, 200000, 250000, 300000]
+        for amount in quick_amounts:
+            btn = tk.Button(
+                manual_inner,
+                text=f"{amount//1000}K",
+                font=('Arial', 9),
+                bg='#95a5a6',
+                fg='white',
+                padx=10,
+                pady=5,
+                relief='flat',
+                cursor='hand2',
+                # FIX: Gunakan pricing_tree sebagai parameter pertama
+                command=lambda a=amount: self._quick_fill_manual(pricing_tree, pricing_data_store, a)
+            )
+            btn.pack(side='left', padx=2)
+        
+        return {
+            'satuan_frame': satuan_inner, 
+            'door_frame': door_inner, 
+            'result_frame': result_inner,
+            'manual_frame': manual_inner,
+            'custom_var': custom_var,
+            'custom_entry': custom_entry
+        }
+
+    def _create_pricing_table(self, parent, selected_items, colli_amount, pricing_data_store):
+        """Create main pricing table using Treeview - FIXED SCROLLABLE LAYOUT"""
+        table_frame = tk.Frame(parent, bg='#ffffff', relief='solid', bd=1)
+        table_frame.pack(fill='both', expand=True, padx=25, pady=15)
+        
+        # Table title
+        title_frame = tk.Frame(table_frame, bg='#34495e')
+        title_frame.pack(fill='x')
+        
+        tk.Label(title_frame, text="📋 DAFTAR BARANG DAN HARGA", 
+                font=('Arial', 14, 'bold'), bg='#34495e', fg='white', pady=10).pack()
+        
+        # Create Treeview with Frame container
+        tree_frame = tk.Frame(table_frame, bg='#ffffff')
+        tree_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Create Treeview
+        columns = ('nama_barang', 'pengirim', 'penerima', 'auto_pricing', 'harga_unit', 'total_harga')
+        pricing_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=15)
+        
+        # Define headings and column widths
+        column_config = {
+            'nama_barang': ('Nama Barang', 180),
+            'pengirim': ('Pengirim', 120),
+            'penerima': ('Penerima', 120),
+            'auto_pricing': ('Auto Pricing', 120),
+            'harga_unit': ('Harga/Unit', 120),
+            'total_harga': ('Total Harga', 140),
+        }
+        
+        for col, (heading, width) in column_config.items():
+            pricing_tree.heading(col, text=heading)
+            pricing_tree.column(col, width=width, anchor='w' if col in ['nama_barang', 'pengirim', 'penerima'] else 'center')
+        
+        # FIXED: Use pack layout consistently for scrollbars
+        # Create scrollbars
+        v_scrollbar = ttk.Scrollbar(tree_frame, orient='vertical', command=pricing_tree.yview)
+        h_scrollbar = ttk.Scrollbar(tree_frame, orient='horizontal', command=pricing_tree.xview)
+        
+        # Configure scrollbars
+        pricing_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Pack with proper scrollbar layout
+        v_scrollbar.pack(side='right', fill='y')
+        h_scrollbar.pack(side='bottom', fill='x')
+        pricing_tree.pack(side='left', fill='both', expand=True)
+        
+        # Get barang details and populate table
+        barang_details = self._get_barang_details(selected_items)
+        self._populate_pricing_table(pricing_tree, selected_items, barang_details, colli_amount, pricing_data_store)
+        
+        # Setup table editing
+        self._setup_table_editing(pricing_tree, pricing_data_store, colli_amount)
+        
+        return table_frame, pricing_tree
+
+    def _get_barang_details(self, selected_items):
+        """Get detailed barang data for pricing options"""
         barang_details = {}
         for item in selected_items:
             try:
                 barang_data = self.db.execute_one("""
-                    SELECT b.*, c.nama_customer 
-                    FROM barang b 
-                    JOIN customers c ON b.customer_id = c.customer_id 
+                    SELECT b.*, r.nama_customer AS receiver_name, s.nama_customer AS sender_name
+                    FROM barang b
+                    JOIN customers r ON b.penerima = r.customer_id
+                    JOIN customers s ON b.pengirim = s.customer_id
                     WHERE b.barang_id = ?
                 """, (item['id'],))
                 
@@ -1300,175 +1286,1331 @@ class ContainerWindow:
                 print(f"Error getting barang details for {item['id']}: {e}")
                 barang_details[item['id']] = {}
         
-        for i, item in enumerate(selected_items):
-            row_frame = tk.Frame(pricing_frame, bg='#ffffff')
-            row_frame.pack(fill='x', padx=10, pady=3)
-            
+        return barang_details
+
+    def _populate_pricing_table(self, tree, selected_items, barang_details, colli_amount, pricing_data_store):
+        """Populate the pricing table with data"""
+        for item in selected_items:
             barang_detail = barang_details.get(item['id'], {})
             
-            # Barang info
-            tk.Label(row_frame, text=item['name'][:22], font=('Arial', 8), bg='#ffffff', width=18, anchor='w').pack(side='left')
-            tk.Label(row_frame, text=str(item['colli']), font=('Arial', 8), bg='#ffffff', width=6, anchor='center').pack(side='left')
-            
-            # Current price (read-only)
-            current_price = str(item.get('current_harga', '0')).replace(',', '')
-            tk.Label(row_frame, text=f"{float(current_price):,.0f}" if current_price.replace('.', '').isdigit() else current_price, 
-                    font=('Arial', 8), bg='#f8f9fa', width=10, anchor='center', relief='sunken').pack(side='left', padx=1)
-            
-            # Auto pricing combobox
-            auto_var = tk.StringVar(value="Manual")
-            auto_combo = ttk.Combobox(row_frame, textvariable=auto_var, 
-                                    values=["Manual", "Harga/m³", "Harga/ton", "Harga/colli"], 
-                                    font=('Arial', 8), width=8, state='readonly')
-            auto_combo.pack(side='left', padx=1)
-            
-            # New price entry
-            harga_var = tk.StringVar(value=current_price)
-            harga_entry = tk.Entry(row_frame, textvariable=harga_var, font=('Arial', 8), width=10)
-            harga_entry.pack(side='left', padx=1)
-            
-            # Total label
-            total_var = tk.StringVar()
-            total_label = tk.Label(row_frame, textvariable=total_var, font=('Arial', 8), bg='#ffffff', width=10, anchor='center')
-            total_label.pack(side='left', padx=1)
-            
-            # Info harga dari database
-            harga_m3 = barang_detail.get('harga_m3', 0) or 0
-            harga_ton = barang_detail.get('harga_ton', 0) or 0
-            harga_col = barang_detail.get('harga_col', 0) or 0
-            m3_barang = barang_detail.get('m3_barang', 0) or 0
-            ton_barang = barang_detail.get('ton_barang', 0) or 0
-            
-            info_text = f"m³:{harga_m3:,.0f}|t:{harga_ton:,.0f}|c:{harga_col:,.0f}"
-            tk.Label(row_frame, text=info_text, font=('Arial', 7), bg='#f8f9fa', width=12, anchor='w').pack(side='left', padx=1)
-            
-            # Auto calculate total
-            def update_total(event=None, harga_var=harga_var, total_var=total_var, colli=int(item['colli'])):
-                try:
-                    harga = float(harga_var.get().replace(',', '') or 0)
-                    total = harga * colli
-                    total_var.set(f"{total:,.0f}")
-                except ValueError:
-                    total_var.set("0")
-            
-            # Auto pricing function
-            def auto_price_change(event, auto_var=auto_var, harga_var=harga_var, 
-                                barang_detail=barang_detail, colli=int(item['colli'])):
-                selection = auto_var.get()
-                try:
-                    if selection == "Harga/m³" and harga_m3 > 0:
-                        unit_price = float(harga_m3) * float(m3_barang)
-                        harga_var.set(f"{unit_price:,.0f}")
-                    elif selection == "Harga/ton" and harga_ton > 0:
-                        unit_price = float(harga_ton) * float(ton_barang)
-                        harga_var.set(f"{unit_price:,.0f}")
-                    elif selection == "Harga/colli" and harga_col > 0:
-                        harga_var.set(f"{float(harga_col):,.0f}")
-                    
-                    # Update total
-                    update_total()
-                except (ValueError, TypeError) as e:
-                    print(f"Error in auto pricing: {e}")
-                    update_total()
-            
-            auto_combo.bind('<<ComboboxSelected>>', auto_price_change)
-            harga_entry.bind('<KeyRelease>', update_total)
-            
-            # Initial calculation
-            update_total()
-            
-            pricing_entries[item['id']] = {
-                'harga_var': harga_var,
-                'total_var': total_var,
-                'auto_var': auto_var,
-                'entry': harga_entry,
-                'combo': auto_combo,
-                'colli': int(item['colli'])
+            # Extract pricing data for combinations
+            pricing_info = {
+                # Combination fields
+                'harga_m3_pp': barang_detail.get('m3_pp', 0) or 0,
+                'harga_m3_pd': barang_detail.get('m3_pd', 0) or 0,
+                'harga_m3_dd': barang_detail.get('m3_dd', 0) or 0,
+                'harga_ton_pp': barang_detail.get('ton_pp', 0) or 0,
+                'harga_ton_pd': barang_detail.get('ton_pd', 0) or 0,
+                'harga_ton_dd': barang_detail.get('ton_dd', 0) or 0,
+                'harga_colli_pp': barang_detail.get('col_pp', 0) or 0,
+                'harga_colli_pd': barang_detail.get('col_pd', 0) or 0,
+                'harga_colli_dd': barang_detail.get('col_dd', 0) or 0,
+                # Base measurements
+                'm3_barang': barang_detail.get('m3_barang', 0) or 0,
+                'ton_barang': barang_detail.get('ton_barang', 0) or 0
             }
+            
+            # Store data for calculations
+            pricing_data_store[item['id']] = {
+                'item': item,
+                'pricing_info': pricing_info,
+                'current_method': 'Manual',
+                'current_price': 0,
+                'colli_amount': colli_amount
+            }
+            
+            # Insert into tree
+            tree.insert('', tk.END, iid=item['id'], values=(
+                item['name'],
+                item.get('sender', ''),
+                item.get('receiver', ''),
+                'Manual',
+                '0',
+                '0'
+            ), tags=('row',))
         
-        # Auto fill buttons
-        auto_frame = tk.Frame(pricing_window, bg='#ecf0f1')
-        auto_frame.pack(fill='x', padx=20, pady=5)
+        # Configure row styling
+        tree.tag_configure('row', background='#f8f9fa')
+        tree.tag_configure('selected', background='#e3f2fd')
+
+    def _setup_table_editing(self, tree, pricing_data_store, colli_amount):
+        """Setup double-click editing for table cells"""
+        def on_double_click(event):
+            item_id = tree.selection()[0] if tree.selection() else None
+            if not item_id:
+                return
+            
+            # Get clicked column
+            region = tree.identify_region(event.x, event.y)
+            if region != "cell":
+                return
+                
+            column = tree.identify_column(event.x, event.y)
+            
+            # Only allow editing for auto_pricing and harga_unit columns
+            if column == '#4':  # auto_pricing column
+                self._edit_auto_pricing(tree, item_id, pricing_data_store, colli_amount)
+            elif column == '#5':  # harga_unit column
+                self._edit_harga_unit(tree, item_id, pricing_data_store, colli_amount)
         
-        tk.Label(auto_frame, text="Auto Fill Semua:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        tree.bind('<Double-1>', on_double_click)
+
+    def _edit_auto_pricing(self, tree, item_id, pricing_data_store, colli_amount):
+        """Edit auto pricing method"""
+        # Get current position
+        bbox = tree.bbox(item_id, 'auto_pricing')
+        if not bbox:
+            return
         
-        def auto_fill_all(pricing_type):
-            print(f"Auto filling all entries with {pricing_type}")
-            for entry_data in pricing_entries.values():
-                entry_data['auto_var'].set(pricing_type)
-                entry_data['combo'].event_generate('<<ComboboxSelected>>')
+        # Create combobox
+        combo_var = tk.StringVar(value=pricing_data_store[item_id]['current_method'])
+        combo = ttk.Combobox(tree, textvariable=combo_var, 
+                            values=['Manual', 'Harga/m³', 'Harga/ton', 'Harga/colli'],
+                            state='readonly')
         
-        auto_types = [("m³", "Harga/m³", '#3498db'), ("ton", "Harga/ton", '#e74c3c'), ("colli", "Harga/colli", '#27ae60')]
-        for label, value, color in auto_types:
-            btn = tk.Button(auto_frame, text=label, font=('Arial', 9), bg=color, fg='white',
-                          padx=8, pady=3, command=lambda v=value: auto_fill_all(v))
-            btn.pack(side='left', padx=2)
+        combo.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
+        combo.focus_set()
+        
+        def on_combo_change(event=None):
+            new_method = combo_var.get()
+            pricing_data_store[item_id]['current_method'] = new_method
+            
+            # Auto-set price based on method
+            new_price = self._calculate_auto_price(item_id, new_method, pricing_data_store)
+            pricing_data_store[item_id]['current_price'] = new_price
+            
+            # Update tree
+            tree.set(item_id, 'auto_pricing', new_method)
+            tree.set(item_id, 'harga_unit', f"{new_price:,.0f}")
+            
+            # Calculate total
+            total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+            tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
+            
+            combo.destroy()
+        
+        def on_combo_escape(event):
+            combo.destroy()
+        
+        combo.bind('<<ComboboxSelected>>', on_combo_change)
+        combo.bind('<Return>', on_combo_change)
+        combo.bind('<Escape>', on_combo_escape)
+        combo.bind('<FocusOut>', lambda e: combo.destroy())
+
+    def _edit_harga_unit(self, tree, item_id, pricing_data_store, colli_amount):
+        """Edit harga unit"""
+        bbox = tree.bbox(item_id, 'harga_unit')
+        if not bbox:
+            return
+        
+        # Create entry
+        entry_var = tk.StringVar(value=str(int(pricing_data_store[item_id]['current_price'])))
+        entry = tk.Entry(tree, textvariable=entry_var)
+        entry.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
+        entry.focus_set()
+        entry.select_range(0, tk.END)
+        
+        def on_entry_confirm(event=None):
+            try:
+                new_price = float(entry_var.get().replace(',', ''))
+                pricing_data_store[item_id]['current_price'] = new_price
+                pricing_data_store[item_id]['current_method'] = 'Manual'
+                
+                # Update tree
+                tree.set(item_id, 'harga_unit', f"{new_price:,.0f}")
+                tree.set(item_id, 'auto_pricing', 'Manual')
+                
+                # Calculate total
+                total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+                tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
+                
+            except ValueError:
+                pass  # Invalid input, ignore
+            
+            entry.destroy()
+        
+        def on_entry_escape(event):
+            entry.destroy()
+        
+        entry.bind('<Return>', on_entry_confirm)
+        entry.bind('<Escape>', on_entry_escape)
+        entry.bind('<FocusOut>', lambda e: on_entry_confirm())
+
+    def _calculate_auto_price(self, item_id, method, pricing_data_store):
+        """Calculate automatic price based on combination method"""
+
+        barang_pricing = pricing_data_store[item_id]['pricing_info']
+
+        print("Barang pricing info:", barang_pricing)
+
+        # Handle combination methods
+        if method == 'Harga/m3_pp' and barang_pricing['harga_m3_pp'] > 0:
+            return barang_pricing['harga_m3_pp']
+        elif method == 'Harga/m3_pd' and barang_pricing['harga_m3_pd'] > 0:
+            return barang_pricing['harga_m3_pd']
+        elif method == 'Harga/m3_dd' and barang_pricing['harga_m3_dd'] > 0:
+            return barang_pricing['harga_m3_dd']
+        elif method == 'Harga/ton_pp' and barang_pricing['harga_ton_pp'] > 0:
+            return barang_pricing['harga_ton_pp']
+        elif method == 'Harga/ton_pd' and barang_pricing['harga_ton_pd'] > 0:
+            return barang_pricing['harga_ton_pd']
+        elif method == 'Harga/ton_dd' and barang_pricing['harga_ton_dd'] > 0:
+            return barang_pricing['harga_ton_dd']
+        elif method == 'Harga/colli_pp' and barang_pricing['harga_colli_pp'] > 0:
+            return barang_pricing['harga_colli_pp']
+        elif method == 'Harga/colli_pd' and barang_pricing['harga_colli_pd'] > 0:
+            return barang_pricing['harga_colli_pd']
+        elif method == 'Harga/colli_dd' and barang_pricing['harga_colli_dd'] > 0:
+            return barang_pricing['harga_colli_dd']
+        else:
+            return 0
+
+    def _calculate_total_price(self, item_id, pricing_data_store, colli_amount):
+        """Calculate total price for an item with combination methods"""
+        data = pricing_data_store[item_id]
+        method = data['current_method']
+        price = data['current_price']
+        pricing_info = data['pricing_info']
+        
+        print(f"Calculating total for item {item_id} with method {method}, price {price}, colli {colli_amount}")
+        print("Pricing Info:", pricing_info)
+
+        # Parse combination methods
+        if method.startswith('Harga/m3_'):
+            # m3-based combinations: price × m3_barang × colli × package_multiplier
+            base_total = price * pricing_info['m3_barang'] * colli_amount
+
+            return base_total
+
+        elif method.startswith('Harga/ton_'):
+            # ton-based combinations: price × ton_barang × colli × package_multiplier
+            base_total = price * pricing_info['ton_barang'] * colli_amount
+
+            return base_total
+
+        elif method.startswith('Harga/colli_'):
+            # colli-based combinations: price × colli × package_multiplier
+            base_total = price * colli_amount
+
+            return base_total
+
+                
+        elif method == 'Manual':
+            # Manual: price × colli
+            return price * colli_amount
+        else:
+            return 0
+
+    def _setup_pricing_controls(self, controls_frame, tree, pricing_data_store):
+        """Setup combination pricing controls with 2-step selection"""
+        
+        # State variables for combination
+        selected_satuan = tk.StringVar()
+        selected_door = tk.StringVar()
+        
+        # Step 1: Satuan selection buttons  
+        satuan_types = [
+            ("m³", "m3", '#3498db'),
+            ("ton", "ton", '#e74c3c'), 
+            ("colli", "colli", '#27ae60')
+        ]
+        
+        def select_satuan(satuan_key):
+            selected_satuan.set(satuan_key)
+            self._update_combination_buttons(controls_frame['result_frame'], 
+                                        selected_satuan.get(), selected_door.get(), 
+                                        tree, pricing_data_store)
+            # Update button colors to show selection
+            for btn in satuan_buttons:
+                if btn['text'] == satuan_key:
+                    btn.configure(relief='sunken', borderwidth=3)
+                else:
+                    btn.configure(relief='flat', borderwidth=1)
+        
+        satuan_buttons = []
+        for label, key, color in satuan_types:
+            btn = tk.Button(
+                controls_frame['satuan_frame'],
+                text=label,
+                font=('Arial', 10, 'bold'),
+                bg=color,
+                fg='white',
+                padx=20,
+                pady=8,
+                relief='flat',
+                cursor='hand2',
+                command=lambda k=key: select_satuan(k)
+            )
+            btn.pack(side='left', padx=5)
+            satuan_buttons.append(btn)
+        
+        # Step 2: Door/Package selection buttons
+        door_types = [
+            ("PP", "pp", '#9b59b6'),     # Per Pcs
+            ("PD", "pd", '#f39c12'),     # Per Dozen  
+            ("DD", "dd", '#16a085')      # Per Double Dozen
+        ]
+        
+        def select_door(door_key):
+            selected_door.set(door_key)
+            self._update_combination_buttons(controls_frame['result_frame'], 
+                                        selected_satuan.get(), selected_door.get(), 
+                                        tree, pricing_data_store)
+            # Update button colors to show selection
+            for btn in door_buttons:
+                if btn['text'] == door_key.upper():
+                    btn.configure(relief='sunken', borderwidth=3)
+                else:
+                    btn.configure(relief='flat', borderwidth=1)
+        
+        door_buttons = []
+        for label, key, color in door_types:
+            btn = tk.Button(
+                controls_frame['door_frame'],
+                text=label,
+                font=('Arial', 10, 'bold'),
+                bg=color,
+                fg='white',
+                padx=20,
+                pady=8,
+                relief='flat',
+                cursor='hand2',
+                command=lambda k=key: select_door(k)
+            )
+            btn.pack(side='left', padx=5)
+            door_buttons.append(btn)
+
+    def _update_combination_buttons(self, result_frame, satuan, door, tree, pricing_data_store):
+        """Update combination buttons based on selection"""
+        # Clear existing buttons
+        for widget in result_frame.winfo_children():
+            widget.destroy()
+        
+        if not satuan or not door:
+            tk.Label(result_frame, text="👆 Pilih Satuan dan Door/Package untuk melihat kombinasi", 
+                    font=('Arial', 10), bg='#ecf0f1', fg='#7f8c8d').pack(pady=10)
+            return
+        
+        # Create info label
+        info_text = f"🎯 Kombinasi: {satuan.upper()} × {door.upper()}"
+        tk.Label(result_frame, text=info_text, 
+                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50').pack(pady=(5, 10))
+        
+        # Create combination button
+        combination_method = f"Harga/{satuan}_{door}"
+        combination_text = f"{satuan.upper()}_{door.upper()}"
+        
+        btn = tk.Button(
+            result_frame,
+            text=f"🚀 Apply {combination_text}",
+            font=('Arial', 12, 'bold'),
+            bg='#e67e22',
+            fg='white',
+            padx=25,
+            pady=10,
+            relief='flat',
+            cursor='hand2',
+            command=lambda: self._auto_fill_all(tree, pricing_data_store, combination_method)
+        )
+        btn.pack(pady=5)
+
+    def _auto_fill_all(self, tree, pricing_data_store, method):
+        """Auto fill all items with selected pricing method"""
+        updated_count = 0
+        try:
+            for item_id in pricing_data_store.keys():
+                if tree.exists(item_id):
+                    pricing_data_store[item_id]['current_method'] = method
+                    
+                    # Calculate new price
+                    new_price = self._calculate_auto_price(item_id, method, pricing_data_store)
+                    pricing_data_store[item_id]['current_price'] = new_price
+                    
+                    # Update tree
+                    tree.set(item_id, 'auto_pricing', method)
+                    tree.set(item_id, 'harga_unit', f"{new_price:,.0f}")
+                    
+                    # Calculate total
+                    colli_amount = pricing_data_store[item_id]['colli_amount']
+                    total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+                    tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
+                    
+                    updated_count += 1
+            
+            print(f"Auto fill completed: {updated_count} items updated with method {method}")
+            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!")
+            
+        except Exception as e:
+            print(f"Error in _auto_fill_all: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menerapkan auto fill: {str(e)}")
+
+    def _quick_fill_manual(self, tree, pricing_data_store, amount):
+        """Quick fill all items with manual amount - FIXED"""
+        updated_count = 0
+        try:
+            print(f"Starting quick fill manual with amount: {amount}")
+            print(f"Items in pricing_data_store: {list(pricing_data_store.keys())}")
+            
+            for item_id in pricing_data_store.keys():
+                # Pastikan item_id ada di tree
+                if tree.exists(item_id):
+                    # Update data store
+                    pricing_data_store[item_id]['current_method'] = 'Manual'
+                    pricing_data_store[item_id]['current_price'] = amount
+                    
+                    # Update tree display
+                    tree.set(item_id, 'auto_pricing', 'Manual')
+                    tree.set(item_id, 'harga_unit', f"{amount:,.0f}")
+                    
+                    # Calculate total
+                    colli_amount = pricing_data_store[item_id]['colli_amount']
+                    total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+                    tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
+                    
+                    updated_count += 1
+                    print(f"Updated item {item_id}: price={amount}, total={total}")
+                else:
+                    print(f"WARNING: Item {item_id} not found in tree")
+            
+            print(f"Manual fill completed: {updated_count} items updated")
+            
+            if updated_count > 0:
+                messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke {updated_count} barang!")
+            else:
+                messagebox.showwarning("Peringatan", "Tidak ada barang yang berhasil diupdate!")
+            
+        except Exception as e:
+            print(f"Error in _quick_fill_manual: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Gagal mengisi harga manual: {str(e)}")
+
+    def _create_pricing_actions(self, parent_frame, pricing_window, tree, pricing_data_store, selected_items, colli_amount, result):
+        """Create action buttons - FIXED: Pass pricing_window reference"""
+        btn_frame = tk.Frame(parent_frame, bg='#ecf0f1')
+        btn_frame.pack(fill='x', padx=25, pady=20)
         
         # Action buttons
-        btn_frame = tk.Frame(pricing_window, bg='#ecf0f1')
-        btn_frame.pack(fill='x', padx=20, pady=10)
+        action_frame = tk.Frame(btn_frame, bg='#ecf0f1')
+        action_frame.pack()
         
-        result = {'confirmed': False, 'pricing_data': {}}
-        
-        def confirm_edit():
+        def confirm_pricing():
             try:
                 pricing_data = {}
                 total_amount = 0
                 
-                for barang_id, entry_data in pricing_entries.items():
-                    harga_str = entry_data['harga_var'].get().replace(',', '')
-                    harga = float(harga_str or 0)
-                    colli = entry_data['colli']
-                    total = harga * colli
-                    pricing_data[barang_id] = {
-                        'harga_per_unit': harga,
-                        'total_harga': total
-                    }
-                    total_amount += total
+                for item_id, data in pricing_data_store.items():
+                    if tree.exists(item_id):
+                        price = data['current_price']
+                        method = data['current_method']
+                        total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+                        
+                        pricing_data[item_id] = {
+                            'harga_per_unit': price,
+                            'total_harga': total,
+                            'metode_pricing': method
+                        }
+                        total_amount += total
                 
-                # Confirm dialog
-                confirm_msg = f"Konfirmasi perubahan harga:\n\n"
-                confirm_msg += f"Total {len(selected_items)} barang\n"
-                confirm_msg += f"Total nilai baru: Rp {total_amount:,.0f}\n\n"
-                confirm_msg += "Simpan perubahan?"
+                if not pricing_data:
+                    messagebox.showwarning("Peringatan", "Tidak ada data pricing yang valid!")
+                    return
                 
-                if messagebox.askyesno("Konfirmasi Edit", confirm_msg):
+                # Confirmation dialog
+                if self._confirm_pricing_dialog(selected_items, colli_amount, total_amount, pricing_data):
                     result['confirmed'] = True
                     result['pricing_data'] = pricing_data
+                    print(f"Pricing confirmed with {len(pricing_data)} items, total: {total_amount}")
+                    # FIX: Use pricing_window instead of parent
                     pricing_window.destroy()
-            except ValueError:
-                messagebox.showerror("Error", "Pastikan semua harga berupa angka yang valid!")
+                    
+            except Exception as e:
+                print(f"Error in confirm_pricing: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
         
-        def cancel_edit():
+        def cancel_pricing():
+            print("Pricing canceled by user")
+            # FIX: Use pricing_window instead of parent
             pricing_window.destroy()
         
+        
+        
         tk.Button(
-            btn_frame,
-            text="✅ Simpan Perubahan",
+            action_frame,
+            text="✅ Konfirmasi & Tambah",
             font=('Arial', 12, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=20,
-            pady=8,
-            command=confirm_edit
-        ).pack(side='left', padx=(0, 10))
+            padx=25,
+            pady=10,
+            relief='flat',
+            cursor='hand2',
+            command=confirm_pricing
+        ).pack(side='left', padx=(0, 15))
         
         tk.Button(
-            btn_frame,
+            action_frame,
             text="❌ Batal",
             font=('Arial', 12, 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=20,
-            pady=8,
-            command=cancel_edit
+            padx=25,
+            pady=10,
+            relief='flat',
+            cursor='hand2',
+            command=cancel_pricing
         ).pack(side='left')
+
+    def _confirm_pricing_dialog(self, selected_items, colli_amount, total_amount, pricing_data):
+        """Show confirmation dialog with pricing summary"""
+        confirm_msg = f"Konfirmasi penambahan barang dengan harga:\n\n"
+        confirm_msg += f"📊 RINGKASAN:\n"
+        confirm_msg += f"• Total {len(selected_items)} barang\n"
+        confirm_msg += f"• Colli per barang: {colli_amount}\n"
+        confirm_msg += f"• Total nilai: Rp {total_amount:,.0f}\n\n"
+        
+        # Add detail for each item (max 5 items to avoid dialog being too long)
+        confirm_msg += f"📋 DETAIL BARANG:\n"
+        for i, (item_id, pricing_detail) in enumerate(pricing_data.items()):
+            if i >= 5:  # Show max 5 items
+                remaining = len(pricing_data) - 5
+                confirm_msg += f"... dan {remaining} barang lainnya\n"
+                break
+            
+            item_name = next((item['name'] for item in selected_items if item['id'] == item_id), f"ID:{item_id}")
+            harga_unit = pricing_detail['harga_per_unit']
+            total_harga = pricing_detail['total_harga']
+            metode = pricing_detail['metode_pricing']
+            
+            confirm_msg += f"• {item_name}\n"
+            confirm_msg += f"  Metode: {metode} | Unit: Rp {harga_unit:,.0f} | Total: Rp {total_harga:,.0f}\n"
+        
+        confirm_msg += f"\n🚀 Lanjutkan proses?"
+        
+        return messagebox.askyesno("Konfirmasi Harga", confirm_msg)
+
+
+    def create_edit_pricing_dialog(self, selected_items, container_id):
+        """Create scrollable dialog for editing existing prices with auto-price options using Treeview"""
+        pricing_window = tk.Toplevel(self.window)
+        pricing_window.title("✏️ Edit Harga Barang")
+        pricing_window.geometry("1300x800")
+        pricing_window.configure(bg='#ecf0f1')
+        pricing_window.transient(self.window)
+        pricing_window.grab_set()
+        
+        # Center window
+        pricing_window.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (650)
+        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (400)
+        pricing_window.geometry(f"1300x800+{x}+{y}")
+        
+        # CREATE MAIN SCROLLABLE CANVAS FOR ENTIRE DIALOG
+        main_canvas = tk.Canvas(pricing_window, bg='#ecf0f1')
+        main_scrollbar = ttk.Scrollbar(pricing_window, orient="vertical", command=main_canvas.yview)
+        scrollable_frame = tk.Frame(main_canvas, bg='#ecf0f1')
+        
+        # Configure scrollable frame
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+        )
+        
+        # Create window in canvas
+        canvas_window = main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        
+        # Configure canvas scrolling
+        main_canvas.configure(yscrollcommand=main_scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        main_canvas.pack(side="left", fill="both", expand=True)
+        main_scrollbar.pack(side="right", fill="y")
+        
+        # Bind mousewheel to canvas
+        def _on_mousewheel(event):
+            main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        def _on_mousewheel_linux(event):
+            if event.num == 4:
+                main_canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                main_canvas.yview_scroll(1, "units")
+        
+        # Bind mouse wheel events
+        main_canvas.bind("<MouseWheel>", _on_mousewheel)  # Windows
+        main_canvas.bind("<Button-4>", _on_mousewheel_linux)  # Linux
+        main_canvas.bind("<Button-5>", _on_mousewheel_linux)  # Linux
+        
+        # Update canvas scroll region when frame size changes
+        def _on_canvas_configure(event):
+            main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+            canvas_width = event.width
+            main_canvas.itemconfig(canvas_window, width=canvas_width)
+        
+        main_canvas.bind('<Configure>', _on_canvas_configure)
+        
+        # NOW USE scrollable_frame AS PARENT
+        parent_frame = scrollable_frame
+        
+        # Initialize pricing data storage
+        pricing_data_store = {}
+        
+        # Header
+        header = tk.Label(
+            parent_frame,
+            text="✏️ EDIT HARGA BARANG",
+            font=('Arial', 18, 'bold'),
+            bg='#f39c12',
+            fg='white',
+            pady=20
+        )
+        header.pack(fill='x')
+        
+        # Info frame
+        info_frame = tk.Frame(parent_frame, bg='#ecf0f1')
+        info_frame.pack(fill='x', padx=25, pady=15)
+        
+        info_label = tk.Label(
+            info_frame,
+            text=f"📝 Mengedit harga untuk {len(selected_items)} barang | 💡 Klik dua kali pada cell untuk edit | 🔄 Gunakan kombinasi satuan + door",
+            font=('Arial', 12, 'bold'),
+            bg='#ecf0f1',
+            fg='#2c3e50'
+        )
+        info_label.pack(anchor='w')
+        
+        # Create combination controls
+        controls_frame = self._create_edit_pricing_controls(parent_frame, pricing_data_store)
+        
+        # Create main pricing table
+        table_frame, pricing_tree = self._create_edit_pricing_table(parent_frame, selected_items, pricing_data_store)
+        
+        # Setup combination controls with tree reference
+        self._setup_edit_pricing_controls(controls_frame, pricing_tree, pricing_data_store)
+        
+        # Create action buttons
+        result = {'confirmed': False, 'pricing_data': {}}
+        self._create_edit_pricing_actions(parent_frame, pricing_window, pricing_tree, pricing_data_store, selected_items, result)
+        
+        # Update canvas scroll region after all widgets are added
+        pricing_window.update_idletasks()
+        main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+        
+        # Focus on canvas to enable mouse wheel
+        main_canvas.focus_set()
         
         # Wait for dialog to close
         pricing_window.wait_window()
         
         return result if result['confirmed'] else None
+
+    def _create_edit_pricing_controls(self, parent, pricing_data_store):
+        """Create combination pricing controls for edit dialog"""
+        controls_frame = tk.Frame(parent, bg='#ecf0f1')
+        controls_frame.pack(fill='x', padx=25, pady=10)
         
+        # Step 1: Select Satuan (Base Unit)
+        satuan_frame = tk.LabelFrame(controls_frame, text="📏 Step 1: Pilih Satuan Dasar", 
+                                    font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        satuan_frame.pack(fill='x', pady=(0, 10))
+        
+        satuan_inner = tk.Frame(satuan_frame, bg='#ecf0f1')
+        satuan_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Step 2: Select Door/Package Type
+        door_frame = tk.LabelFrame(controls_frame, text="📦 Step 2: Pilih Tipe Door/Package", 
+                                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        door_frame.pack(fill='x', pady=(0, 10))
+        
+        door_inner = tk.Frame(door_frame, bg='#ecf0f1')
+        door_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Step 3: Generated Combinations + Manual
+        result_frame = tk.LabelFrame(controls_frame, text="🚀 Step 3: Apply Kombinasi atau Manual", 
+                                    font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50')
+        result_frame.pack(fill='x')
+        
+        result_inner = tk.Frame(result_frame, bg='#ecf0f1')
+        result_inner.pack(fill='x', padx=15, pady=8)
+        
+        # Manual section with input field and quick buttons
+        manual_inner = tk.Frame(result_frame, bg='#ecf0f1')
+        manual_inner.pack(fill='x', padx=15, pady=(0, 8))
+        
+        tk.Label(manual_inner, text="⚡ Quick Manual:", 
+                font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left', padx=(0, 10))
+        
+        # Custom amount input
+        custom_frame = tk.Frame(manual_inner, bg='#ecf0f1')
+        custom_frame.pack(side='left', padx=(0, 15))
+        
+        tk.Label(custom_frame, text="💰 Custom:", 
+                font=('Arial', 9, 'bold'), bg='#ecf0f1').pack(side='left')
+        
+        custom_var = tk.StringVar()
+        custom_entry = tk.Entry(custom_frame, textvariable=custom_var, 
+                            font=('Arial', 9), width=10)
+        custom_entry.pack(side='left', padx=(5, 5))
+        
+        return {
+            'controls_frame': controls_frame,
+            'satuan_frame': satuan_inner, 
+            'door_frame': door_inner, 
+            'result_frame': result_inner,
+            'manual_frame': manual_inner,
+            'custom_var': custom_var,
+            'custom_entry': custom_entry
+        }
+
+    def _create_edit_pricing_table(self, parent, selected_items, pricing_data_store):
+        """Create edit pricing table using Treeview"""
+        table_frame = tk.Frame(parent, bg='#ffffff', relief='solid', bd=1)
+        table_frame.pack(fill='x', padx=25, pady=15)
+        
+        # Table title
+        title_frame = tk.Frame(table_frame, bg='#34495e')
+        title_frame.pack(fill='x')
+        
+        tk.Label(title_frame, text="📋 EDIT DAFTAR BARANG DAN HARGA", 
+                font=('Arial', 14, 'bold'), bg='#34495e', fg='white', pady=10).pack()
+        
+        # Create Treeview with Frame container
+        tree_frame = tk.Frame(table_frame, bg='#ffffff', height=300)
+        tree_frame.pack(fill='x', padx=10, pady=10)
+        tree_frame.pack_propagate(False)  # Fixed height
+        
+        # Create Treeview
+        columns = ('nama_barang', 'colli', 'harga_lama', 'auto_pricing', 'harga_baru', 'total_baru')
+        pricing_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=12)
+        
+        # Define headings and column widths
+        column_config = {
+            'nama_barang': ('Nama Barang', 180),
+            'colli': ('Colli', 80),
+            'harga_lama': ('Harga Lama', 120),
+            'auto_pricing': ('Auto Pricing', 120),
+            'harga_baru': ('Harga Baru', 120),
+            'total_baru': ('Total Baru', 140)
+        }
+        
+        for col, (heading, width) in column_config.items():
+            pricing_tree.heading(col, text=heading)
+            pricing_tree.column(col, width=width, anchor='w' if col in ['nama_barang'] else 'center')
+        
+        # Create scrollbars for table
+        v_scrollbar = ttk.Scrollbar(tree_frame, orient='vertical', command=pricing_tree.yview)
+        h_scrollbar = ttk.Scrollbar(tree_frame, orient='horizontal', command=pricing_tree.xview)
+        
+        # Configure scrollbars
+        pricing_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Pack with proper scrollbar layout
+        v_scrollbar.pack(side='right', fill='y')
+        h_scrollbar.pack(side='bottom', fill='x')
+        pricing_tree.pack(side='left', fill='both', expand=True)
+        
+        # Get barang details and populate table
+        barang_details = self._get_edit_barang_details(selected_items)
+        self._populate_edit_pricing_table(pricing_tree, selected_items, barang_details, pricing_data_store)
+        
+        # Setup table editing
+        self._setup_edit_table_editing(pricing_tree, pricing_data_store)
+        
+        return table_frame, pricing_tree
+
+    def _get_edit_barang_details(self, selected_items):
+        """Get detailed barang data for edit pricing options"""
+        barang_details = {}
+        for item in selected_items:
+            try:
+                barang_data = self.db.execute_one("""
+                    SELECT b.*, s.nama_customer AS sender_name, r.nama_customer AS receiver_name
+                    FROM barang b 
+                    JOIN customers s ON b.pengirim = s.customer_id
+                    JOIN customers r ON b.penerima = r.customer_id
+                    WHERE b.barang_id = ?
+                """, (item['id'],))
+                
+                if barang_data:
+                    barang_details[item['id']] = dict(barang_data)
+            except Exception as e:
+                print(f"Error getting barang details for {item['id']}: {e}")
+                barang_details[item['id']] = {}
+        
+        return barang_details
+
+    def _populate_edit_pricing_table(self, tree, selected_items, barang_details, pricing_data_store):
+        """Populate the edit pricing table with current data"""
+        for item in selected_items:
+            barang_detail = barang_details.get(item['id'], {})
+            
+            # Extract pricing data for combinations
+            pricing_info = {
+                # Combination fields
+                'harga_m3_pp': barang_detail.get('m3_pp', 0) or 0,
+                'harga_m3_pd': barang_detail.get('m3_pd', 0) or 0,
+                'harga_m3_dd': barang_detail.get('m3_dd', 0) or 0,
+                'harga_ton_pp': barang_detail.get('ton_pp', 0) or 0,
+                'harga_ton_pd': barang_detail.get('ton_pd', 0) or 0,
+                'harga_ton_dd': barang_detail.get('ton_dd', 0) or 0,
+                'harga_colli_pp': barang_detail.get('col_pp', 0) or 0,
+                'harga_colli_pd': barang_detail.get('col_pd', 0) or 0,
+                'harga_colli_dd': barang_detail.get('col_dd', 0) or 0,
+                # Base measurements
+                'm3_barang': barang_detail.get('m3_barang', 0) or 0,
+                'ton_barang': barang_detail.get('ton_barang', 0) or 0
+            }
+            
+            # Get current price from item data
+            current_price = float(str(item.get('current_harga', 0)).replace(',', ''))
+            colli = int(item.get('colli', 1))
+            
+            # Store data for calculations
+            pricing_data_store[item['id']] = {
+                'item': item,
+                'pricing_info': pricing_info,
+                'current_method': 'Manual',
+                'current_price': current_price,
+                'original_price': current_price,
+                'colli_amount': colli
+            }
+            
+            # Calculate initial total
+            total_baru = current_price * colli
+            
+            # Insert into tree
+            tree.insert('', tk.END, iid=item['id'], values=(
+                item['name'],
+                str(colli),
+                f"{current_price:,.0f}",
+                'Manual',
+                f"{current_price:,.0f}",
+                f"Rp {total_baru:,.0f}",
+            ), tags=('row',))
+        
+        # Configure row styling
+        tree.tag_configure('row', background='#f8f9fa')
+        tree.tag_configure('selected', background='#e3f2fd')
+
+    def _setup_edit_table_editing(self, tree, pricing_data_store):
+        """Setup double-click editing for edit table cells"""
+        def on_double_click(event):
+            item_id = tree.selection()[0] if tree.selection() else None
+            if not item_id:
+                return
+            
+            # Get clicked column
+            region = tree.identify_region(event.x, event.y)
+            if region != "cell":
+                return
+                
+            column = tree.identify_column(event.x, event.y)
+            
+            print("Column: ", column)
+            
+            # Allow editing for auto_pricing and harga_baru columns
+            if column == '#4':  # auto_pricing column
+                self._edit_auto_pricing_edit(tree, item_id, pricing_data_store)
+            elif column == '#5':  # harga_baru column
+                self._edit_harga_baru_edit(tree, item_id, pricing_data_store)
+        
+        tree.bind('<Double-1>', on_double_click)
+
+    def _edit_auto_pricing_edit(self, tree, item_id, pricing_data_store):
+        """Edit auto pricing method for edit dialog"""
+        bbox = tree.bbox(item_id, 'auto_pricing')
+        if not bbox:
+            return
+        
+        # Create combobox with combination options
+        combo_var = tk.StringVar(value=pricing_data_store[item_id]['current_method'])
+        combo = ttk.Combobox(tree, textvariable=combo_var, 
+                            values=['Manual', 'Harga/m3_pp', 'Harga/m3_pd', 'Harga/m3_dd',
+                                'Harga/ton_pp', 'Harga/ton_pd', 'Harga/ton_dd',
+                                'Harga/colli_pp', 'Harga/colli_pd', 'Harga/colli_dd'],
+                            state='readonly')
+        
+        combo.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
+        combo.focus_set()
+        
+        def on_combo_change(event=None):
+            new_method = combo_var.get()
+            pricing_data_store[item_id]['current_method'] = new_method
+            
+            # Auto-set price based on method
+            new_price = self._calculate_edit_auto_price(item_id, new_method, pricing_data_store)
+            pricing_data_store[item_id]['current_price'] = new_price
+            
+            # Update tree
+            tree.set(item_id, 'auto_pricing', new_method)
+            tree.set(item_id, 'harga_baru', f"{new_price:,.0f}")
+            
+            # Calculate total
+            colli = pricing_data_store[item_id]['colli_amount']
+            total = new_price * colli
+            tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
+            
+            combo.destroy()
+        
+        combo.bind('<<ComboboxSelected>>', on_combo_change)
+        combo.bind('<Return>', on_combo_change)
+        combo.bind('<Escape>', lambda e: combo.destroy())
+        combo.bind('<FocusOut>', lambda e: combo.destroy())
+
+    def _edit_harga_baru_edit(self, tree, item_id, pricing_data_store):
+        """Edit harga baru for edit dialog"""
+        bbox = tree.bbox(item_id, 'harga_baru')
+        if not bbox:
+            return
+        
+        # Create entry
+        entry_var = tk.StringVar(value=str(int(pricing_data_store[item_id]['current_price'])))
+        entry = tk.Entry(tree, textvariable=entry_var)
+        entry.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
+        entry.focus_set()
+        entry.select_range(0, tk.END)
+        
+        def on_entry_confirm(event=None):
+            try:
+                new_price = float(entry_var.get().replace(',', ''))
+                pricing_data_store[item_id]['current_price'] = new_price
+                pricing_data_store[item_id]['current_method'] = 'Manual'
+                
+                # Update tree
+                tree.set(item_id, 'harga_baru', f"{new_price:,.0f}")
+                tree.set(item_id, 'auto_pricing', 'Manual')
+                
+                # Calculate total
+                colli = pricing_data_store[item_id]['colli_amount']
+                total = new_price * colli
+                tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
+                
+            except ValueError:
+                pass  # Invalid input, ignore
+            
+            entry.destroy()
+        
+        entry.bind('<Return>', on_entry_confirm)
+        entry.bind('<Escape>', lambda e: entry.destroy())
+        entry.bind('<FocusOut>', lambda e: on_entry_confirm())
+
+    def _calculate_edit_auto_price(self, item_id, method, pricing_data_store):
+        """Calculate automatic price for edit dialog based on combination method"""
+        pricing_info = pricing_data_store[item_id]['pricing_info']
+        
+        # Handle combination methods
+        if method == 'Harga/m3_pp' and pricing_info['harga_m3_pp'] > 0:
+            return pricing_info['harga_m3_pp']
+        elif method == 'Harga/m3_pd' and pricing_info['harga_m3_pd'] > 0:
+            return pricing_info['harga_m3_pd']
+        elif method == 'Harga/m3_dd' and pricing_info['harga_m3_dd'] > 0:
+            return pricing_info['harga_m3_dd']
+        elif method == 'Harga/ton_pp' and pricing_info['harga_ton_pp'] > 0:
+            return pricing_info['harga_ton_pp']
+        elif method == 'Harga/ton_pd' and pricing_info['harga_ton_pd'] > 0:
+            return pricing_info['harga_ton_pd']
+        elif method == 'Harga/ton_dd' and pricing_info['harga_ton_dd'] > 0:
+            return pricing_info['harga_ton_dd']
+        elif method == 'Harga/colli_pp' and pricing_info['harga_colli_pp'] > 0:
+            return pricing_info['harga_colli_pp']
+        elif method == 'Harga/colli_pd' and pricing_info['harga_colli_pd'] > 0:
+            return pricing_info['harga_colli_pd']
+        elif method == 'Harga/colli_dd' and pricing_info['harga_colli_dd'] > 0:
+            return pricing_info['harga_colli_dd']
+        else:
+            # Return original price if no valid combination found
+            return pricing_data_store[item_id]['original_price']
+
+    def _setup_edit_pricing_controls(self, controls_frame, pricing_tree, pricing_data_store):
+        """Setup combination pricing controls for edit dialog"""
+        
+        # State variables for combination
+        selected_satuan = tk.StringVar()
+        selected_door = tk.StringVar()
+        
+        # Step 1: Satuan selection buttons  
+        satuan_types = [
+            ("m³", "m3", '#3498db'),
+            ("ton", "ton", '#e74c3c'), 
+            ("colli", "colli", '#27ae60')
+        ]
+        
+        def select_satuan(satuan_key):
+            selected_satuan.set(satuan_key)
+            self._update_edit_combination_buttons(controls_frame['result_frame'], 
+                                            selected_satuan.get(), selected_door.get(), 
+                                            pricing_tree, pricing_data_store)
+            # Update button colors
+            for btn in satuan_buttons:
+                if btn['text'] == satuan_key:
+                    btn.configure(relief='sunken', borderwidth=3)
+                else:
+                    btn.configure(relief='flat', borderwidth=1)
+        
+        satuan_buttons = []
+        for label, key, color in satuan_types:
+            btn = tk.Button(
+                controls_frame['satuan_frame'],
+                text=label,
+                font=('Arial', 10, 'bold'),
+                bg=color,
+                fg='white',
+                padx=20,
+                pady=8,
+                relief='flat',
+                cursor='hand2',
+                command=lambda k=key: select_satuan(k)
+            )
+            btn.pack(side='left', padx=5)
+            satuan_buttons.append(btn)
+        
+        # Step 2: Door/Package selection buttons
+        door_types = [
+            ("PP", "pp", '#9b59b6'),     # Per Pcs
+            ("PD", "pd", '#f39c12'),     # Per Dozen  
+            ("DD", "dd", '#16a085')      # Per Double Dozen
+        ]
+        
+        def select_door(door_key):
+            selected_door.set(door_key)
+            self._update_edit_combination_buttons(controls_frame['result_frame'], 
+                                            selected_satuan.get(), selected_door.get(), 
+                                            pricing_tree, pricing_data_store)
+            # Update button colors
+            for btn in door_buttons:
+                if btn['text'] == door_key.upper():
+                    btn.configure(relief='sunken', borderwidth=3)
+                else:
+                    btn.configure(relief='flat', borderwidth=1)
+        
+        door_buttons = []
+        for label, key, color in door_types:
+            btn = tk.Button(
+                controls_frame['door_frame'],
+                text=label,
+                font=('Arial', 10, 'bold'),
+                bg=color,
+                fg='white',
+                padx=20,
+                pady=8,
+                relief='flat',
+                cursor='hand2',
+                command=lambda k=key: select_door(k)
+            )
+            btn.pack(side='left', padx=5)
+            door_buttons.append(btn)
+        
+        # Setup custom amount input
+        def apply_custom_amount():
+            try:
+                amount_str = controls_frame['custom_var'].get().strip()
+                if not amount_str:
+                    messagebox.showwarning("Input Error", "Masukkan nilai harga!")
+                    return
+                    
+                amount = float(amount_str.replace(',', '').replace('.', ''))
+                if amount >= 0:
+                    self._edit_quick_fill_manual(pricing_tree, pricing_data_store, amount)
+                    controls_frame['custom_var'].set("")
+                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!")
+                else:
+                    messagebox.showwarning("Input Error", "Masukkan angka positif!")
+            except ValueError:
+                messagebox.showwarning("Input Error", "Masukkan angka yang valid!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}")
+        
+        # Create apply button
+        custom_btn = tk.Button(
+            controls_frame['custom_entry'].master,
+            text="✓ Apply",
+            font=('Arial', 8, 'bold'),
+            bg='#34495e',
+            fg='white',
+            padx=8,
+            pady=3,
+            relief='flat',
+            cursor='hand2',
+            command=apply_custom_amount
+        )
+        custom_btn.pack(side='left', padx=(0, 5))
+        
+        # Bind Enter key
+        controls_frame['custom_entry'].bind('<Return>', lambda e: apply_custom_amount())
+        controls_frame['custom_entry'].bind('<KP_Enter>', lambda e: apply_custom_amount())
+        
+        # Manual quick fill buttons
+        quick_amounts = [50000, 100000, 150000, 200000, 250000, 300000]
+        for amount in quick_amounts:
+            btn = tk.Button(
+                controls_frame['manual_frame'],
+                text=f"{amount//1000}K",
+                font=('Arial', 9),
+                bg='#95a5a6',
+                fg='white',
+                padx=10,
+                pady=5,
+                relief='flat',
+                cursor='hand2',
+                command=lambda a=amount: self._edit_quick_fill_manual(pricing_tree, pricing_data_store, a)
+            )
+            btn.pack(side='left', padx=2)
+
+    def _update_edit_combination_buttons(self, result_frame, satuan, door, pricing_tree, pricing_data_store):
+        """Update combination buttons for edit dialog"""
+        # Clear existing buttons
+        for widget in result_frame.winfo_children():
+            widget.destroy()
+        
+        if not satuan or not door:
+            tk.Label(result_frame, text="👆 Pilih Satuan dan Door/Package untuk melihat kombinasi", 
+                    font=('Arial', 10), bg='#ecf0f1', fg='#7f8c8d').pack(pady=10)
+            return
+        
+        # Create info label
+        info_text = f"🎯 Kombinasi: {satuan.upper()} × {door.upper()}"
+        tk.Label(result_frame, text=info_text, 
+                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50').pack(pady=(5, 10))
+        
+        # Create combination button
+        combination_method = f"Harga/{satuan}_{door}"
+        combination_text = f"{satuan.upper()}_{door.upper()}"
+        
+        btn = tk.Button(
+            result_frame,
+            text=f"🚀 Apply {combination_text}",
+            font=('Arial', 12, 'bold'),
+            bg='#e67e22',
+            fg='white',
+            padx=25,
+            pady=10,
+            relief='flat',
+            cursor='hand2',
+            command=lambda: self._edit_auto_fill_all(pricing_tree, pricing_data_store, combination_method)
+        )
+        btn.pack(pady=5)
+
+    def _edit_auto_fill_all(self, pricing_tree, pricing_data_store, method):
+        """Auto fill all items with selected pricing method for edit dialog"""
+        updated_count = 0
+        try:
+            for item_id in pricing_data_store.keys():
+                if pricing_tree.exists(item_id):
+                    pricing_data_store[item_id]['current_method'] = method
+                    
+                    # Calculate new price
+                    new_price = self._calculate_edit_auto_price(item_id, method, pricing_data_store)
+                    pricing_data_store[item_id]['current_price'] = new_price
+                    
+                    # Update tree
+                    pricing_tree.set(item_id, 'auto_pricing', method)
+                    pricing_tree.set(item_id, 'harga_baru', f"{new_price:,.0f}")
+                    
+                    # Calculate total
+                    colli = pricing_data_store[item_id]['colli_amount']
+                    total = self._calculate_total_price(item_id, pricing_data_store, colli_amount=colli)
+                    pricing_tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
+                    
+                    updated_count += 1
+            
+            print(f"Edit auto fill completed: {updated_count} items updated with method {method}")
+            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!")
+            
+        except Exception as e:
+            print(f"Error in _edit_auto_fill_all: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menerapkan auto fill: {str(e)}")
+
+    def _edit_quick_fill_manual(self, pricing_tree, pricing_data_store, amount):
+        """Quick fill all items with manual amount for edit dialog"""
+        updated_count = 0
+        try:
+            print(f"Starting edit quick fill manual with amount: {amount}")
+            
+            for item_id in pricing_data_store.keys():
+                if pricing_tree.exists(item_id):
+                    # Update data store
+                    pricing_data_store[item_id]['current_method'] = 'Manual'
+                    pricing_data_store[item_id]['current_price'] = amount
+                    
+                    # Update tree display
+                    pricing_tree.set(item_id, 'auto_pricing', 'Manual')
+                    pricing_tree.set(item_id, 'harga_baru', f"{amount:,.0f}")
+                    
+                    # Calculate total
+                    colli = pricing_data_store[item_id]['colli_amount']
+                    total = amount * colli
+                    pricing_tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
+                    
+                    updated_count += 1
+                    print(f"Updated edit item {item_id}: price={amount}, total={total}")
+                else:
+                    print(f"WARNING: Edit item {item_id} not found in tree")
+            
+            print(f"Edit manual fill completed: {updated_count} items updated")
+            
+        except Exception as e:
+            print(f"Error in _edit_quick_fill_manual: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Gagal mengisi harga manual: {str(e)}")
+
+    def _create_edit_pricing_actions(self, parent_frame, pricing_window, pricing_tree, pricing_data_store, selected_items, result):
+        """Create action buttons for edit pricing dialog"""
+        btn_frame = tk.Frame(parent_frame, bg='#ecf0f1')
+        btn_frame.pack(fill='x', padx=25, pady=20)
+        
+        # Action buttons
+        action_frame = tk.Frame(btn_frame, bg='#ecf0f1')
+        action_frame.pack()
+        
+        def confirm_edit():
+            try:
+                pricing_data = {}
+                total_amount = 0
+                changed_items = []
+                
+                for item_id, data in pricing_data_store.items():
+                    if pricing_tree.exists(item_id):
+                        current_price = data['current_price']
+                        original_price = data['original_price']
+                        method = data['current_method']
+                        colli = data['colli_amount']
+                        total = current_price * colli
+                        
+                        pricing_data[item_id] = {
+                            'harga_per_unit': current_price,
+                            'total_harga': total,
+                            'metode_pricing': method,
+                            'original_price': original_price,
+                            'price_changed': current_price != original_price
+                        }
+                        total_amount += total
+                        
+                        if current_price != original_price:
+                            changed_items.append({
+                                'id': item_id,
+                                'name': data['item']['name'],
+                                'old_price': original_price,
+                                'new_price': current_price,
+                                'method': method
+                            })
+                
+                if not pricing_data:
+                    messagebox.showwarning("Peringatan", "Tidak ada data pricing yang valid!")
+                    return
+                
+                if not changed_items:
+                    messagebox.showinfo("Info", "Tidak ada perubahan harga yang perlu disimpan!")
+                    return
+                
+                # Enhanced confirmation dialog
+                confirm_msg = f"Konfirmasi perubahan harga:\n\n"
+                confirm_msg += f"📊 RINGKASAN PERUBAHAN:\n"
+                confirm_msg += f"• Total barang: {len(selected_items)}\n"
+                confirm_msg += f"• Barang yang berubah: {len(changed_items)}\n"
+                confirm_msg += f"• Total nilai baru: Rp {total_amount:,.0f}\n\n"
+                
+                # Show detailed changes (max 5 items)
+                confirm_msg += f"📋 DETAIL PERUBAHAN:\n"
+                for i, item in enumerate(changed_items[:5]):
+                    confirm_msg += f"• {item['name'][:30]}{'...' if len(item['name']) > 30 else ''}\n"
+                    confirm_msg += f"  Lama: Rp {item['old_price']:,.0f} → Baru: Rp {item['new_price']:,.0f} ({item['method']})\n"
+                
+                if len(changed_items) > 5:
+                    remaining = len(changed_items) - 5
+                    confirm_msg += f"... dan {remaining} perubahan lainnya\n"
+                
+                confirm_msg += f"\n🚀 Simpan perubahan?"
+                
+                if messagebox.askyesno("Konfirmasi Edit Harga", confirm_msg):
+                    result['confirmed'] = True
+                    result['pricing_data'] = pricing_data
+                    result['changed_count'] = len(changed_items)
+                    print(f"Edit pricing confirmed with {len(changed_items)} changes, total: {total_amount}")
+                    pricing_window.destroy()
+                    
+            except Exception as e:
+                print(f"Error in confirm_edit: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
+        
+        def cancel_edit():
+            print("Edit pricing canceled by user")
+            pricing_window.destroy()
+        
+        def reset_all_prices():
+            """Reset all prices to original values"""
+            try:
+                reset_count = 0
+                for item_id, data in pricing_data_store.items():
+                    if pricing_tree.exists(item_id):
+                        original_price = data['original_price']
+                        
+                        # Reset to original values
+                        data['current_method'] = 'Manual'
+                        data['current_price'] = original_price
+                        
+                        # Update tree
+                        pricing_tree.set(item_id, 'auto_pricing', 'Manual')
+                        pricing_tree.set(item_id, 'harga_baru', f"{original_price:,.0f}")
+                        
+                        # Calculate total
+                        colli = data['colli_amount']
+                        total = original_price * colli
+                        pricing_tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
+                        
+                        reset_count += 1
+                
+                messagebox.showinfo("Reset", f"Berhasil mereset {reset_count} barang ke harga asli!")
+                
+            except Exception as e:
+                print(f"Error in reset_all_prices: {str(e)}")
+                messagebox.showerror("Error", f"Gagal mereset harga: {str(e)}")
+        
+        
+        tk.Button(
+            action_frame,
+            text="🔄 Reset Semua",
+            font=('Arial', 10, 'bold'),
+            bg='#9b59b6',
+            fg='white',
+            padx=15,
+            pady=10,
+            relief='flat',
+            cursor='hand2',
+            command=reset_all_prices
+        ).pack(side='left', padx=(0, 10))
+        
+        
+        tk.Button(
+            action_frame,
+            text="✅ Simpan Perubahan",
+            font=('Arial', 12, 'bold'),
+            bg='#27ae60',
+            fg='white',
+            padx=25,
+            pady=10,
+            relief='flat',
+            cursor='hand2',
+            command=confirm_edit
+        ).pack(side='left', padx=(0, 15))
+        
+        tk.Button(
+            action_frame,
+            text="❌ Batal",
+            font=('Arial', 12, 'bold'),
+            bg='#e74c3c',
+            fg='white',
+            padx=25,
+            pady=10,
+            relief='flat',
+            cursor='hand2',
+            command=cancel_edit
+        ).pack(side='left')
+    
     def edit_barang_price_in_container(self):
         """Edit price of selected barang in container"""
         if not self.selected_container_var.get():
@@ -1488,25 +2630,28 @@ class ContainerWindow:
             for item in selection:
                 values = self.container_barang_tree.item(item)['values']
                 # Find barang_id from database based on customer and nama_barang
-                customer = values[0]  # Customer column
-                nama_barang = values[1]  # Nama barang column
-                current_harga = values[6] if len(values) > 6 else "0"  # Current price
-                current_total = values[7] if len(values) > 7 else "0"  # Current total
-                colli = values[5]  # Colli column
+                pengirim = values[0]  # Customer column
+                penerima = values[1]  # Nama barang column
+                nama_barang = values[2]  # Nama barang column
+                current_harga = values[7] if len(values) > 6 else "0"  # Current price
+                current_total = values[8] if len(values) > 7 else "0"  # Current total
+                colli = values[6]  # Colli column
                 
                 # Get barang_id from database
                 barang_data = self.db.execute("""
                     SELECT b.barang_id FROM barang b 
-                    JOIN customers c ON b.customer_id = c.customer_id 
-                    WHERE c.nama_customer = ? AND b.nama_barang = ?
-                """, (customer, nama_barang))
-                
+                    JOIN customers s ON b.pengirim = s.customer_id
+                    JOIN customers r ON b.penerima = r.customer_id
+                    WHERE s.nama_customer = ? AND r.nama_customer = ? AND b.nama_barang = ?
+                """, (pengirim, penerima, nama_barang))
+
                 if barang_data:
                     barang_id = barang_data[0][0]
                     selected_items.append({
                         'id': barang_id,
                         'name': nama_barang,
-                        'customer': customer,
+                        'pengirim': pengirim,
+                        'penerima': penerima,
                         'current_harga': current_harga,
                         'current_total': current_total,
                         'colli': colli
@@ -1559,45 +2704,25 @@ class ContainerWindow:
         """Load all customers for search dropdown"""
         try:
             # Get unique customers from barang table
-            customers = self.db.execute("SELECT DISTINCT c.nama_customer FROM barang b JOIN customers c ON b.customer_id = c.customer_id ORDER BY c.nama_customer")
-            customer_list = [row[0] for row in customers if row[0]]
+            customers = self.db.get_all_customers()
+            customer_list = [row['nama_customer'] for row in customers if row['nama_customer']]
             self.sender_search_combo['values'] = customer_list
             self.receiver_search_combo['values'] = customer_list
         except Exception as e:
             print(f"Error loading customers: {e}")
     
-    def filter_customers(self, event=None):
-        """Filter customers based on typing"""
-        try:
-            typed = self.customer_search_var.get().lower()
-            if not typed:
-                # Show all customers if nothing typed
-                customers = self.db.execute("SELECT DISTINCT c.nama_customer FROM barang b JOIN customers c ON b.customer_id = c.customer_id ORDER BY c.nama_customer")
-                customer_list = [row[0] for row in customers if row[0]]
-            else:
-                # Filter customers containing the typed text
-                customers = self.db.execute(
-                    "SELECT DISTINCT c.nama_customer FROM barang b JOIN customers c ON b.customer_id = c.customer_id WHERE LOWER(c.nama_customer) LIKE ? ORDER BY c.nama_customer",
-                    (f"%{typed}%",)
-                )
-                customer_list = [row[0] for row in customers if row[0]]
-            
-            self.customer_search_combo['values'] = customer_list
-        except Exception as e:
-            print(f"Error filtering customers: {e}")
-    
-    def load_customer_barang_tree(self, customer_name):
-        """Load barang for specific customer in the left tree"""
+    def load_customer_barang_tree(self, sender_name=None, receiver_name=None):
+        """Load barang based on sender and/or receiver selection"""
         try:
             # Clear existing items
             for item in self.available_tree.get_children():
                 self.available_tree.delete(item)
-            
+        
             # Get all barang first
             all_barang = self.db.get_all_barang()
-            
-            # Show only this customer's available barang
-            customer_barang_count = 0
+        
+            # Show barang based on selection criteria
+            filtered_barang_count = 0
             for barang in all_barang:
                 try:
                     # Safe way to get values from sqlite3.Row object
@@ -1606,48 +2731,76 @@ class ContainerWindow:
                             return row[key] if row[key] is not None else default
                         except (KeyError, IndexError):
                             return default
-                    
+                
                     barang_id = safe_get(barang, 'barang_id', 0)
-                    nama_customer = safe_get(barang, 'nama_customer', '')
-
-                    print(f"Nama Customer: {nama_customer}")
-                        
-                    # Show only barang from selected customer
-                    if nama_customer == customer_name:
+                    
+                    # Get sender and receiver info from barang
+                    # Adjust these field names based on your actual database schema
+                    barang_sender_id = safe_get(barang, 'pengirim', '')  # or pengirim field
+                    barang_sender = self.db.get_customer_by_id(barang_sender_id)['nama_customer'] if barang_sender_id else '-'
+                    barang_receiver_id = safe_get(barang, 'penerima', '')     # receiver field name
+                    barang_receiver = self.db.get_customer_by_id(barang_receiver_id)['nama_customer'] if barang_receiver_id else '-'
+                    
+                    print(f"Barang ID: {barang_id}, Sender: {barang_sender}, Receiver: {barang_receiver}")
+                    
+                    # Filter logic: show barang that match criteria
+                    show_barang = True
+                    
+                    if sender_name and receiver_name:
+                        # Both selected: must match both sender AND receiver
+                        show_barang = (barang_sender == sender_name and barang_receiver == receiver_name)
+                    elif sender_name:
+                        # Only sender selected: must match sender
+                        show_barang = (barang_sender == sender_name)
+                    elif receiver_name:
+                        # Only receiver selected: must match receiver
+                        show_barang = (barang_receiver == receiver_name)
+                    # If neither selected, show all barang (show_barang remains True)
+                    
+                    if show_barang:
                         # Format dimensions
                         panjang = safe_get(barang, 'panjang_barang', '-')
                         lebar = safe_get(barang, 'lebar_barang', '-')
                         tinggi = safe_get(barang, 'tinggi_barang', '-')
                         dimensi = f"{panjang}×{lebar}×{tinggi}"
-                        
+                    
                         # Get values safely
                         nama_barang = safe_get(barang, 'nama_barang', '-')
                         m3_barang = safe_get(barang, 'm3_barang', '-')
                         ton_barang = safe_get(barang, 'ton_barang', '-')
-                        
+                    
                         self.available_tree.insert('', tk.END, values=(
                             barang_id,
-                            nama_customer,
-                            nama_barang,
-                            dimensi,
-                            m3_barang,
-                            ton_barang
+                            barang_sender,    # Pengirim column
+                            barang_receiver,  # Penerima column
+                            nama_barang,      # Nama column
+                            dimensi,          # Dimensi column
+                            m3_barang,        # Volume column
+                            ton_barang        # Berat column
                         ))
-                        customer_barang_count += 1
-                        
+                        filtered_barang_count += 1
+                    
                 except Exception as row_error:
-                    print(f"Error processing customer barang row: {row_error}")
+                    print(f"Error processing barang row: {row_error}")
                     continue
+        
+            # Create descriptive message
+            criteria = []
+            if sender_name:
+                criteria.append(f"Pengirim: {sender_name}")
+            if receiver_name:
+                criteria.append(f"Penerima: {receiver_name}")
             
-            print(f"✅ Loaded {customer_barang_count} available barang for customer '{customer_name}' in tree")
-            
+            criteria_text = " & ".join(criteria) if criteria else "Semua barang"
+            print(f"✅ Loaded {filtered_barang_count} barang dengan kriteria: {criteria_text}")
+        
         except Exception as e:
-            print(f"❌ Error loading customer barang tree: {e}")
+            print(f"❌ Error loading barang tree: {e}")
             import traceback
             traceback.print_exc()
             # Fallback to all barang
             self.load_available_barang()
-            
+        
     def load_available_barang(self):
         """Load available barang (not in any container)"""
         try:
@@ -1678,14 +2831,20 @@ class ContainerWindow:
                     dimensi = f"{panjang}×{lebar}×{tinggi}"
                     
                     # Get values safely
-                    nama_customer = safe_get(barang, 'nama_customer', '-')
+                    pengirim_id = safe_get(barang, 'pengirim', '')
+                    penerima_id = safe_get(barang, 'penerima', '')
+                    pengirim_name = self.db.get_customer_by_id(pengirim_id)['nama_customer'] if pengirim_id else '-'
+                    penerima_name = self.db.get_customer_by_id(penerima_id)['nama_customer'] if penerima_id else '-'
                     nama_barang = safe_get(barang, 'nama_barang', '-')
                     m3_barang = safe_get(barang, 'm3_barang', '-')
                     ton_barang = safe_get(barang, 'ton_barang', '-')
-                    
+
+                    print(f"Barang ID: {barang_id}, Pengirim: {pengirim_name}, Penerima: {penerima_name}, Nama Barang: {nama_barang}, kubikasi: {m3_barang}")
+
                     self.available_tree.insert('', tk.END, values=(
                         barang_id,
-                        nama_customer,
+                        pengirim_name,
+                        penerima_name,
                         nama_barang,
                         dimensi,
                         m3_barang,
@@ -1707,9 +2866,12 @@ class ContainerWindow:
             
     def clear_selection(self):
         """Clear customer and barang selection"""
-        self.customer_search_var.set("")
+        self.selected_container_var.set("")
+        self.sender_search_var.set("")
+        self.receiver_search_var.set("")
         self.colli_var.set("1")
         self.load_available_barang()
+        self.load_container_barang(None)
     
     def add_selected_barang_to_container(self):
         """Add selected barang from treeview to container with pricing"""
@@ -1741,23 +2903,41 @@ class ContainerWindow:
             selected_items = []
             for item in selection:
                 values = self.available_tree.item(item)['values']
-                barang_id = values[0]  # ID column
-                barang_customer = values[1]  # Customer column
-                barang_name = values[2]  # Nama barang column
+                # Based on your treeview structure: ID, Pengirim, Penerima, Nama, Dimensi, Volume, Berat
+                barang_id = values[0]      # ID column
+                barang_sender = values[1]  # Pengirim column
+                barang_receiver = values[2] # Penerima column
+                barang_name = values[3]    # Nama barang column
                 
-                # If customer is selected, verify customer matches
-                if self.customer_search_var.get() and barang_customer != self.customer_search_var.get():
+                # Validate sender/receiver selection if any is selected
+                sender_selected = self.sender_search_var.get()
+                receiver_selected = self.receiver_search_var.get()
+                
+                validation_error = False
+                error_message = ""
+                
+                # Check sender validation
+                if sender_selected and barang_sender != sender_selected:
+                    error_message += f"Pengirim '{barang_sender}' tidak sesuai dengan pilihan '{sender_selected}'. "
+                    validation_error = True
+                
+                # Check receiver validation
+                if receiver_selected and barang_receiver != receiver_selected:
+                    error_message += f"Penerima '{barang_receiver}' tidak sesuai dengan pilihan '{receiver_selected}'. "
+                    validation_error = True
+                
+                if validation_error:
                     messagebox.showwarning(
                         "Peringatan", 
-                        f"Barang '{barang_name}' milik customer '{barang_customer}' " +
-                        f"tidak sesuai dengan customer yang dipilih '{self.customer_search_var.get()}'!"
+                        f"Barang '{barang_name}': {error_message.strip()}"
                     )
                     continue
                 
                 selected_items.append({
                     'id': barang_id,
                     'name': barang_name,
-                    'customer': barang_customer
+                    'sender': barang_sender,
+                    'receiver': barang_receiver
                 })
             
             if not selected_items:
@@ -1773,6 +2953,8 @@ class ContainerWindow:
             # Add barang to container with pricing
             success_count = 0
             error_count = 0
+            success_details = []
+            error_details = []
             
             for item in selected_items:
                 try:
@@ -1790,35 +2972,56 @@ class ContainerWindow:
                     
                     if success:
                         success_count += 1
+                        success_details.append(f"✅ {item['name']} (ID: {barang_id})")
                         print(f"✅ Added barang {barang_id} ({item['name']}) to container {container_id} with price {price_data['harga_per_unit']}")
+                    else:
+                        error_count += 1
+                        error_details.append(f"❌ {item['name']} (ID: {barang_id}) - Database operation failed")
+                        
                 except Exception as e:
                     error_count += 1
+                    error_details.append(f"❌ {item['name']} (ID: {item['id']}) - {str(e)}")
                     print(f"❌ Error adding barang {item['id']} ({item['name']}): {e}")
             
-            # Show result message
+            # Show detailed result message
             result_msg = ""
             if success_count > 0:
-                result_msg += f"✅ Berhasil menambahkan {success_count} barang ke container dengan harga!\n"
-            if error_count > 0:
-                result_msg += f"❌ {error_count} barang gagal ditambahkan.\n"
+                result_msg += f"🎉 Berhasil menambahkan {success_count} barang ke container!\n"
+                result_msg += f"Setiap barang ditambahkan dengan {colli_amount} colli.\n\n"
+                result_msg += "Detail berhasil:\n" + "\n".join(success_details[:5])  # Show max 5 items
+                if len(success_details) > 5:
+                    result_msg += f"\n... dan {len(success_details) - 5} barang lainnya"
             
-            if success_count > 0:
-                result_msg += f"\nSetiap barang ditambahkan dengan {colli_amount} colli."
-                messagebox.showinfo("Hasil", result_msg)
+            if error_count > 0:
+                result_msg += f"\n\n❌ {error_count} barang gagal ditambahkan:\n"
+                result_msg += "\n".join(error_details[:3])  # Show max 3 error details
+                if len(error_details) > 3:
+                    result_msg += f"\n... dan {len(error_details) - 3} error lainnya"
+            
+            # Show appropriate message box
+            if success_count > 0 and error_count == 0:
+                messagebox.showinfo("Berhasil!", result_msg)
+            elif success_count > 0 and error_count > 0:
+                messagebox.showwarning("Sebagian Berhasil", result_msg)
             else:
-                messagebox.showerror("Error", result_msg)
+                messagebox.showerror("Gagal", result_msg)
             
             # Clear selections and refresh displays only if there were successful additions
             if success_count > 0:
+                # Clear selections
                 self.clear_selection()
                 
-                # Refresh displays based on current customer filter
-                if self.customer_search_var.get():
-                    self.load_customer_barang_tree(self.customer_search_var.get())
-                else:
-                    self.load_available_barang()
+                # Refresh displays based on current sender/receiver filter
+                sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
+                receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
+                
+                # Refresh available barang list with current filters
+                self.load_customer_barang_tree(sender, receiver)
                     
+                # Refresh container barang list
                 self.load_container_barang(container_id)
+                
+                # Refresh other lists
                 self.load_containers()  # Refresh container list to update item count
                 self.load_customers()   # Refresh customer list
             
@@ -1828,8 +3031,8 @@ class ContainerWindow:
             import traceback
             error_detail = traceback.format_exc()
             print(f"💥 Error in add_selected_barang_to_container: {error_detail}")
-            messagebox.showerror("Error", f"Gagal menambah barang ke container: {str(e)}")
-            
+            messagebox.showerror("Error", f"Gagal menambah barang ke container: {str(e)}") 
+                
     def center_window(self):
         """Center window on parent"""
         self.window.update_idletasks()
@@ -1893,9 +3096,11 @@ class ContainerWindow:
                     dimensi = f"{panjang}×{lebar}×{tinggi}"
                     
                     assigned_at = safe_get(barang, 'assigned_at', '')
-                    
+
+
                     # Get values safely
-                    nama_customer = safe_get(barang, 'nama_customer', '-')
+                    pengirim = safe_get(barang, 'sender_name', '')
+                    penerima = safe_get(barang, 'receiver_name', '')
                     nama_barang = safe_get(barang, 'nama_barang', '-')
                     m3_barang = safe_get(barang, 'm3_barang', '-')
                     ton_barang = safe_get(barang, 'ton_barang', '-')
@@ -1903,14 +3108,13 @@ class ContainerWindow:
                     harga_per_unit = safe_get(barang, 'harga_per_unit', 0)
                     total_harga = safe_get(barang, 'total_harga', 0)
                     
-                    print(f"Loading barang: {nama_barang} (Customer: {nama_customer}, Harga/Unit: {harga_per_unit}, Total: {total_harga})")
-
                     # Format pricing display
                     harga_display = f"{float(harga_per_unit):,.0f}" if str(harga_per_unit).replace('.', '').isdigit() else harga_per_unit
                     total_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').isdigit() else total_harga
 
                     self.container_barang_tree.insert('', tk.END, values=(
-                        nama_customer,
+                        pengirim,
+                        penerima,
                         nama_barang,
                         dimensi,
                         m3_barang,
@@ -1952,29 +3156,32 @@ class ContainerWindow:
             selected_items = []
             for item in selection:
                 values = self.container_barang_tree.item(item)['values']
-                customer = values[0]     # Customer column
-                nama_barang = values[1]  # Nama barang column
-                colli = values[5]        # Colli column
-                harga_unit = values[6]   # Harga per unit
-                total_harga = values[7]  # Total harga
-                
+                pengirim = values[0]     # Customer column
+                penerima = values[1]     # Receiver column
+                nama_barang = values[2]  # Nama barang column
+                colli = values[6]        # Colli column
+                harga_unit = values[7]   # Harga per unit
+                total_harga = values[8]  # Total harga
+
                 # Get barang_id from database
                 barang_data = self.db.execute("""
                     SELECT b.barang_id FROM barang b 
-                    JOIN customers c ON b.customer_id = c.customer_id 
-                    WHERE c.nama_customer = ? AND b.nama_barang = ?
-                """, (customer, nama_barang))
-                
+                    JOIN customers r ON b.penerima = r.customer_id
+                    JOIN customers s ON b.pengirim = s.customer_id
+                    WHERE r.nama_customer = ? AND s.nama_customer = ? AND b.nama_barang = ?
+                """, (penerima, pengirim, nama_barang))
+
                 if barang_data:
                     barang_id = barang_data[0][0]
                     selected_items.append({
                         'id': barang_id,
                         'nama': nama_barang,
-                        'customer': customer,
+                        'pengirim': pengirim,
+                        'penerima': penerima,
                         'colli': colli,
                         'harga_unit': harga_unit,
                         'total_harga': total_harga,
-                        'assigned_at': values[8]  # Assigned at timestamp
+                        'assigned_at': values[9]  # Assigned at timestamp
                     })
             
             # Confirm removal with details including pricing
@@ -1982,7 +3189,8 @@ class ContainerWindow:
                 item = selected_items[0]
                 confirm_msg = f"Hapus barang dari container?\n\n" + \
                             f"Barang: {item['nama']}\n" + \
-                            f"Customer: {item['customer']}\n" + \
+                            f"Pengirim: {item['pengirim']}\n" + \
+                            f"Penerima: {item['penerima']}\n" + \
                             f"Colli: {item['colli']}\n" + \
                             f"Harga/Unit: Rp {item['harga_unit']}\n" + \
                             f"Total Harga: Rp {item['total_harga']}\n\n" + \
@@ -2009,8 +3217,10 @@ class ContainerWindow:
             error_count = 0
             
             for item in selected_items:
-                
-                
+
+                print("Items to remove:")
+                print(f" - {item['nama']} (Pengirim: {item['pengirim']}, Penerima: {item['penerima']}, Colli: {item['colli']}, Harga/Unit: Rp {item['harga_unit']}, Total Harga: Rp {item['total_harga']}, Assigned At: {item['assigned_at']})")
+
                 try:
                     # Remove from detail_container table
                     result = self.db.execute(

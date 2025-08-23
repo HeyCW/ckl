@@ -90,7 +90,7 @@ def main():
             login.login_window.focus_force()
             login.login_window.grab_set()
             
-            # Remove topmost after a delay
+            # Remove topmost after a delay  
             login.login_window.after(1000, lambda: login.login_window.attributes('-topmost', False))
             
             print(f"   ✅ Login window forced to show")

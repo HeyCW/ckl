@@ -248,8 +248,6 @@ class SQLiteDatabase:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             barang_id INTEGER NOT NULL,
             container_id INTEGER NOT NULL,
-            sender_id INTEGER,
-            receiver_id INTEGER,
             colli_amount INTEGER NOT NULL DEFAULT 1,
             harga_per_unit DECIMAL(15,2) DEFAULT 0,
             total_harga DECIMAL(15,2) DEFAULT 0,
@@ -257,9 +255,7 @@ class SQLiteDatabase:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             notes TEXT,
             FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
-            FOREIGN KEY (container_id) REFERENCES containers (container_id),
-            FOREIGN KEY (sender_id) REFERENCES customers (customer_id),
-            FOREIGN KEY (receiver_id) REFERENCES customers (customer_id)
+            FOREIGN KEY (container_id) REFERENCES containers (container_id)
         )
         '''
         try:
@@ -773,9 +769,10 @@ class BarangDatabase(SQLiteDatabase):
         
         try:
             barang_list = self.execute('''
-                SELECT b.*, c.nama_customer, dc.created_at as assigned_at
+                SELECT b.*, dc.created_at as assigned_at
                 FROM barang b
-                JOIN customers c ON b.customer_id = c.customer_id
+                JOIN customers r ON b.penerima = r.customer_id
+                JOIN customers s ON b.pengirim = s.customer_id
                 JOIN detail_container dc ON b.barang_id = dc.barang_id
                 WHERE dc.container_id = ?
                 ORDER BY dc.created_at DESC
@@ -865,14 +862,16 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                     b.tinggi_barang,
                     b.m3_barang,
                     b.ton_barang,
-                    c.nama_customer,
+                    r.nama_customer AS receiver_name,
+                    s.nama_customer AS sender_name,
                     dc.colli_amount,
                     COALESCE(dc.harga_per_unit, 0) as harga_per_unit,
                     COALESCE(dc.total_harga, 0) as total_harga,
                     dc.assigned_at
                 FROM detail_container dc
                 JOIN barang b ON dc.barang_id = b.barang_id
-                JOIN customers c ON b.customer_id = c.customer_id
+                JOIN customers r ON b.penerima = r.customer_id
+                JOIN customers s ON b.pengirim = s.customer_id
                 WHERE dc.container_id = ?
                 ORDER BY dc.assigned_at DESC
             """, (container_id,))
@@ -903,9 +902,10 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
         """Get barang with pricing information from database"""
         try:
             result = self.execute_one("""
-                SELECT b.*, c.nama_customer 
+                SELECT b.*, s.nama_customer AS sender_name, r.nama_customer AS receiver_name
                 FROM barang b 
-                JOIN customers c ON b.customer_id = c.customer_id 
+                JOIN customers s ON b.pengirim = s.customer_id
+                JOIN customers r ON b.penerima = r.customer_id
                 WHERE b.barang_id = ?
             """, (barang_id,))
             
