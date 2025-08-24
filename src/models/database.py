@@ -248,6 +248,8 @@ class SQLiteDatabase:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             barang_id INTEGER NOT NULL,
             container_id INTEGER NOT NULL,
+            satuan TEXT NOT NULL,
+            door_type TEXT NOT NULL,
             colli_amount INTEGER NOT NULL DEFAULT 1,
             harga_per_unit DECIMAL(15,2) DEFAULT 0,
             total_harga DECIMAL(15,2) DEFAULT 0,
@@ -830,7 +832,7 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
 
     # ================== PRICING FEATURES ==================
 
-    def assign_barang_to_container_with_pricing(self, barang_id, container_id, colli_amount, harga_per_unit=0, total_harga=0):
+    def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit=0, total_harga=0):
         """Assign barang to container with pricing information"""
         try:
             from datetime import datetime
@@ -839,9 +841,9 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
             # Insert with pricing
             self.execute("""
                 INSERT INTO detail_container 
-                (barang_id, container_id, colli_amount, harga_per_unit, total_harga, assigned_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (barang_id, container_id, colli_amount, harga_per_unit, total_harga, current_time))
+                (barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, assigned_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, current_time))
             
             logger.info(f"Barang {barang_id} assigned to container {container_id} with pricing")
             return True
@@ -864,6 +866,8 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                     b.ton_barang,
                     r.nama_customer AS receiver_name,
                     s.nama_customer AS sender_name,
+                    dc.satuan,
+                    dc.door_type,
                     dc.colli_amount,
                     COALESCE(dc.harga_per_unit, 0) as harga_per_unit,
                     COALESCE(dc.total_harga, 0) as total_harga,

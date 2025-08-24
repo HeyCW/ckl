@@ -325,7 +325,7 @@ class ContainerWindow:
         container_name = item['values'][3]  # Container column
         
         # Show customer selection dialog
-        self.print_handler.show_customer_selection_dialog(container_id)
+        self.print_handler.show_sender_receiver_selection_dialog(container_id)
     
     def create_container_barang_tab(self, parent):
         """Create container-barang management tab with pricing and sender/receiver selection"""
@@ -519,12 +519,15 @@ class ContainerWindow:
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
         self.container_barang_tree = ttk.Treeview(container_tree_frame,
-                                                columns=('Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
+                                                columns=('Pengirim', 'Penerima', 'Nama', 'Jenis', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
                                                 show='headings', height=12)
         
         self.container_barang_tree.heading('Pengirim', text='Pengirim')
         self.container_barang_tree.heading('Penerima', text='Penerima')
         self.container_barang_tree.heading('Nama', text='Nama Barang')
+        self.container_barang_tree.heading('Jenis', text='Jenis Barang')
+        self.container_barang_tree.heading('Satuan', text='Satuan')
+        self.container_barang_tree.heading('Door', text='Door Type')
         self.container_barang_tree.heading('Dimensi', text='P×L×T (cm)')
         self.container_barang_tree.heading('Volume', text='Volume (m³)')
         self.container_barang_tree.heading('Berat', text='Berat (ton)')
@@ -536,6 +539,9 @@ class ContainerWindow:
         self.container_barang_tree.column('Pengirim', width=70)
         self.container_barang_tree.column('Penerima', width=70)
         self.container_barang_tree.column('Nama', width=90)
+        self.container_barang_tree.column('Jenis', width=80)
+        self.container_barang_tree.column('Satuan', width=60)
+        self.container_barang_tree.column('Door', width=80)
         self.container_barang_tree.column('Dimensi', width=65)
         self.container_barang_tree.column('Volume', width=45)
         self.container_barang_tree.column('Berat', width=45)
@@ -1629,7 +1635,7 @@ class ContainerWindow:
                     # Update tree
                     tree.set(item_id, 'auto_pricing', method)
                     tree.set(item_id, 'harga_unit', f"{new_price:,.0f}")
-                    
+
                     # Calculate total
                     colli_amount = pricing_data_store[item_id]['colli_amount']
                     total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
@@ -2960,11 +2966,13 @@ class ContainerWindow:
                 try:
                     barang_id = item['id']
                     price_data = pricing_result['pricing_data'].get(barang_id, {'harga_per_unit': 0, 'total_harga': 0})
-                    
+                    print("price data: ", price_data)
                     # Add barang to container with pricing
                     success = self.db.assign_barang_to_container_with_pricing(
                         barang_id, 
                         container_id, 
+                        price_data['metode_pricing'].split('_')[0].split('/')[1] if 'metode_pricing' in price_data else 'manual',
+                        price_data['metode_pricing'].split('_')[1] if 'metode_pricing' in price_data else 'manual',
                         colli_amount,
                         price_data['harga_per_unit'],
                         price_data['total_harga']
@@ -3102,8 +3110,11 @@ class ContainerWindow:
                     pengirim = safe_get(barang, 'sender_name', '')
                     penerima = safe_get(barang, 'receiver_name', '')
                     nama_barang = safe_get(barang, 'nama_barang', '-')
+                    jenis_barang = safe_get(barang, 'jenis_barang', '-')
                     m3_barang = safe_get(barang, 'm3_barang', '-')
                     ton_barang = safe_get(barang, 'ton_barang', '-')
+                    satuan = safe_get(barang, 'satuan', '-')
+                    door_type = safe_get(barang, 'door_type', '-')
                     colli_amount = safe_get(barang, 'colli_amount', 1)
                     harga_per_unit = safe_get(barang, 'harga_per_unit', 0)
                     total_harga = safe_get(barang, 'total_harga', 0)
@@ -3116,6 +3127,9 @@ class ContainerWindow:
                         pengirim,
                         penerima,
                         nama_barang,
+                        jenis_barang,
+                        satuan,
+                        door_type,
                         dimensi,
                         m3_barang,
                         ton_barang,
