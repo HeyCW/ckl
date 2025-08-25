@@ -1,7 +1,10 @@
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from src.models.database import AppDatabase
 from src.utils.print_handler import PrintHandler
+from datetime import datetime
+import sqlite3
 
 class ContainerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -351,6 +354,7 @@ class ContainerWindow:
         # Bind container selection
         self.container_combo.bind('<<ComboboxSelected>>', self.on_container_select)
         
+        
         # Search and Add frame
         search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         search_add_frame.pack(fill='x', pady=15)
@@ -384,11 +388,99 @@ class ContainerWindow:
         self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, font=('Arial', 10), width=8)
         self.colli_entry.pack(side='left', padx=(5, 10))
         
+        # === TAMBAHAN: BIAYA PENGANTARAN FRAME ===
+        delivery_cost_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+        delivery_cost_frame.pack(fill='x', pady=10)
+        
+        # Delivery cost label
+        tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:", font=('Arial', 12, 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 5))
+        
+        # Row 1: Deskripsi biaya
+        desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
+        desc_row.pack(fill='x', pady=2)
+        
+        tk.Label(desc_row, text="Deskripsi:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.delivery_desc_var = tk.StringVar()
+        self.delivery_desc_entry = tk.Entry(desc_row, textvariable=self.delivery_desc_var, 
+                                        font=('Arial', 10), width=40)
+        self.delivery_desc_entry.pack(side='left', padx=(5, 20))
+        
+        # Tambahkan placeholder text manual
+        self.delivery_desc_entry.insert(0, "Contoh: Biaya antar ke alamat, Biaya bongkar muat, dll")
+        self.delivery_desc_entry.config(fg='grey')
+        
+        # Bind events untuk placeholder behavior
+        def on_desc_focus_in(event):
+            if self.delivery_desc_var.get() == "Contoh: Biaya antar ke alamat, Biaya bongkar muat, dll":
+                self.delivery_desc_entry.delete(0, tk.END)
+                self.delivery_desc_entry.config(fg='black')
+        
+        def on_desc_focus_out(event):
+            if not self.delivery_desc_var.get():
+                self.delivery_desc_entry.insert(0, "Contoh: Biaya antar ke alamat, Biaya bongkar muat, dll")
+                self.delivery_desc_entry.config(fg='grey')
+        
+        self.delivery_desc_entry.bind('<FocusIn>', on_desc_focus_in)
+        self.delivery_desc_entry.bind('<FocusOut>', on_desc_focus_out)
+        
+        # Row 2: Nominal biaya
+        cost_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
+        cost_row.pack(fill='x', pady=2)
+        
+        tk.Label(cost_row, text="Biaya (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.delivery_cost_var = tk.StringVar(value="0")
+        self.delivery_cost_entry = tk.Entry(cost_row, textvariable=self.delivery_cost_var, 
+                                        font=('Arial', 10), width=15)
+        self.delivery_cost_entry.pack(side='left', padx=(5, 10))
+        
+        # Tombol tambah biaya pengantaran
+        add_delivery_btn = tk.Button(
+            cost_row,
+            text="➕ Tambah Biaya",
+            font=('Arial', 10, 'bold'),
+            bg='#e67e22',
+            fg='white',
+            padx=15,
+            pady=5,
+            command=self.add_delivery_cost
+        )
+        add_delivery_btn.pack(side='left', padx=(10, 0))
+        
         # Bind selections to load barang
         self.sender_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
         self.sender_search_combo.bind('<KeyRelease>', self.filter_senders)
         self.receiver_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
         self.receiver_search_combo.bind('<KeyRelease>', self.filter_receivers)
+        
+        # Row 3: Dropdown Lokasi Pengiriman
+        destination_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
+        destination_row.pack(fill='x', pady=2)
+
+        tk.Label(destination_row, text="Lokasi:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+
+        # Variabel untuk menyimpan pilihan lokasi
+        self.delivery_destination_var = tk.StringVar()
+
+        # Dropdown/Combobox untuk lokasi
+        self.delivery_destination_combo = ttk.Combobox(destination_row, 
+                                                    textvariable=self.delivery_destination_var,
+                                                    font=('Arial', 10), 
+                                                    width=37,
+                                                    state="readonly")
+        self.delivery_destination_combo.pack(side='left', padx=(5, 20))
+
+        # Panggil fungsi untuk memuat data tujuan
+        self.container_combo.bind('<<ComboboxSelected>>', self.load_destinations)
+
+        def on_destination_change(event):
+            selected = self.delivery_destination_var.get()
+            if selected and selected != "Pilih tujuan pengiriman...":
+                print(f"Tujuan dipilih: {selected}")
+                # Tambahkan logika tambahan di sini jika diperlukan
+
+        self.delivery_destination_combo.bind('<<ComboboxSelected>>', on_destination_change)
+
+        
         
         self.load_customers()
         
@@ -434,6 +526,19 @@ class ContainerWindow:
             command=self.edit_barang_price_in_container
         )
         edit_price_btn.pack(side='left', padx=(0, 10))
+        
+        # === TAMBAHAN: Tombol kelola biaya pengantaran ===
+        manage_delivery_btn = tk.Button(
+            actions_frame,
+            text="🚚 Kelola Biaya Pengantaran",
+            font=('Arial', 12, 'bold'),
+            bg='#e67e22',
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.manage_delivery_costs
+        )
+        manage_delivery_btn.pack(side='left', padx=(0, 10))
         
         # View container summary
         summary_btn = tk.Button(
@@ -563,8 +668,499 @@ class ContainerWindow:
         container_tree_frame.grid_columnconfigure(0, weight=1)
         
         # Load initial data
-        self.load_available_barang() 
+        self.load_available_barang()
 
+    # === FUNGSI-FUNGSI TAMBAHAN UNTUK BIAYA PENGANTARAN ===
+    
+    def load_destinations(self, event=None):
+        try:
+            print("load_destinations dipanggil")
+            # Cek apakah ada container yang dipilih
+            if hasattr(self, 'selected_container_var') and self.selected_container_var.get():
+                container_text = self.selected_container_var.get()
+                container_parts = container_text.split(" ")
+                if len(container_parts) > 0:
+                    # Ambil bagian terakhir sebagai ID (format: "ID - Container Name (Destination)")
+                    container_id = container_parts[0]  # Ambil ID dari awal string
+                    print(f"Loading destinations for container ID: {container_id}")
+                    
+                    # Pastikan container_id tidak kosong dan valid
+                    if container_id and container_id.strip() and container_id.isdigit():
+                        # Ambil data container berdasarkan ID
+                        container_data = self.db.get_container_by_id(int(container_id))
+                        print(f"Container data: {container_data}")
+                        
+                        if container_data:
+                            # Cek apakah container_data memiliki destination
+                            destination = None
+                            if hasattr(container_data, 'get'):
+                                destination = container_data.get('destination', '')
+                            elif isinstance(container_data, dict):
+                                destination = container_data.get('destination', '')
+                            else:
+                                # Jika object lain, coba akses attribut
+                                destination = getattr(container_data, 'destination', '')
+                            
+                            print(f"Destination found: {destination}")
+                            
+                            if destination and str(destination).strip():
+                                # Set dropdown values: Surabaya dan destination dari container
+                                self.delivery_destination_combo['values'] = ['Surabaya', str(destination)]
+                                print(f"Set values: ['Surabaya', '{destination}']")
+                            else:
+                                # Jika destination kosong
+                                self.delivery_destination_combo['values'] = ['Surabaya']
+                                print("Destination kosong, set values: ['Surabaya']")
+                            
+                            # Set default ke Surabaya
+                            self.delivery_destination_combo.set('Surabaya')
+                        else:
+                            # Jika container tidak ditemukan
+                            self.delivery_destination_combo['values'] = ['Surabaya']
+                            self.delivery_destination_combo.set('Surabaya')
+                            print(f"Container dengan ID {container_id} tidak ditemukan")
+                    else:
+                        # Jika container_id kosong atau tidak valid
+                        self.delivery_destination_combo['values'] = ['Pilih container terlebih dahulu']
+                        self.delivery_destination_combo.set('Pilih container terlebih dahulu')
+                        print(f"Container ID tidak valid: '{container_id}'")
+                else:
+                    # Jika tidak bisa parse container text
+                    self.delivery_destination_combo['values'] = ['Pilih container terlebih dahulu']
+                    self.delivery_destination_combo.set('Pilih container terlebih dahulu')
+                    print("Tidak bisa parse container text")
+            else:
+                # Jika belum ada container yang dipilih
+                self.delivery_destination_combo['values'] = ['Pilih container terlebih dahulu']
+                self.delivery_destination_combo.set('Pilih container terlebih dahulu')
+                print("Belum ada container yang dipilih")
+                
+        except Exception as e:
+            print(f"Error loading destinations: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback jika ada error
+            self.delivery_destination_combo['values'] = ['Surabaya']
+            self.delivery_destination_combo.set('Surabaya')
+            
+        
+    def format_currency_input(self, event=None):
+        """Format currency input untuk rupiah"""
+        try:
+            # Ambil nilai dari entry
+            value = self.delivery_cost_var.get().replace(',', '').replace('Rp', '').strip()
+            if value and value.replace('.', '').isdigit():
+                # Format sebagai currency
+                formatted = f"{int(float(value)):,}".replace(',', '.')
+                # Set kembali ke entry tanpa memicu event lagi
+                current_pos = self.delivery_cost_entry.index(tk.INSERT)
+                self.delivery_cost_var.set(formatted)
+                self.delivery_cost_entry.icursor(min(current_pos, len(formatted)))
+        except:
+            pass
+
+    def add_delivery_cost(self):
+        """Tambah biaya pengantaran ke container yang dipilih"""
+        container_id = self.get_selected_container_id()
+        if not container_id:
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            return
+        
+        deskripsi = self.delivery_desc_var.get().strip()
+        biaya_str = self.delivery_cost_var.get().replace('.', '').replace(',', '').strip()
+        lokasi = self.delivery_destination_var.get().strip()
+        
+        # Check jika masih placeholder text
+        if not deskripsi or deskripsi == "Contoh: Biaya pickup/delivery, Bongkar muat, dll":
+            messagebox.showwarning("Peringatan", "Masukkan deskripsi biaya pengantaran!")
+            return
+        
+        try:
+            biaya = float(biaya_str) if biaya_str else 0
+            if biaya <= 0:
+                messagebox.showwarning("Peringatan", "Masukkan nominal biaya yang valid!")
+                return
+        except:
+            messagebox.showwarning("Peringatan", "Format biaya tidak valid!")
+            return
+        
+        try:
+            # Simpan ke database dengan tipe pengantaran
+            self.db.execute("""
+                INSERT INTO container_delivery_costs (container_id, delivery, description, cost, created_date)
+                VALUES (?, ?, ?, ?, ?)
+            """, (container_id, lokasi, deskripsi, biaya, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+            
+            # Clear form dan reset placeholder
+            self.delivery_desc_var.set('')
+            self.delivery_desc_entry.delete(0, tk.END)
+            self.delivery_desc_entry.insert(0, "Contoh: Biaya pickup/delivery, Bongkar muat, dll")
+            self.delivery_desc_entry.config(fg='grey')
+            self.delivery_cost_var.set('0')
+            self.delivery_destination_combo.set('Surabaya')
+            
+            messagebox.showinfo("Sukses", f"Biaya {lokasi}: '{deskripsi}' sebesar Rp {biaya:,.0f} berhasil ditambahkan!")
+            
+            # Refresh container summary jika ada
+            if hasattr(self, 'summary_window') and self.summary_window.winfo_exists():
+                self.view_container_summary()
+                
+        except sqlite3.Error as e:
+            messagebox.showerror("Error Database", f"Gagal menyimpan biaya pengantaran: {str(e)}")
+
+    def manage_delivery_costs(self):
+        """Window untuk mengelola biaya pengantaran container dengan lokasi"""
+        container_id = self.get_selected_container_id()
+        if not container_id:
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            return
+        
+        # Create window
+        delivery_window = tk.Toplevel(self.window)
+        delivery_window.title(f"Kelola Biaya Pengantaran - Container {self.selected_container_var.get()}")
+        delivery_window.geometry("1000x600")  # Perbesar untuk kolom lokasi
+        delivery_window.configure(bg='#ecf0f1')
+        
+        # Header
+        header_frame = tk.Frame(delivery_window, bg='#e67e22', height=80)
+        header_frame.pack(fill='x', pady=(0, 10))
+        header_frame.pack_propagate(False)
+        
+        tk.Label(header_frame, text="🚚 Kelola Biaya Pengantaran", 
+                font=('Arial', 16, 'bold'), bg='#e67e22', fg='white').pack(expand=True)
+        
+        # Content frame
+        content_frame = tk.Frame(delivery_window, bg='#ffffff', relief='solid', bd=1)
+        content_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        
+        # Tree untuk menampilkan biaya pengantaran dengan kolom lokasi
+        tree_frame = tk.Frame(content_frame)
+        tree_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Label
+        tk.Label(tree_frame, text="Daftar Biaya Pengantaran:", 
+                font=('Arial', 12, 'bold'), bg='#ffffff').pack(anchor='w', pady=(0, 10))
+        
+        # Treeview dengan kolom lokasi
+        columns = ('ID', 'Deskripsi', 'Lokasi', 'Biaya', 'Tanggal')
+        delivery_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=12)
+        
+        delivery_tree.heading('ID', text='ID')
+        delivery_tree.heading('Deskripsi', text='Deskripsi')
+        delivery_tree.heading('Lokasi', text='Lokasi')
+        delivery_tree.heading('Biaya', text='Biaya (Rp)')
+        delivery_tree.heading('Tanggal', text='Tanggal Dibuat')
+        
+        delivery_tree.column('ID', width=50)
+        delivery_tree.column('Deskripsi', width=250)
+        delivery_tree.column('Lokasi', width=120)  # Kolom lokasi baru
+        delivery_tree.column('Biaya', width=120)
+        delivery_tree.column('Tanggal', width=150)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(tree_frame, orient='vertical', command=delivery_tree.yview)
+        delivery_tree.configure(yscrollcommand=scrollbar.set)
+        
+        delivery_tree.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+        
+        # Load data biaya pengantaran dengan lokasi
+        def load_delivery_costs():
+            for item in delivery_tree.get_children():
+                delivery_tree.delete(item)
+            
+            # Query dengan kolom location
+            results = self.db.execute("""
+                SELECT id, description, delivery, cost, created_date
+                FROM container_delivery_costs 
+                WHERE container_id = ?
+                ORDER BY created_date DESC
+            """, (container_id,))
+            
+            total_biaya = 0
+            for row in results:
+                biaya_formatted = f"Rp {row[3]:,.0f}"  # cost di index 3
+                delivery_tree.insert('', 'end', values=(
+                    row[0],      # id
+                    row[1],      # description
+                    row[2] or 'Surabaya',  # location (default Surabaya jika NULL)
+                    biaya_formatted,  # cost
+                    row[4]       # created_date
+                ))
+                total_biaya += row[3]
+            
+            # Update total label
+            total_label.config(text=f"Total Biaya Pengantaran: Rp {total_biaya:,.0f}")
+        
+        # Tombol aksi
+        action_frame = tk.Frame(content_frame, bg='#ffffff')
+        action_frame.pack(fill='x', padx=20, pady=(0, 20))
+        
+        # Edit button
+        edit_btn = tk.Button(action_frame, text="✏️ Edit Biaya", font=('Arial', 11, 'bold'),
+                            bg='#f39c12', fg='white', padx=20, pady=8,
+                            command=lambda: edit_delivery_cost(delivery_tree))
+        edit_btn.pack(side='left', padx=(0, 10))
+        
+        # Delete button
+        delete_btn = tk.Button(action_frame, text="🗑️ Hapus Biaya", font=('Arial', 11, 'bold'),
+                            bg='#e74c3c', fg='white', padx=20, pady=8,
+                            command=lambda: delete_delivery_cost(delivery_tree))
+        delete_btn.pack(side='left', padx=(0, 10))
+        
+        # Total label
+        total_label = tk.Label(action_frame, text="Total Biaya: Rp 0", 
+                            font=('Arial', 12, 'bold'), bg='#ffffff', fg='#27ae60')
+        total_label.pack(side='right')
+        
+        # Fungsi edit biaya dengan lokasi
+        def edit_delivery_cost(tree):
+            selected = tree.selection()
+            if not selected:
+                messagebox.showwarning("Peringatan", "Pilih biaya yang akan diedit!")
+                return
+            
+            item = tree.item(selected[0])
+            values = item['values']
+            cost_id = values[0]
+            current_desc = values[1]
+            current_location = values[2]  # Lokasi di index 2
+            current_cost = float(values[3].replace('Rp ', '').replace(',', '').replace('.', ''))
+            
+            # Dialog edit dengan lokasi
+            edit_dialog = tk.Toplevel(delivery_window)
+            edit_dialog.title("Edit Biaya Pengantaran")
+            edit_dialog.geometry("450x300")  # Lebih tinggi untuk field lokasi
+            edit_dialog.configure(bg='#ecf0f1')
+            edit_dialog.transient(delivery_window)
+            edit_dialog.grab_set()
+            
+            # Center dialog
+            edit_dialog.update_idletasks()
+            x = delivery_window.winfo_x() + (delivery_window.winfo_width() // 2) - (225)
+            y = delivery_window.winfo_y() + (delivery_window.winfo_height() // 2) - (150)
+            edit_dialog.geometry(f"450x300+{x}+{y}")
+            
+            # Form dengan lokasi
+            tk.Label(edit_dialog, text="Deskripsi:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
+            desc_var = tk.StringVar(value=current_desc)
+            tk.Entry(edit_dialog, textvariable=desc_var, font=('Arial', 10), width=40).pack(pady=5)
+            
+            tk.Label(edit_dialog, text="Lokasi:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
+            location_var = tk.StringVar(value=current_location)
+            location_combo = ttk.Combobox(edit_dialog, textvariable=location_var, 
+                                        font=('Arial', 10), width=37, state='readonly')
+            
+            # Set lokasi options berdasarkan container
+            try:
+                container_data = self.db.get_container_by_id(container_id)
+                if container_data:
+                    destination = None
+                    if hasattr(container_data, 'get'):
+                        destination = container_data.get('destination', '')
+                    elif isinstance(container_data, dict):
+                        destination = container_data.get('destination', '')
+                    else:
+                        destination = getattr(container_data, 'destination', '')
+                    
+                    if destination and str(destination).strip():
+                        location_combo['values'] = ['Surabaya', str(destination)]
+                    else:
+                        location_combo['values'] = ['Surabaya']
+                else:
+                    location_combo['values'] = ['Surabaya']
+            except Exception as e:
+                print(f"Error loading destinations for edit: {e}")
+                location_combo['values'] = ['Surabaya']
+            
+            location_combo.pack(pady=5)
+            
+            tk.Label(edit_dialog, text="Biaya (Rp):", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
+            cost_var = tk.StringVar(value=str(int(current_cost)))
+            tk.Entry(edit_dialog, textvariable=cost_var, font=('Arial', 10), width=20).pack(pady=5)
+            
+            def save_edit():
+                new_desc = desc_var.get().strip()
+                new_location = location_var.get().strip()
+                new_cost_str = cost_var.get().replace(',', '').replace('.', '').strip()
+                
+                if not new_desc or not new_location or not new_cost_str:
+                    messagebox.showwarning("Peringatan", "Lengkapi semua field!")
+                    return
+                
+                try:
+                    new_cost = float(new_cost_str)
+                    self.db.execute("""
+                        UPDATE container_delivery_costs 
+                        SET description = ?, delivery = ?, cost = ?
+                        WHERE id = ?
+                    """, (new_desc, new_location, new_cost, cost_id))
+                    
+                    edit_dialog.destroy()
+                    load_delivery_costs()
+                    messagebox.showinfo("Sukses", "Biaya pengantaran berhasil diupdate!")
+                    
+                except Exception as e:
+                    messagebox.showerror("Error", f"Gagal mengupdate: {str(e)}")
+            
+            # Buttons
+            btn_frame = tk.Frame(edit_dialog, bg='#ecf0f1')
+            btn_frame.pack(pady=20)
+            
+            tk.Button(btn_frame, text="💾 Simpan", font=('Arial', 11, 'bold'),
+                    bg='#27ae60', fg='white', padx=20, pady=8, command=save_edit).pack(side='left', padx=(0, 10))
+            
+            tk.Button(btn_frame, text="❌ Batal", font=('Arial', 11, 'bold'),
+                    bg='#95a5a6', fg='white', padx=20, pady=8, command=edit_dialog.destroy).pack(side='left')
+        
+        # Fungsi hapus biaya
+        def delete_delivery_cost(tree):
+            selected = tree.selection()
+            if not selected:
+                messagebox.showwarning("Peringatan", "Pilih biaya yang akan dihapus!")
+                return
+            
+            item = tree.item(selected[0])
+            cost_id = item['values'][0]
+            desc = item['values'][1]
+            location = item['values'][2]
+            
+            if messagebox.askyesno("Konfirmasi", f"Hapus biaya '{desc}' untuk lokasi '{location}'?"):
+                try:
+                    self.db.execute("DELETE FROM container_delivery_costs WHERE id = ?", (cost_id,))
+                    load_delivery_costs()
+                    messagebox.showinfo("Sukses", "Biaya pengantaran berhasil dihapus!")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Gagal menghapus: {str(e)}")
+        
+        # Load initial data
+        load_delivery_costs()
+    
+    def get_selected_container_id(self):
+        """Helper function untuk mendapatkan ID container yang dipilih"""
+        container_text = self.selected_container_var.get()
+        if not container_text:
+            return None
+        
+        try:
+            # Assuming container text format: "Container_Name (ID: X)"
+            container_id = container_text.split('-')[0].split(' ')[0]
+            return int(container_id)
+        except:
+            return None
+
+    def export_container_summary(self, container_id):
+        """Export container summary to text file"""
+        try:
+            from tkinter import filedialog
+            
+            # Get container name for filename
+            container_name = self.selected_container_var.get().replace(' ', '_').replace('/', '_')
+            
+            # Ask user for save location
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".txt",
+                filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                initialname=f"Summary_{container_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            )
+            
+            if not filename:
+                return
+            
+            # Generate summary content
+            cursor = self.conn.cursor()
+            
+            # Get all data again
+            cursor.execute("SELECT * FROM containers WHERE id = ?", (container_id,))
+            container_info = cursor.fetchone()
+            
+            cursor.execute("""
+                SELECT cb.*, b.nama_barang, c1.nama as pengirim, c2.nama as penerima,
+                    cb.harga_per_unit, cb.colli, cb.total_harga
+                FROM container_barang cb
+                JOIN barang b ON cb.barang_id = b.id
+                JOIN customers c1 ON b.pengirim_id = c1.id
+                JOIN customers c2 ON b.penerima_id = c2.id
+                WHERE cb.container_id = ?
+            """, (container_id,))
+            barang_data = cursor.fetchall()
+            
+            cursor.execute("""
+                SELECT description, cost, created_date
+                FROM container_delivery_costs 
+                WHERE container_id = ?
+            """, (container_id,))
+            delivery_costs = cursor.fetchall()
+            
+            # Write to file
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write("="*60 + "\n")
+                f.write("           SUMMARY CONTAINER BARANG\n")
+                f.write("="*60 + "\n\n")
+                
+                # Container info
+                if container_info:
+                    f.write(f"Container: {container_info[1]}\n")
+                    f.write(f"Tipe: {container_info[2]}\n")
+                    f.write(f"Kapasitas: {container_info[3]}m³\n")
+                
+                f.write(f"Tanggal Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("-"*60 + "\n\n")
+                
+                # Barang details
+                f.write("DETAIL BARANG:\n")
+                f.write("-"*60 + "\n")
+                total_barang = 0
+                total_colli = 0
+                
+                for i, row in enumerate(barang_data, 1):
+                    pengirim = row[11]
+                    penerima = row[12]  
+                    nama_barang = row[5]
+                    colli = row[14]
+                    harga_unit = row[13]
+                    total_harga = row[15]
+                    
+                    f.write(f"{i:2d}. {nama_barang}\n")
+                    f.write(f"    Pengirim: {pengirim}\n")
+                    f.write(f"    Penerima: {penerima}\n")
+                    f.write(f"    Colli: {colli}\n")
+                    f.write(f"    Harga/Unit: Rp {harga_unit:,.0f}\n")
+                    f.write(f"    Total: Rp {total_harga:,.0f}\n\n")
+                    
+                    total_barang += total_harga
+                    total_colli += colli
+                
+                # Delivery costs
+                f.write("BIAYA PENGANTARAN:\n")
+                f.write("-"*60 + "\n")
+                total_delivery = 0
+                
+                if delivery_costs:
+                    for i, (desc, cost, date) in enumerate(delivery_costs, 1):
+                        f.write(f"{i:2d}. {desc}\n")
+                        f.write(f"    Biaya: Rp {cost:,.0f}\n")
+                        f.write(f"    Tanggal: {date}\n\n")
+                        total_delivery += cost
+                else:
+                    f.write("Tidak ada biaya pengantaran\n\n")
+                
+                # Summary
+                f.write("="*60 + "\n")
+                f.write("RINGKASAN:\n")
+                f.write("="*60 + "\n")
+                f.write(f"Total Colli           : {total_colli:>15,}\n")
+                f.write(f"Total Nilai Barang    : Rp {total_barang:>12,.0f}\n")  
+                f.write(f"Total Biaya Antar     : Rp {total_delivery:>12,.0f}\n")
+                f.write("-"*60 + "\n")
+                f.write(f"GRAND TOTAL           : Rp {total_barang + total_delivery:>12,.0f}\n")
+                f.write("="*60 + "\n")
+            
+            messagebox.showinfo("Sukses", f"Summary berhasil di-export ke:\n{filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal export summary: {str(e)}")
+            
     def filter_senders(self, event=None):
         """Filter sender combobox based on typed text"""
         try:
@@ -614,50 +1210,6 @@ class ContainerWindow:
         
         # Call the updated method with both parameters
         self.load_customer_barang_tree(sender, receiver)
-
-
-    def view_container_summary(self):
-        """View detailed summary of container with sender/receiver breakdown"""
-        try:
-            if not self.selected_container_var.get():
-                messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
-                return
-            
-            container_id = self.selected_container_var.get().split(' - ')[0]
-            
-            # Get container info
-            container = self.db.get_container_by_id(container_id)
-            if not container:
-                messagebox.showerror("Error", "Container tidak ditemukan!")
-                return
-            
-            # Get summary data with sender/receiver breakdown
-            summary_query = """
-            SELECT 
-                sender.nama_customer as pengirim,
-                receiver.nama_customer as penerima,
-                COUNT(dc.id) as jumlah_item,
-                SUM(dc.colli_amount) as total_colli,
-                SUM(b.m3_barang * dc.colli_amount) as total_volume,
-                SUM(b.ton_barang * dc.colli_amount) as total_berat,
-                SUM(dc.total_harga) as total_harga
-            FROM detail_container dc
-            JOIN barang b ON dc.barang_id = b.barang_id
-            LEFT JOIN customers sender ON dc.sender_id = sender.customer_id
-            LEFT JOIN customers receiver ON dc.receiver_id = receiver.customer_id
-            WHERE dc.container_id = ?
-            GROUP BY dc.sender_id, dc.receiver_id
-            ORDER BY pengirim, penerima
-            """
-            
-            summary_data = self.db.execute(summary_query, (container_id,))
-            
-            # Create summary window
-            self.show_sender_receiver_summary_dialog(container, summary_data)
-            
-        except Exception as e:
-            print(f"Error viewing container summary: {e}")
-            messagebox.showerror("Error", f"Gagal menampilkan summary: {e}")
 
     def show_sender_receiver_summary_dialog(self, container, summary_data):
         """Show container summary dialog with sender/receiver breakdown"""
@@ -794,6 +1346,7 @@ class ContainerWindow:
     def on_container_select(self, event=None):
         """Handle container selection - updated for sender/receiver"""
         selection = self.selected_container_var.get()
+        print(f"Container selected: {selection}")
         if selection:
             container_id = int(selection.split(' - ')[0])
             self.load_container_barang_with_sender_receiver()  # Updated method name

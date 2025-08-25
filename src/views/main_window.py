@@ -157,19 +157,19 @@ class MainWindow:
         )
         container_btn.pack(side='left', padx=30)
         
-        # Reports button
-        reports_btn = tk.Button(
-            row2_frame,
-            text="📋\n\nLAPORAN\n\nLihat Semua Data",
-            font=('Arial', 14, 'bold'),
-            bg='#9b59b6',
-            fg='white',
-            relief='flat',
-            width=20,
-            height=6,
-            command=self.show_reports_window
-        )
-        reports_btn.pack(side='left', padx=30)
+        # # Reports button
+        # reports_btn = tk.Button(
+        #     row2_frame,
+        #     text="📋\n\nLAPORAN\n\nLihat Semua Data",
+        #     font=('Arial', 14, 'bold'),
+        #     bg='#9b59b6',
+        #     fg='white',
+        #     relief='flat',
+        #     width=20,
+        #     height=6,
+        #     command=self.show_reports_window
+        # )
+        # reports_btn.pack(side='left', padx=30)
     
     def show_customer_window(self):
         """Show customer management window"""

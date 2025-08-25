@@ -133,6 +133,7 @@ class SQLiteDatabase:
             self.create_containers_table()
             self.create_barang_table()
             self.create_detail_container_table()
+            self.create_delivery_costs_table()
             self.insert_default_data()
             logger.info("Database tables initialized successfully")
         except Exception as e:
@@ -266,6 +267,30 @@ class SQLiteDatabase:
         except Exception as e:
             print(f"❌ Failed to create detail container table: {e}")
             raise
+        
+    def create_delivery_costs_table(self):
+        """Buat tabel untuk biaya pengantaran jika belum ada"""
+        
+        self.execute("""
+            CREATE TABLE IF NOT EXISTS container_delivery_costs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                container_id INTEGER NOT NULL,
+                delivery TEXT,
+                description TEXT NOT NULL,
+                cost REAL NOT NULL DEFAULT 0,
+                created_date TEXT NOT NULL,
+                FOREIGN KEY (container_id) REFERENCES containers (id)
+            )
+        """)
+
+    def get_container_delivery_total(self, container_id):
+        """Mendapatkan total biaya pengantaran untuk container tertentu"""
+        return self.execute("""
+            SELECT COALESCE(SUM(cost), 0) as total_delivery_cost
+            FROM container_delivery_costs 
+            WHERE container_id = ?
+        """, (container_id,))
+        
     
     def insert_default_data(self):
         """Insert default admin user if not exists with error handling"""
