@@ -118,8 +118,8 @@ class CustomerWindow:
             font=('Arial', 12, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.add_customer
         )
         add_btn.pack(side='left', padx=(0, 10))
@@ -130,8 +130,8 @@ class CustomerWindow:
             font=('Arial', 12, 'bold'),
             bg='#95a5a6',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.clear_form
         )
         clear_btn.pack(side='left')
@@ -242,11 +242,11 @@ class CustomerWindow:
         self.upload_btn = tk.Button(
             upload_btn_frame,
             text="⬆️ Upload ke Database",
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 12, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=30,
-            pady=15,
+            padx=10,
+            pady=5,
             command=self.upload_excel_data,
             state='disabled'
         )
@@ -255,11 +255,11 @@ class CustomerWindow:
         download_template_btn = tk.Button(
             upload_btn_frame,
             text="📥 Download Template",
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 12, 'bold'),
             bg='#f39c12',
             fg='white',
-            padx=30,
-            pady=15,
+            padx=10,
+            pady=5,
             command=self.download_template
         )
         download_template_btn.pack(side='left')
@@ -356,8 +356,8 @@ class CustomerWindow:
             font=('Arial', 11, 'bold'),
             bg='#3498db',
             fg='white',
-            padx=20,
-            pady=8,
+            padx= 10,
+            pady=5,
             command=self.update_customer
         )
         update_btn.pack(side='left', padx=(0, 10))
@@ -369,8 +369,8 @@ class CustomerWindow:
             font=('Arial', 11, 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.delete_customer
         )
         delete_btn.pack(side='left', padx=(0, 10))
@@ -382,8 +382,8 @@ class CustomerWindow:
             font=('Arial', 11, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.export_customers
         )
         export_btn.pack(side='left')

@@ -75,8 +75,8 @@ class BarangWindow:
             font=('Arial', 12, 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=30,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.window.destroy
         )
         close_btn.pack(pady=10)
@@ -312,8 +312,8 @@ class BarangWindow:
             font=('Arial', 12, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.add_barang
         )
         add_btn.pack(side='left', padx=(0, 10))
@@ -324,8 +324,8 @@ class BarangWindow:
             font=('Arial', 12, 'bold'),
             bg='#95a5a6',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.clear_form
         )
         clear_btn.pack(side='left')
@@ -459,7 +459,7 @@ class BarangWindow:
         self.preview_tree = ttk.Treeview(tree_container, 
                                        columns=columns, 
                                        show='headings',
-                                       height=10)
+                                       height=20)
         
         # Configure column headers
         headers = {
@@ -552,11 +552,11 @@ class BarangWindow:
         self.upload_btn = tk.Button(
             upload_btn_frame,
             text="⬆️ Upload ke Database",
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 12, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=30,
-            pady=15,
+            padx=10,
+            pady=5,
             command=self.upload_excel_data,
             state='disabled'
         )
@@ -565,11 +565,11 @@ class BarangWindow:
         download_template_btn = tk.Button(
             upload_btn_frame,
             text="📥 Download Template",
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 12, 'bold'),
             bg='#f39c12',
             fg='white',
-            padx=30,
-            pady=15,
+            padx=10,
+            pady=5,
             command=self.download_template
         )
         download_template_btn.pack(side='left')
@@ -681,8 +681,8 @@ class BarangWindow:
             font=('Arial', 11, 'bold'),
             bg='#3498db',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.update_barang
         )
         update_btn.pack(side='left', padx=(0, 10))
@@ -694,8 +694,8 @@ class BarangWindow:
             font=('Arial', 11, 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.delete_barang
         )
         delete_btn.pack(side='left', padx=(0, 10))
@@ -707,8 +707,8 @@ class BarangWindow:
             font=('Arial', 11, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.export_barang
         )
         export_btn.pack(side='left')
@@ -1740,11 +1740,11 @@ class BarangWindow:
         close_btn = tk.Button(
             error_window,
             text="✅ Tutup",
-            font=('Arial', 14, 'bold'),
+            font=('Arial', 12, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=40,
-            pady=15,
+            padx=10,
+            pady=5,
             command=error_window.destroy
         )
         close_btn.pack(pady=20)
@@ -2962,8 +2962,8 @@ class BarangWindow:
             font=('Arial', 12, 'bold'),
             bg='#95a5a6',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=error_window.destroy
         ).pack(pady=10)
     

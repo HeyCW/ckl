@@ -4,6 +4,7 @@ from src.models.database import AppDatabase
 from src.views.barang_window import BarangWindow
 from src.views.container_window import ContainerWindow
 from src.views.customer_window import CustomerWindow
+from src.views.kapal_window import KapalWindow
 from src.views.report_window import ReportsWindow
 from PIL import Image, ImageTk
 
@@ -79,8 +80,8 @@ class MainWindow:
             bg='#e74c3c',
             fg='white',
             relief='flat',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.on_window_closing
         )
         logout_btn.pack(side='right', padx=20, pady=20)
@@ -143,6 +144,19 @@ class MainWindow:
         row2_frame = tk.Frame(menu_frame, bg='#ecf0f1')
         row2_frame.pack(pady=(0, 20))
         
+        kapal_btn = tk.Button(
+            row2_frame,
+            text="🚢\n\nDATA KAPAL\n\nTambah & Lihat Kapal",
+            font=('Arial', 14, 'bold'),
+            bg="#e62222",
+            fg='white',
+            relief='flat',
+            width=20,
+            height=6,
+            command=self.show_kapal_window
+        )
+        kapal_btn.pack(side='left', padx=30)
+
         # Container button
         container_btn = tk.Button(
             row2_frame,
@@ -184,7 +198,14 @@ class MainWindow:
             BarangWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window barang:\n{str(e)}")
-    
+            
+    def show_kapal_window(self):
+        """Show kapal management window"""
+        try:
+            KapalWindow(self.root, self.db)
+        except Exception as e:
+            messagebox.showerror("Error", f"Tidak dapat membuka window kapal:\n{str(e)}")
+
     def show_container_window(self):
         """Show container management window"""
         try:

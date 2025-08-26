@@ -134,6 +134,7 @@ class SQLiteDatabase:
             self.create_barang_table()
             self.create_detail_container_table()
             self.create_delivery_costs_table()
+            self.create_kapals_table()
             self.insert_default_data()
             logger.info("Database tables initialized successfully")
         except Exception as e:
@@ -180,12 +181,12 @@ class SQLiteDatabase:
         except Exception as e:
             logger.error(f"Failed to create customers table: {e}")
             raise
-    
-    def create_containers_table(self):
-        """Create containers table with error handling"""
+        
+    def create_kapals_table(self):
+        """Create kapals table with error handling"""
         query = '''
-        CREATE TABLE IF NOT EXISTS containers (
-            container_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS kapals (
+            kapal_id INTEGER PRIMARY KEY AUTOINCREMENT,
             feeder TEXT,
             etd_sub DATE,
             party TEXT,
@@ -193,6 +194,23 @@ class SQLiteDatabase:
             open DATE,
             full DATE,
             destination TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        '''
+        try:
+            self.execute(query)
+            logger.info("Kapals table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create kapals table: {e}")
+            raise
+
+    def create_containers_table(self):
+        """Create containers table with error handling"""
+        query = '''
+        CREATE TABLE IF NOT EXISTS containers (
+            container_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kapal_feeder INTEGER,
             container TEXT,
             seal TEXT,
             ref_joa TEXT,
@@ -589,7 +607,7 @@ class ContainerDatabase(SQLiteDatabase):
     def get_all_containers(self):
         """Get all containers with error handling"""
         try:
-            containers = self.execute("SELECT * FROM containers ORDER BY created_at DESC")
+            containers = self.execute("SELECT * FROM containers ORDER BY container_id")
             return [dict(container) for container in containers]
         except Exception as e:
             logger.error(f"Failed to get all containers: {e}")

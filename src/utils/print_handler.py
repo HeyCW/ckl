@@ -389,14 +389,14 @@ class PrintHandler:
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat packing list: {str(e)}")
     
-    def _generate_excel_packing_list_optimized(self, container, barang_list, container_id, filter_name=None):
-        """Generate Excel packing list document optimized for A4 printing - SAMA DENGAN INVOICE TANPA HARGA"""
+    def _generate_excel_invoice_optimized(self, container, barang_list, container_id):
+        """Generate Excel invoice document optimized for A4 printing with profit calculation"""
         try:
             # Create new workbook
             wb = openpyxl.Workbook()
             ws = wb.active
-            ws.title = "Customer Packing List"
-           
+            ws.title = "Invoice Container"
+        
             # SET PAGE LAYOUT FOR A4 PRINT
             ws.page_setup.paperSize = ws.PAPERSIZE_A4
             ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
@@ -411,28 +411,30 @@ class PrintHandler:
             )
             
             ws.print_options.horizontalCentered = True
-           
-            # Define optimized styles - SAMA DENGAN INVOICE
+        
+            # Define optimized styles
             header_font = Font(name='Arial', size=12, bold=True)
             company_font = Font(name='Arial', size=10, bold=True)
             normal_font = Font(name='Arial', size=7)
-            small_font = Font(name='Arial', size=6)    # Size 6 
-            table_header_font = Font(name='Arial', size=6, bold=True)  # Size 6
-           
+            small_font = Font(name='Arial', size=6)
+            table_header_font = Font(name='Arial', size=6, bold=True)
+            profit_header_font = Font(name='Arial', size=8, bold=True)
+            profit_font = Font(name='Arial', size=7)
+        
             center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
             left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
             right_align = Alignment(horizontal='right', vertical='center', wrap_text=True)
-           
-            # Border hanya untuk header dan total row
+        
             thin_border = Border(
                 left=Side(style='thin'),
                 right=Side(style='thin'),
                 top=Side(style='thin'),
                 bottom=Side(style='thin')
             )
-           
+        
             header_fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
-           
+            profit_header_fill = PatternFill(start_color='FFE6CC', end_color='FFE6CC', fill_type='solid')
+        
             # Safe way to get container values
             def safe_get(key, default='-'):
                 try:
@@ -442,25 +444,25 @@ class PrintHandler:
                         return container[key] if key in container and container[key] else default
                 except:
                     return default
-           
+        
             # Header section - COMPACT
             current_row = 1
-           
-            # Title - Merge to column K (11 kolom tanpa Unit Price & Price)
-            ws.merge_cells(f'A{current_row}:K{current_row}')
-            ws[f'A{current_row}'] = "CUSTOMER PACKING LIST"
+        
+            # Title
+            ws.merge_cells(f'A{current_row}:M{current_row}')
+            ws[f'A{current_row}'] = "INVOICE CONTAINER"
             ws[f'A{current_row}'].font = header_font
             ws[f'A{current_row}'].alignment = center_align
             current_row += 1
-           
-            # Company info - COMPACT
-            ws.merge_cells(f'A{current_row}:K{current_row}')
+        
+            # Company info
+            ws.merge_cells(f'A{current_row}:M{current_row}')
             ws[f'A{current_row}'] = "CV. CAHAYA KARUNIA | Jl. Teluk Raya Selatan No. 6 Surabaya | Phone: 031-60166017"
             ws[f'A{current_row}'].font = normal_font
             ws[f'A{current_row}'].alignment = center_align
             current_row += 2
-           
-            # Container information - 3 PER KOLOM LAYOUT (SAMA DENGAN INVOICE)
+        
+            # Container information - 3 columns layout
             container_info = [
                 ("Container No", safe_get('container')),
                 ("Feeder", safe_get('feeder')),
@@ -476,64 +478,57 @@ class PrintHandler:
             
             info_start_row = current_row
             
-            # Arrange in 3 columns (4 rows each column, since we have 10 items)
             for i, (label, value) in enumerate(container_info):
-                col_group = i // 4  # 0, 1, 2 (3 groups)
-                row_in_group = i % 4  # 0, 1, 2, 3 (4 rows per group)
+                col_group = i // 4
+                row_in_group = i % 4
                 
                 row = info_start_row + row_in_group
-                col_start = col_group * 4 + 1  # Columns: 1, 5, 9
+                col_start = col_group * 4 + 1
                 
-                # Label
                 ws[f'{get_column_letter(col_start)}{row}'] = f"{label}:"
                 ws[f'{get_column_letter(col_start)}{row}'].font = small_font
-                # Value  
                 ws[f'{get_column_letter(col_start + 1)}{row}'] = str(value)
                 ws[f'{get_column_letter(col_start + 1)}{row}'].font = small_font
                 
-                # Set minimal row height untuk container info
-                ws.row_dimensions[row].height = 8
+                ws.row_dimensions[row].height = 10
             
-            current_row = info_start_row + 4 + 1  # 4 rows + 1 spacing
-           
-            # Table headers - SAMA DENGAN INVOICE TAPI TANPA HARGA
-            headers = ['Tgl', 'Pengirim', 'Penerima', 'Nama Barang', 'Jenis Barang', 'Kubikasi', 'M3', 'Ton', 'Col', 'Satuan', 'Door']
-           
+            current_row = info_start_row + 4 + 1
+        
+            # Table headers
+            headers = ['Tgl', 'Pengirim', 'Penerima', 'Nama Barang', 'Jenis Barang', 'Kubikasi', 'M3', 'Ton', 'Col', 'Satuan', 'Door', 'Unit Price', 'Price']
+        
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=current_row, column=col, value=header)
                 cell.font = table_header_font
                 cell.alignment = center_align
-                cell.border = thin_border  # Border untuk header
+                cell.border = thin_border
                 cell.fill = header_fill
-                # Set minimal height untuk header
                 ws.row_dimensions[current_row].height = 8
-           
+        
             current_row += 1
-           
-            # Table data with GROUPING (SAMA DENGAN INVOICE)
+        
+            # Table data with GROUPING
             total_m3 = 0
             total_ton = 0
             total_colli = 0
+            total_nilai = 0
             
-            # Variables untuk tracking grouping
             previous_date = None
             previous_pengirim = None
             previous_penerima = None
-           
+        
             for i, barang_row in enumerate(barang_list, 1):
-                # Convert sqlite3.Row to dictionary
-                barang = dict(barang_row) if hasattr(barang_row, 'keys') else barang_row
-    
+                barang = dict(barang_row)
+
                 try:
-                    # Safe way to get barang values
                     def safe_barang_get(key, default='-'):
                         try:
                             value = barang.get(key, default)
                             return value if value not in [None, '', 'NULL', 'null'] else default
                         except Exception:
                             return default
-                   
-                    # Format date - get tanggal or use current date
+                
+                    # Format date
                     tanggal = safe_barang_get('tanggal_barang', datetime.now())
                     if isinstance(tanggal, str):
                         try:
@@ -544,37 +539,43 @@ class PrintHandler:
                     
                     pengirim = str(safe_barang_get('sender_name', '-'))
                     penerima = str(safe_barang_get('receiver_name', '-'))
-                    nama_barang = str(safe_barang_get('nama_barang', '-'))
-                    jenis_barang = str(safe_barang_get('jenis_barang', '-'))
+                    nama_barang = str(safe_barang_get('nama_barang', '-'))[:20]
+                    jenis_barang = str(safe_barang_get('jenis_barang', '-'))[:15]
                     
-                    # Door info
                     door = str(safe_barang_get('door_type', safe_barang_get('alamat_tujuan', '-')))[:10]
 
-                    # Format dimensions (Kubikasi)
+                    # Format dimensions
                     p = safe_barang_get('panjang_barang', '-')
                     l = safe_barang_get('lebar_barang', '-')
                     t = safe_barang_get('tinggi_barang', '-')
                     kubikasi = f"{p}×{l}×{t}"
-                   
+                    if len(kubikasi) > 12:
+                        kubikasi = kubikasi[:9] + "..."
+                
                     m3 = safe_barang_get('m3_barang', 0)
                     ton = safe_barang_get('ton_barang', 0)
                     colli = safe_barang_get('colli_amount', 0)
                     satuan = str(safe_barang_get('satuan', safe_barang_get('unit', 'pcs')))[:6]
-                   
+                    unit_price = safe_barang_get('harga_per_unit', safe_barang_get('unit_price', 0))
+                    total_harga = safe_barang_get('total_harga', 0)
+                
                     # Add to totals
                     try:
                         total_m3 += float(m3) if m3 not in [None, '', '-'] else 0
                         total_ton += float(ton) if ton not in [None, '', '-'] else 0
                         total_colli += int(colli) if colli not in [None, '', '-'] else 0
+                        total_nilai += float(total_harga) if total_harga not in [None, '', '-'] else 0
                     except (ValueError, TypeError):
                         pass
-                   
-                    # Format values for display
+                
+                    # Format values
                     m3_val = float(m3) if m3 not in [None, '', '-'] else 0
                     ton_val = float(ton) if ton not in [None, '', '-'] else 0
                     colli_val = int(colli) if colli not in [None, '', '-'] else 0
+                    unit_price_val = float(unit_price) if unit_price not in [None, '', '-'] else 0
+                    harga_val = float(total_harga) if total_harga not in [None, '', '-'] else 0
                     
-                    # GROUPING LOGIC - Cek apakah tgl, pengirim, penerima sama dengan baris sebelumnya
+                    # GROUPING LOGIC
                     display_date = formatted_date
                     display_pengirim = pengirim
                     display_penerima = penerima
@@ -582,112 +583,273 @@ class PrintHandler:
                     if (formatted_date == previous_date and 
                         pengirim == previous_pengirim and 
                         penerima == previous_penerima):
-                        # Jika sama dengan baris sebelumnya, kosongkan
                         display_date = ""
                         display_pengirim = ""
                         display_penerima = ""
                     else:
-                        # Update tracking variables
                         previous_date = formatted_date
                         previous_pengirim = pengirim
                         previous_penerima = penerima
-                   
-                    # Fill row data - TANPA HARGA
+                
+                    # Fill row data
                     row_data = [
-                        display_date,       # Tgl (kosong jika sama dengan sebelumnya)
-                        display_pengirim,   # Pengirim (kosong jika sama dengan sebelumnya)  
-                        display_penerima,   # Penerima (kosong jika sama dengan sebelumnya)
-                        nama_barang,       # Nama Barang
-                        jenis_barang,      # Jenis Barang
-                        kubikasi,          # Kubikasi
-                        m3_val,            # M3
-                        ton_val,           # Ton
-                        colli_val,         # Col
-                        satuan,            # Satuan
-                        door               # Door
+                        display_date, display_pengirim, display_penerima, nama_barang,
+                        jenis_barang, kubikasi, m3_val, ton_val, colli_val, satuan,
+                        door, unit_price_val, harga_val
                     ]
-                   
+                
                     for col, value in enumerate(row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
                         cell.font = small_font
-                        # Tidak ada border untuk data rows
-                        # Set minimal row height untuk data
                         ws.row_dimensions[current_row].height = 8
-                       
-                        if col == 1:  # Tgl column
+                    
+                        if col == 1:
                             cell.alignment = center_align
-                        elif col in [7, 8, 9]:  # Numeric columns (M3, Ton, Col)
+                        elif col in [7, 8, 9, 12, 13]:
                             cell.alignment = right_align
-                            if col in [7, 8]:  # M3, Ton columns
+                            if col in [12, 13]:
+                                cell.number_format = '#,##0'
+                            elif col in [7, 8]:
                                 cell.number_format = '0.00'
                         else:
                             cell.alignment = left_align
-                   
+                
                     current_row += 1
-                   
+                
                 except Exception as e:
                     print(f"Error processing barang {i}: {e}")
                     continue
-           
+        
             # Total row
-            for col in range(1, 12):  # Update range untuk 11 kolom
+            for col in range(1, 14):
                 cell = ws.cell(row=current_row, column=col)
-                cell.border = thin_border  # Border untuk total row
+                cell.border = thin_border
                 cell.fill = header_fill
                 cell.font = table_header_font
-               
+            
                 if col == 1:
                     cell.value = "TOTAL"
                     cell.alignment = center_align
-                elif col == 7:  # M3 total
+                elif col == 7:
                     cell.value = total_m3
                     cell.number_format = '0.00'
                     cell.alignment = right_align
-                elif col == 8:  # Ton total
+                elif col == 8:
                     cell.value = total_ton
                     cell.number_format = '0.00'
                     cell.alignment = right_align
-                elif col == 9:  # Colli total
+                elif col == 9:
                     cell.value = total_colli
                     cell.alignment = right_align
-           
+                elif col == 13:
+                    cell.value = total_nilai
+                    cell.number_format = '#,##0'
+                    cell.alignment = right_align
+        
+            current_row += 3  # Space before profit calculation
+        
+            # ===== PROFIT CALCULATION SECTION =====
+            
+            # Get cost data from database or use default values
+            try:
+                costs_surabaya = self._get_container_costs(container_id, 'Surabaya')
+                costs_samarinda = self._get_container_costs(container_id, container.get('destination', 'Samarinda'))
+            except:
+                costs_surabaya = None
+                costs_samarinda = None
+                
+            # If no data in database, use default template
+            if not costs_surabaya:
+                costs_surabaya = {
+                    "THC Surabaya": 5942656,
+                    "Frezh": 600000,
+                    "Bl. LCL": 5400000,
+                    "Seal": 100000,
+                    "Bl. Cleaning Container": 100000,
+                    "Bl. Ops Stuffing Dalam": 160000,
+                    "Bl. Antol Barang": 75000,
+                    "Bl. Oper Depo": 225000,
+                    "Bl. Admin": 187500,
+                    "TPT1 25": 10000,
+                    "TPT1 21": 20000,
+                    "Pajak": 213313
+                }
+            
+            if not costs_samarinda:
+                costs_samarinda = {
+                    "Trucking Samarinda Port-SMA": 1674990,
+                    "THC SMD": 4212219,
+                    "Dooring Barang Ringan": 270000,
+                    "Baseh Ijin & depo Samarinda": 225000,
+                    "Bl. Lab Empty": 159000,
+                    "Bl. Ops Samarinda": 135000,
+                    "Bl. Sewa JPL & Adm": 55000,
+                    "Bl. Forklift Samarinda": 350000,
+                    "Bl. Lolo": 220000,
+                    "Rekolasi Samarinda": 940000
+                }
+            
+            # Calculate totals
+            total_biaya_surabaya = sum(costs_surabaya.values())
+            total_biaya_samarinda = sum(costs_samarinda.values())
+            total_biaya = total_biaya_surabaya + total_biaya_samarinda
+            profit_lcl = total_nilai - total_biaya
+            
+            # BIAYA SURABAYA SECTION
+            ws.merge_cells(f'A{current_row}:F{current_row}')
+            ws[f'A{current_row}'] = "Biaya Surabaya"
+            ws[f'A{current_row}'].font = profit_header_font
+            ws[f'A{current_row}'].alignment = left_align
+            ws[f'A{current_row}'].fill = profit_header_fill
+            ws[f'A{current_row}'].border = thin_border
+            
+            # Value column header
+            ws[f'G{current_row}'] = "Cost (Rp)"
+            ws[f'G{current_row}'].font = profit_header_font
+            ws[f'G{current_row}'].alignment = right_align
+            ws[f'G{current_row}'].fill = profit_header_fill
+            ws[f'G{current_row}'].border = thin_border
+            current_row += 1
+            
+            # Biaya Surabaya items
+            for cost_name, cost_value in costs_surabaya.items():
+                ws[f'A{current_row}'] = cost_name
+                ws[f'A{current_row}'].font = profit_font
+                ws[f'A{current_row}'].alignment = left_align
+                
+                ws[f'G{current_row}'] = cost_value
+                ws[f'G{current_row}'].font = profit_font
+                ws[f'G{current_row}'].alignment = right_align
+                ws[f'G{current_row}'].number_format = '#,##0'
+                current_row += 1
+            
+            # Total Biaya Surabaya
+            ws[f'A{current_row}'] = ""
+            ws[f'G{current_row}'] = total_biaya_surabaya
+            ws[f'G{current_row}'].font = Font(name='Arial', size=8, bold=True)
+            ws[f'G{current_row}'].alignment = right_align
+            ws[f'G{current_row}'].number_format = '#,##0'
+            ws[f'G{current_row}'].border = thin_border
             current_row += 2
-           
-            # Summary - COMPACT (tanpa total value karena tanpa harga)
-            ws[f'A{current_row}'] = f"Total Items: {len(barang_list)} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            
+            # BIAYA SAMARINDA SECTION
+            ws.merge_cells(f'A{current_row}:F{current_row}')
+            ws[f'A{current_row}'] = "Biaya Samarinda"
+            ws[f'A{current_row}'].font = profit_header_font
+            ws[f'A{current_row}'].alignment = left_align
+            ws[f'A{current_row}'].fill = profit_header_fill
+            ws[f'A{current_row}'].border = thin_border
+            
+            # Value column header
+            ws[f'G{current_row}'] = "Cost (Rp)"
+            ws[f'G{current_row}'].font = profit_header_font
+            ws[f'G{current_row}'].alignment = right_align
+            ws[f'G{current_row}'].fill = profit_header_fill
+            ws[f'G{current_row}'].border = thin_border
+            current_row += 1
+            
+            # Biaya Samarinda items
+            for cost_name, cost_value in costs_samarinda.items():
+                ws[f'A{current_row}'] = cost_name
+                ws[f'A{current_row}'].font = profit_font
+                ws[f'A{current_row}'].alignment = left_align
+                
+                ws[f'G{current_row}'] = cost_value
+                ws[f'G{current_row}'].font = profit_font
+                ws[f'G{current_row}'].alignment = right_align
+                ws[f'G{current_row}'].number_format = '#,##0'
+                current_row += 1
+            
+            # Total Biaya Samarinda
+            ws[f'A{current_row}'] = ""
+            ws[f'G{current_row}'] = total_biaya_samarinda
+            ws[f'G{current_row}'].font = Font(name='Arial', size=8, bold=True)
+            ws[f'G{current_row}'].alignment = right_align
+            ws[f'G{current_row}'].number_format = '#,##0'
+            ws[f'G{current_row}'].border = thin_border
+            current_row += 2
+            
+            # PROFIT CALCULATION
+            ws.merge_cells(f'A{current_row}:F{current_row}')
+            ws[f'A{current_row}'] = "PROFIT LCL"
+            ws[f'A{current_row}'].font = Font(name='Arial', size=10, bold=True)
+            ws[f'A{current_row}'].alignment = left_align
+            ws[f'A{current_row}'].fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')  # Light green
+            ws[f'A{current_row}'].border = thin_border
+            
+            ws[f'G{current_row}'] = profit_lcl
+            ws[f'G{current_row}'].font = Font(name='Arial', size=10, bold=True)
+            ws[f'G{current_row}'].alignment = right_align
+            ws[f'G{current_row}'].number_format = '#,##0'
+            ws[f'G{current_row}'].fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')  # Light green
+            ws[f'G{current_row}'].border = thin_border
+            current_row += 2
+        
+            # Summary - COMPACT
+            ws[f'A{current_row}'] = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Total Cost: Rp {total_biaya:,.0f} | Profit: Rp {profit_lcl:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             ws[f'A{current_row}'].font = small_font
-           
-            # AUTO-ADJUST Column widths untuk packing list (tanpa harga)
+        
+            # AUTO-ADJUST Column widths
             estimated_widths = [
-                8,   # Tgl: "24-Aug" 
-                20,  # Pengirim: nama company bisa panjang
-                20,  # Penerima: nama company bisa panjang  
-                25,  # Nama Barang: bisa sangat panjang
-                15,  # Jenis Barang: kategori
-                12,  # Kubikasi: "50.0×30.0×10.0"
-                8,   # M3: "0.02" 
-                8,   # Ton: "0.01" 
-                6,   # Col: "10" 
-                8,   # Satuan: "m3/pcs" 
-                10   # Door: alamat singkat
+                8,   # Tgl
+                20,  # Pengirim
+                20,  # Penerima  
+                25,  # Nama Barang
+                15,  # Jenis Barang
+                12,  # Kubikasi
+                8,   # M3
+                8,   # Ton
+                6,   # Col
+                8,   # Satuan
+                10,  # Door
+                12,  # Unit Price
+                12   # Price
             ]
             
             # Apply calculated widths
             for i, width in enumerate(estimated_widths, 1):
                 ws.column_dimensions[get_column_letter(i)].width = width
-           
+        
             # Set print area
             last_row = current_row
-            ws.print_area = f'A1:K{last_row}'
-           
+            ws.print_area = f'A1:M{last_row}'
+        
+            # Add page breaks if needed
+            if len(barang_list) > 40:  # Reduced because of profit section
+                header_rows = current_row - len(barang_list) - 1
+                for i in range(40, len(barang_list), 40):
+                    break_row = header_rows + i
+                    ws.row_breaks.append(break_row)
+        
             # Save file
-            filter_suffix = f"_{filter_name}" if filter_name else "_All_Combinations"
-            filename = f"PackingList_Container_{container_id}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            self._save_excel_file(wb, filename, "CUSTOMER PACKING LIST")
-           
+            filename = f"Invoice_Container_{container_id}_with_Profit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            self._save_excel_file(wb, filename, "INVOICE CONTAINER WITH PROFIT CALCULATION")
+        
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal membuat Excel packing list: {str(e)}")
-   
+            messagebox.showerror("Error", f"Gagal membuat Excel invoice: {str(e)}")
+
+    def _get_container_costs(self, container_id, location):
+        """Get container costs from database by location (SURABAYA or SAMARINDA)"""
+        try:
+            # Query untuk mengambil biaya dari database
+            result = self.db.execute("""
+                SELECT description, cost 
+                FROM container_delivery_costs 
+                WHERE container_id = ? AND delivery = ?
+                ORDER BY id
+            """, (container_id, location))
+            
+            # Convert to dictionary
+            costs_dict = {}
+            for row in result:
+                costs_dict[row['description']] = float(row['cost'])
+            
+            return costs_dict if costs_dict else None
+            
+        except Exception as e:
+            print(f"Error getting container costs: {e}")
+            return None
+        
     def _save_excel_file(self, workbook, filename, doc_type):
         """Save Excel workbook to file with print preview info"""
         try:

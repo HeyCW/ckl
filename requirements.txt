@@ -1,10 +1,13 @@
 # Core dependencies
-Pillow>=9.0.0          # Untuk handle gambar
+Pillow==9.5.0
 ttkthemes>=3.2.0       # Tema tambahan untuk ttk
 
 # Development dependencies (optional)
 pytest>=6.0.0
 black>=21.0.0
 flake8>=3.8.0
+
+pandas
+openpyxl
 
 pyinstaller

@@ -13,7 +13,18 @@ class ContainerWindow:
         self.refresh_callback = refresh_callback
         self.print_handler = PrintHandler(db) 
         self.create_window()
-    
+        self.load_kapals()
+
+    def load_kapals(self):
+        """Load kapal options from the database"""
+        try:
+            kapals = self.db.execute("SELECT feeder FROM kapals")
+            print(f"Loaded kapals: {kapals}")
+            kapals = [k[0] for k in kapals]
+            self.kapal_combo['values'] = kapals
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", str(e))
+
     def create_window(self):
         """Create container management window"""
         self.window = tk.Toplevel(self.parent)
@@ -84,70 +95,31 @@ class ContainerWindow:
         row1_frame = tk.Frame(form_frame, bg='#ecf0f1')
         row1_frame.pack(fill='x', pady=5)
         
-        # Feeder
-        tk.Label(row1_frame, text="Feeder:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.feeder_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
-        self.feeder_entry.pack(side='left', padx=(5, 20))
+        # Kapal (Dropdown)
+        tk.Label(row1_frame, text="Kapal:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.kapal_var = tk.StringVar()
+        self.kapal_combo = ttk.Combobox(
+            row1_frame,
+            textvariable=self.kapal_var,
+            font=('Arial', 10),
+            width=15,
+        )
         
-        # Party
-        tk.Label(row1_frame, text="Party:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.party_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
-        self.party_entry.pack(side='left', padx=(5, 20))
-        
-        # Destination
-        tk.Label(row1_frame, text="Destination:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.destination_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
-        self.destination_entry.pack(side='left', padx=5)
-        
-        # Row 2 - Dates
-        row2_frame = tk.Frame(form_frame, bg='#ecf0f1')
-        row2_frame.pack(fill='x', pady=10)
-        
-        # ETD Sub
-        tk.Label(row2_frame, text="ETD Sub:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.etd_sub_entry = tk.Entry(row2_frame, font=('Arial', 10), width=12)
-        self.etd_sub_entry.pack(side='left', padx=(5, 15))
-        tk.Label(row2_frame, text="(YYYY-MM-DD)", font=('Arial', 8), fg='gray', bg='#ecf0f1').pack(side='left', padx=(0, 15))
-        
-        # CLS
-        tk.Label(row2_frame, text="CLS:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.cls_entry = tk.Entry(row2_frame, font=('Arial', 10), width=12)
-        self.cls_entry.pack(side='left', padx=(5, 15))
-        tk.Label(row2_frame, text="(YYYY-MM-DD)", font=('Arial', 8), fg='gray', bg='#ecf0f1').pack(side='left')
-        
-        # Row 3 - More dates
-        row3_frame = tk.Frame(form_frame, bg='#ecf0f1')
-        row3_frame.pack(fill='x', pady=5)
-        
-        # Open
-        tk.Label(row3_frame, text="Open:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.open_entry = tk.Entry(row3_frame, font=('Arial', 10), width=12)
-        self.open_entry.pack(side='left', padx=(5, 15))
-        tk.Label(row3_frame, text="(YYYY-MM-DD)", font=('Arial', 8), fg='gray', bg='#ecf0f1').pack(side='left', padx=(0, 15))
-        
-        # Full
-        tk.Label(row3_frame, text="Full:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.full_entry = tk.Entry(row3_frame, font=('Arial', 10), width=12)
-        self.full_entry.pack(side='left', padx=(5, 15))
-        tk.Label(row3_frame, text="(YYYY-MM-DD)", font=('Arial', 8), fg='gray', bg='#ecf0f1').pack(side='left')
-        
-        # Row 4 - Container details
-        row4_frame = tk.Frame(form_frame, bg='#ecf0f1')
-        row4_frame.pack(fill='x', pady=10)
-        
+        self.kapal_combo.pack(side='left', padx=5)
+
         # Container
-        tk.Label(row4_frame, text="Container:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.container_entry = tk.Entry(row4_frame, font=('Arial', 10), width=15)
+        tk.Label(row1_frame, text="Container:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.container_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
         self.container_entry.pack(side='left', padx=(5, 20))
         
         # Seal
-        tk.Label(row4_frame, text="Seal:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.seal_entry = tk.Entry(row4_frame, font=('Arial', 10), width=15)
+        tk.Label(row1_frame, text="Seal:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.seal_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
         self.seal_entry.pack(side='left', padx=(5, 20))
         
         # Ref JOA
-        tk.Label(row4_frame, text="Ref JOA:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.ref_joa_entry = tk.Entry(row4_frame, font=('Arial', 10), width=15)
+        tk.Label(row1_frame, text="Ref JOA:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.ref_joa_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
         self.ref_joa_entry.pack(side='left', padx=5)
         
         # Buttons
@@ -160,8 +132,8 @@ class ContainerWindow:
             font=('Arial', 12, 'bold'),
             bg='#e67e22',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.add_container
         )
         add_btn.pack(side='left', padx=(0, 10))
@@ -172,8 +144,8 @@ class ContainerWindow:
             font=('Arial', 12, 'bold'),
             bg='#95a5a6',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.clear_form
         )
         clear_btn.pack(side='left', padx=(0, 10))
@@ -184,8 +156,8 @@ class ContainerWindow:
             font=('Arial', 12, 'bold'),
             bg='#3498db',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.edit_container
         )
         edit_btn.pack(side='left', padx=(0, 10))
@@ -196,8 +168,8 @@ class ContainerWindow:
             font=('Arial', 12, 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=20,
-            pady=10,
+            padx=10,
+            pady=5,
             command=self.delete_container
         )
         delete_btn.pack(side='left')
@@ -216,25 +188,19 @@ class ContainerWindow:
         container_tree_container.pack(fill='both', expand=True)
         
         self.container_tree = ttk.Treeview(container_tree_container, 
-                                         columns=('ID', 'Feeder', 'Party', 'Container', 'Destination', 'ETD_Sub', 'CLS', 'Items'), 
+                                         columns=('ID', 'Kapal', 'Container', 'Ref JOA','Items'), 
                                          show='headings', height=8)
         
         self.container_tree.heading('ID', text='ID')
-        self.container_tree.heading('Feeder', text='Feeder')
-        self.container_tree.heading('Party', text='Party')
+        self.container_tree.heading('Kapal', text='Kapal')
         self.container_tree.heading('Container', text='Container')
-        self.container_tree.heading('Destination', text='Destination')
-        self.container_tree.heading('ETD_Sub', text='ETD Sub')
-        self.container_tree.heading('CLS', text='CLS')
+        self.container_tree.heading('Ref JOA', text='Ref JOA')
         self.container_tree.heading('Items', text='Jumlah Barang')
         
         self.container_tree.column('ID', width=40)
-        self.container_tree.column('Feeder', width=120)
-        self.container_tree.column('Party', width=100)
+        self.container_tree.column('Kapal', width=120)
         self.container_tree.column('Container', width=120)
-        self.container_tree.column('Destination', width=100)
-        self.container_tree.column('ETD_Sub', width=80)
-        self.container_tree.column('CLS', width=80)
+        self.container_tree.column('Ref JOA', width=100)
         self.container_tree.column('Items', width=100)
         
         # Scrollbars
@@ -258,8 +224,6 @@ class ContainerWindow:
         # ADD PRINT BUTTONS HERE
         self.add_print_buttons_to_container_tab(parent)
         
-        # Focus on feeder entry
-        self.feeder_entry.focus()
         
     def add_print_buttons_to_container_tab(self, parent):
         """Add print buttons to container tab"""
@@ -342,144 +306,95 @@ class ContainerWindow:
         container_select_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         container_select_frame.pack(fill='x', pady=10)
         
-        tk.Label(container_select_frame, text="Pilih Container:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.selected_container_var = tk.StringVar()
-        self.container_combo = ttk.Combobox(container_select_frame, textvariable=self.selected_container_var, 
-                                        font=('Arial', 11), width=40, state='readonly')
-        self.container_combo.pack(side='left', padx=(5, 20))
-        
-        # Load containers into combobox
-        self.load_container_combo()
-        
-        # Bind container selection
-        self.container_combo.bind('<<ComboboxSelected>>', self.on_container_select)
-        
-        
-        # Search and Add frame
+        # Search and Add frame (jadi grid 2 kolom)
         search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         search_add_frame.pack(fill='x', pady=15)
-        
-        # Sender selection frame
-        sender_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+
+        # === KIRI ===
+        left_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+        left_frame.grid(row=0, column=0, sticky='nw', padx=(10, 100))
+
+        # Container selection
+        container_select_frame = tk.Frame(left_frame, bg='#ecf0f1')
+        container_select_frame.pack(fill='x', pady=5)
+
+        tk.Label(container_select_frame, text="Pilih Container:").pack(side='left')
+        self.selected_container_var = tk.StringVar()
+        self.container_combo = ttk.Combobox(container_select_frame, 
+                                            textvariable=self.selected_container_var, 
+                                            width=40, state='readonly')
+        self.container_combo.pack(side='left', padx=(5, 20))
+        self.load_container_combo()
+        self.container_combo.bind('<<ComboboxSelected>>', self.on_container_select)
+
+        # Sender selection
+        sender_frame = tk.Frame(left_frame, bg='#ecf0f1')
         sender_frame.pack(fill='x', pady=5)
-        
-        tk.Label(sender_frame, text="📤 Pilih Pengirim:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
+
+        tk.Label(sender_frame, text="📤 Pilih Pengirim:").pack(side='left')
         self.sender_search_var = tk.StringVar()
-        self.sender_search_combo = ttk.Combobox(sender_frame, textvariable=self.sender_search_var,
-                                            font=('Arial', 10), width=25)
+        self.sender_search_combo = ttk.Combobox(sender_frame, 
+                                                textvariable=self.sender_search_var, 
+                                                width=25)
         self.sender_search_combo.pack(side='left', padx=(5, 20))
-        
-        # Receiver selection frame
-        receiver_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+
+        # Receiver selection
+        receiver_frame = tk.Frame(left_frame, bg='#ecf0f1')
         receiver_frame.pack(fill='x', pady=5)
-        
-        tk.Label(receiver_frame, text="📥 Pilih Penerima:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
+
+        tk.Label(receiver_frame, text="📥 Pilih Penerima:").pack(side='left')
         self.receiver_search_var = tk.StringVar()
-        self.receiver_search_combo = ttk.Combobox(receiver_frame, textvariable=self.receiver_search_var,
-                                                font=('Arial', 10), width=25)
+        self.receiver_search_combo = ttk.Combobox(receiver_frame, 
+                                                textvariable=self.receiver_search_var,
+                                                width=25)
         self.receiver_search_combo.pack(side='left', padx=(5, 20))
-        
-        # Colli input frame
-        colli_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
+
+        # Colli input
+        colli_frame = tk.Frame(left_frame, bg='#ecf0f1')
         colli_frame.pack(fill='x', pady=5)
-        
-        tk.Label(colli_frame, text="📦 Jumlah Colli:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(side='left')
+
+        tk.Label(colli_frame, text="📦 Jumlah Colli:").pack(side='left')
         self.colli_var = tk.StringVar(value="1")
-        self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, font=('Arial', 10), width=8)
+        self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, width=8)
         self.colli_entry.pack(side='left', padx=(5, 10))
-        
-        # === TAMBAHAN: BIAYA PENGANTARAN FRAME ===
+
+        # === KANAN ===
         delivery_cost_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        delivery_cost_frame.pack(fill='x', pady=10)
-        
-        # Delivery cost label
-        tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:", font=('Arial', 12, 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 5))
-        
+        delivery_cost_frame.grid(row=0, column=1, sticky='ne', padx=10)
+
+        tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:", 
+                font=('Arial', 12, 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 5))
+
         # Row 1: Deskripsi biaya
         desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         desc_row.pack(fill='x', pady=2)
-        
-        tk.Label(desc_row, text="Deskripsi:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        tk.Label(desc_row, text="Deskripsi:").pack(side='left')
         self.delivery_desc_var = tk.StringVar()
-        self.delivery_desc_entry = tk.Entry(desc_row, textvariable=self.delivery_desc_var, 
-                                        font=('Arial', 10), width=40)
+        self.delivery_desc_entry = tk.Entry(desc_row, textvariable=self.delivery_desc_var, width=40)
         self.delivery_desc_entry.pack(side='left', padx=(5, 20))
-        
-        # Tambahkan placeholder text manual
-        self.delivery_desc_entry.insert(0, "Contoh: Biaya antar ke alamat, Biaya bongkar muat, dll")
-        self.delivery_desc_entry.config(fg='grey')
-        
-        # Bind events untuk placeholder behavior
-        def on_desc_focus_in(event):
-            if self.delivery_desc_var.get() == "Contoh: Biaya antar ke alamat, Biaya bongkar muat, dll":
-                self.delivery_desc_entry.delete(0, tk.END)
-                self.delivery_desc_entry.config(fg='black')
-        
-        def on_desc_focus_out(event):
-            if not self.delivery_desc_var.get():
-                self.delivery_desc_entry.insert(0, "Contoh: Biaya antar ke alamat, Biaya bongkar muat, dll")
-                self.delivery_desc_entry.config(fg='grey')
-        
-        self.delivery_desc_entry.bind('<FocusIn>', on_desc_focus_in)
-        self.delivery_desc_entry.bind('<FocusOut>', on_desc_focus_out)
-        
-        # Row 2: Nominal biaya
+
+        # Row 2: Biaya
         cost_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         cost_row.pack(fill='x', pady=2)
-        
-        tk.Label(cost_row, text="Biaya (Rp):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        tk.Label(cost_row, text="Biaya (Rp):").pack(side='left')
         self.delivery_cost_var = tk.StringVar(value="0")
-        self.delivery_cost_entry = tk.Entry(cost_row, textvariable=self.delivery_cost_var, 
-                                        font=('Arial', 10), width=15)
+        self.delivery_cost_entry = tk.Entry(cost_row, textvariable=self.delivery_cost_var, width=15)
         self.delivery_cost_entry.pack(side='left', padx=(5, 10))
-        
-        # Tombol tambah biaya pengantaran
-        add_delivery_btn = tk.Button(
-            cost_row,
-            text="➕ Tambah Biaya",
-            font=('Arial', 10, 'bold'),
-            bg='#e67e22',
-            fg='white',
-            padx=15,
-            pady=5,
-            command=self.add_delivery_cost
-        )
+
+        add_delivery_btn = tk.Button(cost_row, text="➕ Tambah Biaya", bg='#e67e22', fg='white',
+                                    padx=15, pady=5, command=self.add_delivery_cost)
         add_delivery_btn.pack(side='left', padx=(10, 0))
-        
-        # Bind selections to load barang
-        self.sender_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
-        self.sender_search_combo.bind('<KeyRelease>', self.filter_senders)
-        self.receiver_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
-        self.receiver_search_combo.bind('<KeyRelease>', self.filter_receivers)
-        
-        # Row 3: Dropdown Lokasi Pengiriman
+
+        # Row 3: Lokasi
         destination_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         destination_row.pack(fill='x', pady=2)
+        tk.Label(destination_row, text="Lokasi:").pack(side='left')
 
-        tk.Label(destination_row, text="Lokasi:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-
-        # Variabel untuk menyimpan pilihan lokasi
         self.delivery_destination_var = tk.StringVar()
-
-        # Dropdown/Combobox untuk lokasi
         self.delivery_destination_combo = ttk.Combobox(destination_row, 
                                                     textvariable=self.delivery_destination_var,
-                                                    font=('Arial', 10), 
-                                                    width=37,
-                                                    state="readonly")
+                                                    width=37, state="readonly")
         self.delivery_destination_combo.pack(side='left', padx=(5, 20))
-
-        # Panggil fungsi untuk memuat data tujuan
-        self.container_combo.bind('<<ComboboxSelected>>', self.load_destinations)
-
-        def on_destination_change(event):
-            selected = self.delivery_destination_var.get()
-            if selected and selected != "Pilih tujuan pengiriman...":
-                print(f"Tujuan dipilih: {selected}")
-                # Tambahkan logika tambahan di sini jika diperlukan
-
-        self.delivery_destination_combo.bind('<<ComboboxSelected>>', on_destination_change)
-
         
         
         self.load_customers()
@@ -492,11 +407,11 @@ class ContainerWindow:
         add_barang_btn = tk.Button(
             actions_frame,
             text="💰 Tambah Barang + Harga ke Container",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#27ae60',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.add_selected_barang_to_container
         )
         add_barang_btn.pack(side='left', padx=(0, 10))
@@ -505,11 +420,11 @@ class ContainerWindow:
         remove_barang_btn = tk.Button(
             actions_frame,
             text="➖ Hapus Barang dari Container",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.remove_barang_from_container
         )
         remove_barang_btn.pack(side='left', padx=(0, 10))
@@ -518,11 +433,11 @@ class ContainerWindow:
         edit_price_btn = tk.Button(
             actions_frame,
             text="✏️ Edit Harga",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#f39c12',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.edit_barang_price_in_container
         )
         edit_price_btn.pack(side='left', padx=(0, 10))
@@ -531,11 +446,11 @@ class ContainerWindow:
         manage_delivery_btn = tk.Button(
             actions_frame,
             text="🚚 Kelola Biaya Pengantaran",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#e67e22',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.manage_delivery_costs
         )
         manage_delivery_btn.pack(side='left', padx=(0, 10))
@@ -544,27 +459,27 @@ class ContainerWindow:
         summary_btn = tk.Button(
             actions_frame,
             text="📊 Lihat Summary Container",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#9b59b6',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.view_container_summary
         )
-        summary_btn.pack(side='left')
+        summary_btn.pack(side='left', padx=(0, 10))
         
         # Clear selection button
         clear_selection_btn = tk.Button(
             actions_frame,
             text="🗑️ Bersihkan Pilihan",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#95a5a6',
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.clear_selection
         )
-        clear_selection_btn.pack(side='right')
+        clear_selection_btn.pack(side='left', padx=(0, 10))
         
         # Content frame with two sections
         content_frame = tk.Frame(parent, bg='#ecf0f1')
@@ -1241,6 +1156,8 @@ class ContainerWindow:
             info_frame = tk.Frame(summary_window, bg='#ecf0f1', relief='solid', bd=1)
             info_frame.pack(fill='x', padx=20, pady=10)
             
+            
+            
             tk.Label(info_frame, text=f"📦 Container: {container.get('container', 'N/A')}", 
                     font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
             
@@ -1343,18 +1260,6 @@ class ContainerWindow:
             print(f"Error creating sender/receiver summary dialog: {e}")
             messagebox.showerror("Error", f"Gagal menampilkan summary: {e}")
 
-    def on_container_select(self, event=None):
-        """Handle container selection - updated for sender/receiver"""
-        selection = self.selected_container_var.get()
-        print(f"Container selected: {selection}")
-        if selection:
-            container_id = int(selection.split(' - ')[0])
-            self.load_container_barang_with_sender_receiver()  # Updated method name
-            
-            # Update label
-            container_info = selection.split(' - ', 1)[1] if ' - ' in selection else selection
-            self.container_label.config(text=f"📦 Barang dalam Container: {container_info}")
-          
     def create_pricing_dialog(self, selected_items, colli_amount):
         """Create dialog for pricing input with auto-price selection using Treeview table"""
         pricing_window = tk.Toplevel(self.window)
@@ -3570,7 +3475,7 @@ class ContainerWindow:
             # Clear selections and refresh displays only if there were successful additions
             if success_count > 0:
                 # Clear selections
-                self.clear_selection()
+                # self.clear_selection()
                 
                 # Refresh displays based on current sender/receiver filter
                 sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
@@ -3622,6 +3527,7 @@ class ContainerWindow:
     
     def on_container_select(self, event=None):
         """Handle container selection"""
+        self.load_destinations()
         selection = self.selected_container_var.get()
         if selection:
             container_id = int(selection.split(' - ')[0])
@@ -4203,59 +4109,32 @@ class ContainerWindow:
                     break
     
     def add_container(self):
-        """Add new container"""
         try:
-            # Check if we're editing an existing container
-            if hasattr(self, 'editing_container_id'):
-                # Update existing container
-                container_id = self.editing_container_id
-                self.db.execute("""
-                    UPDATE containers SET 
-                    feeder = ?, etd_sub = ?, party = ?, cls = ?, open = ?, full = ?,
-                    destination = ?, container = ?, seal = ?, ref_joa = ?
-                    WHERE container_id = ?
-                """, (
-                    self.feeder_entry.get().strip() or None,
-                    self.etd_sub_entry.get().strip() or None,
-                    self.party_entry.get().strip() or None,
-                    self.cls_entry.get().strip() or None,
-                    self.open_entry.get().strip() or None,
-                    self.full_entry.get().strip() or None,
-                    self.destination_entry.get().strip() or None,
-                    self.container_entry.get().strip() or None,
-                    self.seal_entry.get().strip() or None,
-                    self.ref_joa_entry.get().strip() or None,
-                    container_id
-                ))
-                messagebox.showinfo("Sukses", f"Container ID {container_id} berhasil diupdate!")
-            else:
-                # Create new container
-                container_id = self.db.create_container(
-                    feeder=self.feeder_entry.get().strip() or None,
-                    etd_sub=self.etd_sub_entry.get().strip() or None,
-                    party=self.party_entry.get().strip() or None,
-                    cls=self.cls_entry.get().strip() or None,
-                    open_date=self.open_entry.get().strip() or None,
-                    full=self.full_entry.get().strip() or None,
-                    destination=self.destination_entry.get().strip() or None,
-                    container=self.container_entry.get().strip() or None,
-                    seal=self.seal_entry.get().strip() or None,
-                    ref_joa=self.ref_joa_entry.get().strip() or None
+            self.db.execute_insert(
+                "INSERT INTO containers (kapal_feeder, container, seal, ref_joa) VALUES (?, ?, ?, ?)", 
+                (
+                    self.kapal_var.get(),
+                    self.container_entry.get(),
+                    self.seal_entry.get(),
+                    self.ref_joa_entry.get()
                 )
-                messagebox.showinfo("Sukses", f"Container berhasil ditambahkan dengan ID: {container_id}")
-            
+            )
+
+            # Jika berhasil, refresh form & combo
             self.clear_form()
             self.load_containers()
             self.load_container_combo()  # Refresh combo
             
             if self.refresh_callback:
                 self.refresh_callback()
+
+        except sqlite3.Error as e:
+            # Tampilkan pesan error ke user
+            messagebox.showerror("Database Error", f"Gagal menambahkan container:\n{str(e)}")
+
             
-        except Exception as e:
-            messagebox.showerror("Error", f"Gagal menyimpan container: {str(e)}")
-    
     def edit_container(self):
-        """Edit selected container"""
+        """Edit selected container - opens dialog"""
         selection = self.container_tree.selection()
         if not selection:
             messagebox.showwarning("Peringatan", "Pilih container yang akan diedit!")
@@ -4270,41 +4149,122 @@ class ContainerWindow:
             messagebox.showerror("Error", "Container tidak ditemukan!")
             return
         
-        # Fill form with existing data
-        self.feeder_entry.delete(0, tk.END)
-        self.feeder_entry.insert(0, container.get('feeder', ''))
+        # Open edit dialog
+        self.show_edit_container_dialog(container_id, container)
+
+    def show_edit_container_dialog(self, container_id, container):
+        """Show container edit dialog with only feeder, container, seal, ref_joa"""
+        try:
+            edit_window = tk.Toplevel(self.window)
+            edit_window.title(f"✏️ Edit Container - ID: {container_id}")
+            edit_window.geometry("600x400")
+            edit_window.configure(bg='#ecf0f1')
+            edit_window.transient(self.window)
+            edit_window.grab_set()
+
+            # Center dialog
+            edit_window.update_idletasks()
+            x = self.window.winfo_x() + (self.window.winfo_width() // 2) - 300
+            y = self.window.winfo_y() + (self.window.winfo_height() // 2) - 200
+            edit_window.geometry(f"600x400+{x}+{y}")
+
+            # Helper
+            def safe_get(value):
+                return str(value) if value is not None else ""
+
+            # Header
+            tk.Label(
+                edit_window,
+                text=f"✏️ EDIT CONTAINER - ID: {container_id}",
+                font=('Arial', 16, 'bold'),
+                bg='#3498db',
+                fg='white',
+                pady=15
+            ).pack(fill='x')
+
+            # Form frame
+            form_frame = tk.Frame(edit_window, bg='#ffffff', relief='solid', bd=1)
+            form_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+            # Dictionary to store entry widgets
+            entries = {}
+
+            # Fields to show
+            fields = [
+                ('Feeder', 'kapal_feeder'),
+                ('Container', 'container'),
+                ('Seal', 'seal'),
+                ('Ref JOA', 'ref_joa')
+            ]
+
+            for label_text, field_name in fields:
+                row = tk.Frame(form_frame, bg='#ffffff')
+                row.pack(fill='x', pady=8, padx=20)
+
+                tk.Label(row, text=f"{label_text}:", font=('Arial', 11, 'bold'), bg='#ffffff', width=15, anchor='w').pack(side='left')
+                entry = tk.Entry(row, font=('Arial', 11), width=30)
+                entry.pack(side='left', padx=(10, 0))
+
+                # Fill current value
+                if isinstance(container, dict):
+                    entry.insert(0, safe_get(container.get(field_name)))
+                else:
+                    entry.insert(0, safe_get(getattr(container, field_name, "")))
+
+                entries[field_name] = entry
+
+            # Buttons
+            btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
+            btn_frame.pack(fill='x', pady=15, padx=20)
+
+            # Save function
+            def save_container():
+                try:
+                    if not messagebox.askyesno("Konfirmasi Update", f"Simpan perubahan untuk container ID {container_id}?"):
+                        return
+
+                    self.db.execute("""
+                        UPDATE containers SET 
+                        kapal_feeder = ?, container = ?, seal = ?, ref_joa = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE container_id = ?
+                    """, (
+                        entries['kapal_feeder'].get().strip(),
+                        entries['container'].get().strip(),
+                        entries['seal'].get().strip(),
+                        entries['ref_joa'].get().strip(),
+                        container_id
+                    ))
+
+                    messagebox.showinfo("Sukses", "✅ Container berhasil diupdate!")
+                    self.load_containers()
+                    self.load_container_combo()
+                    if self.refresh_callback:
+                        self.refresh_callback()
+                    edit_window.destroy()
+
+                except Exception as e:
+                    messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e)}")
+
+            tk.Button(btn_frame, text="💾 Simpan Perubahan", bg='#27ae60', fg='white',
+                    font=('Arial', 12, 'bold'), padx=20, pady=10, command=save_container).pack(side='left', padx=(0,10))
+
+            tk.Button(btn_frame, text="❌ Tutup", bg='#e74c3c', fg='white',
+                    font=('Arial', 12, 'bold'), padx=20, pady=10, command=edit_window.destroy).pack(side='right')
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal membuat dialog edit: {str(e)}")
+
+    def is_valid_date_format(self, date_string):
+        """Validate date format YYYY-MM-DD"""
+        if not date_string:
+            return True  # Empty is valid
         
-        self.etd_sub_entry.delete(0, tk.END)
-        self.etd_sub_entry.insert(0, container.get('etd_sub', ''))
-        
-        self.party_entry.delete(0, tk.END)
-        self.party_entry.insert(0, container.get('party', ''))
-        
-        self.cls_entry.delete(0, tk.END)
-        self.cls_entry.insert(0, container.get('cls', ''))
-        
-        self.open_entry.delete(0, tk.END)
-        self.open_entry.insert(0, container.get('open', ''))
-        
-        self.full_entry.delete(0, tk.END)
-        self.full_entry.insert(0, container.get('full', ''))
-        
-        self.destination_entry.delete(0, tk.END)
-        self.destination_entry.insert(0, container.get('destination', ''))
-        
-        self.container_entry.delete(0, tk.END)
-        self.container_entry.insert(0, container.get('container', ''))
-        
-        self.seal_entry.delete(0, tk.END)
-        self.seal_entry.insert(0, container.get('seal', ''))
-        
-        self.ref_joa_entry.delete(0, tk.END)
-        self.ref_joa_entry.insert(0, container.get('ref_joa', ''))
-        
-        # Store container_id for update
-        self.editing_container_id = container_id
-        
-        messagebox.showinfo("Info", f"Data container ID {container_id} dimuat. Edit data lalu klik 'Tambah Container' untuk menyimpan.")
+        try:
+            from datetime import datetime
+            datetime.strptime(date_string, '%Y-%m-%d')
+            return True
+        except ValueError:
+            return False
     
     def delete_container(self):
         """Delete selected container"""
@@ -4353,13 +4313,6 @@ class ContainerWindow:
     
     def clear_form(self):
         """Clear form fields"""
-        self.feeder_entry.delete(0, tk.END)
-        self.etd_sub_entry.delete(0, tk.END)
-        self.party_entry.delete(0, tk.END)
-        self.cls_entry.delete(0, tk.END)
-        self.open_entry.delete(0, tk.END)
-        self.full_entry.delete(0, tk.END)
-        self.destination_entry.delete(0, tk.END)
         self.container_entry.delete(0, tk.END)
         self.seal_entry.delete(0, tk.END)
         self.ref_joa_entry.delete(0, tk.END)
@@ -4368,7 +4321,6 @@ class ContainerWindow:
         if hasattr(self, 'editing_container_id'):
             delattr(self, 'editing_container_id')
         
-        self.feeder_entry.focus()
     
     def load_containers(self):
         """Load containers into treeview with item count"""
@@ -4386,12 +4338,9 @@ class ContainerWindow:
                 
                 self.container_tree.insert('', tk.END, values=(
                     container['container_id'],
-                    container.get('feeder', '-'),
-                    container.get('party', '-'),
+                    container.get('kapal_feeder', '-'),
                     container.get('container', '-'),
-                    container.get('destination', '-'),
-                    container.get('etd_sub', '-'),
-                    container.get('cls', '-'),
+                    container.get('ref_joa', '-'),
                     f"{item_count} items"  # Show item count
                 ))
         except Exception as e:
