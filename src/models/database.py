@@ -294,6 +294,7 @@ class SQLiteDatabase:
                 container_id INTEGER NOT NULL,
                 delivery TEXT,
                 description TEXT NOT NULL,
+                cost_description TEXT,
                 cost REAL NOT NULL DEFAULT 0,
                 created_date TEXT NOT NULL,
                 FOREIGN KEY (container_id) REFERENCES containers (id)
@@ -619,7 +620,9 @@ class ContainerDatabase(SQLiteDatabase):
         
         try:
             container = self.execute_one(
-                "SELECT * FROM containers WHERE container_id = ?", 
+                """SELECT * FROM containers
+                JOIN kapals ON containers.kapal_feeder = kapals.feeder
+                WHERE container_id = ?""",
                 (container_id,)
             )
             return dict(container) if container else None

@@ -368,10 +368,17 @@ class ContainerWindow:
         # Row 1: Deskripsi biaya
         desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         desc_row.pack(fill='x', pady=2)
-        tk.Label(desc_row, text="Deskripsi:").pack(side='left')
+        tk.Label(desc_row, text="Title:").pack(side='left')
         self.delivery_desc_var = tk.StringVar()
         self.delivery_desc_entry = tk.Entry(desc_row, textvariable=self.delivery_desc_var, width=40)
         self.delivery_desc_entry.pack(side='left', padx=(5, 20))
+
+        cost_desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
+        cost_desc_row.pack(fill='x', pady=2)
+        tk.Label(cost_desc_row, text="Description:").pack(side='left')
+        self.cost_description_var = tk.StringVar()
+        self.cost_description_entry = tk.Entry(cost_desc_row, textvariable=self.cost_description_var, width=40)
+        self.cost_description_entry.pack(side='left', padx=(5, 20))
 
         # Row 2: Biaya
         cost_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
@@ -684,7 +691,7 @@ class ContainerWindow:
         lokasi = self.delivery_destination_var.get().strip()
         
         # Check jika masih placeholder text
-        if not deskripsi or deskripsi == "Contoh: Biaya pickup/delivery, Bongkar muat, dll":
+        if not deskripsi or deskripsi == "":
             messagebox.showwarning("Peringatan", "Masukkan deskripsi biaya pengantaran!")
             return
         
@@ -700,15 +707,13 @@ class ContainerWindow:
         try:
             # Simpan ke database dengan tipe pengantaran
             self.db.execute("""
-                INSERT INTO container_delivery_costs (container_id, delivery, description, cost, created_date)
-                VALUES (?, ?, ?, ?, ?)
-            """, (container_id, lokasi, deskripsi, biaya, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                INSERT INTO container_delivery_costs (container_id, delivery, description, cost_description,  cost, created_date)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (container_id, lokasi, deskripsi, self.cost_description_var.get(), biaya, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
             
             # Clear form dan reset placeholder
             self.delivery_desc_var.set('')
             self.delivery_desc_entry.delete(0, tk.END)
-            self.delivery_desc_entry.insert(0, "Contoh: Biaya pickup/delivery, Bongkar muat, dll")
-            self.delivery_desc_entry.config(fg='grey')
             self.delivery_cost_var.set('0')
             self.delivery_destination_combo.set('Surabaya')
             
