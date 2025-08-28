@@ -539,13 +539,12 @@ class ContainerWindow:
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
         self.container_barang_tree = ttk.Treeview(container_tree_frame,
-                                                columns=('Pengirim', 'Penerima', 'Nama', 'Jenis', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
+                                                columns=('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
                                                 show='headings', height=12)
         
         self.container_barang_tree.heading('Pengirim', text='Pengirim')
         self.container_barang_tree.heading('Penerima', text='Penerima')
         self.container_barang_tree.heading('Nama', text='Nama Barang')
-        self.container_barang_tree.heading('Jenis', text='Jenis Barang')
         self.container_barang_tree.heading('Satuan', text='Satuan')
         self.container_barang_tree.heading('Door', text='Door Type')
         self.container_barang_tree.heading('Dimensi', text='P×L×T (cm)')
@@ -559,7 +558,6 @@ class ContainerWindow:
         self.container_barang_tree.column('Pengirim', width=70)
         self.container_barang_tree.column('Penerima', width=70)
         self.container_barang_tree.column('Nama', width=90)
-        self.container_barang_tree.column('Jenis', width=80)
         self.container_barang_tree.column('Satuan', width=60)
         self.container_barang_tree.column('Door', width=80)
         self.container_barang_tree.column('Dimensi', width=65)
@@ -3569,7 +3567,6 @@ class ContainerWindow:
                     pengirim = safe_get(barang, 'sender_name', '')
                     penerima = safe_get(barang, 'receiver_name', '')
                     nama_barang = safe_get(barang, 'nama_barang', '-')
-                    jenis_barang = safe_get(barang, 'jenis_barang', '-')
                     m3_barang = safe_get(barang, 'm3_barang', '-')
                     ton_barang = safe_get(barang, 'ton_barang', '-')
                     satuan = safe_get(barang, 'satuan', '-')
@@ -3586,7 +3583,6 @@ class ContainerWindow:
                         pengirim,
                         penerima,
                         nama_barang,
-                        jenis_barang,
                         satuan,
                         door_type,
                         dimensi,
@@ -3993,12 +3989,12 @@ class ContainerWindow:
             items_tree_container.pack(fill='both', expand=True, padx=10, pady=10)
             
             items_detail_tree = ttk.Treeview(items_tree_container,
-                                        columns=('Customer', 'Nama', 'Jenis', 'Dimensi', 'Volume', 'Weight', 'Colli', 'Harga_Unit', 'Total_Harga', 'Added'),
+                                        columns=('Customer', 'Nama',  'Dimensi', 'Volume', 'Weight', 'Colli', 'Harga_Unit', 'Total_Harga', 'Added'),
                                         show='headings', height=15)
             
             items_detail_tree.heading('Customer', text='Customer')
             items_detail_tree.heading('Nama', text='Nama Barang')
-            items_detail_tree.heading('Jenis', text='Jenis')
+            items_detail_tree.heading('Dimensi', text='Dimensi')
             items_detail_tree.heading('Dimensi', text='P×L×T (cm)')
             items_detail_tree.heading('Volume', text='Volume (m³)')
             items_detail_tree.heading('Weight', text='Berat (ton)')
@@ -4009,7 +4005,6 @@ class ContainerWindow:
             
             items_detail_tree.column('Customer', width=90)
             items_detail_tree.column('Nama', width=120)
-            items_detail_tree.column('Jenis', width=80)
             items_detail_tree.column('Dimensi', width=70)
             items_detail_tree.column('Volume', width=60)
             items_detail_tree.column('Weight', width=60)
@@ -4047,7 +4042,6 @@ class ContainerWindow:
                     items_detail_tree.insert('', tk.END, values=(
                         safe_barang_get(barang, 'nama_customer', '-'),
                         safe_barang_get(barang, 'nama_barang', '-'),
-                        safe_barang_get(barang, 'jenis_barang', '-'),
                         dimensi,
                         safe_barang_get(barang, 'm3_barang', '-'),
                         safe_barang_get(barang, 'ton_barang', '-'),

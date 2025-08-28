@@ -233,7 +233,6 @@ class SQLiteDatabase:
             pengirim TEXT NOT NULL,
             penerima TEXT NOT NULL,
             nama_barang TEXT NOT NULL,
-            jenis_barang TEXT NOT NULL,
             panjang_barang  REAL,
             lebar_barang REAL,
             tinggi_barang REAL,

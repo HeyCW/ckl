@@ -156,11 +156,6 @@ class BarangWindow:
         
         self.load_customer_combo()
         
-        # Jenis Barang
-        tk.Label(form_frame, text="Jenis Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
-        self.jenis_barang_entry = tk.Entry(form_frame, font=('Arial', 12), width=50)
-        self.jenis_barang_entry.pack(fill='x', pady=(5, 10))
-        
         # Barang name
         tk.Label(form_frame, text="Nama Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
         self.barang_entry = tk.Entry(form_frame, font=('Arial', 12), width=50)
@@ -400,7 +395,6 @@ class BarangWindow:
             text="Format Excel yang dibutuhkan:\n\n" +
                  "• Pengirim: Nama pengirim yang sudah terdaftar (WAJIB)\n" +
                  "• Penerima: Nama penerima yang sudah terdaftar (WAJIB)\n" +
-                 "• Jenis Barang: Kategori barang (opsional)\n" +
                  "• Nama Barang: Nama produk/barang (WAJIB)\n" +
                  "• P, L, T: Panjang, Lebar, Tinggi (cm)\n" +
                  "• M3: Volume (m³), Ton: Berat (ton), Colli: Jumlah kemasan\n\n" +
@@ -452,7 +446,7 @@ class BarangWindow:
         tree_container.pack(fill='both', expand=True, pady=5)
         
         # Updated columns with Pengirim, Penerima and all pricing types
-        columns = ('Pengirim', 'Penerima', 'Jenis', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 'Colli', 
+        columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 'Colli', 
                   'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD')
         
         # Create Treeview with scrollbars - using ONLY pack manager
@@ -465,7 +459,6 @@ class BarangWindow:
         headers = {
             'Pengirim': 'Pengirim',
             'Penerima': 'Penerima',
-            'Jenis': 'Jenis Barang', 
             'Nama': 'Nama Barang',
             'P': 'P(cm)',
             'L': 'L(cm)', 
@@ -491,7 +484,6 @@ class BarangWindow:
         column_widths = {
             'Pengirim': 150,
             'Penerima': 150,
-            'Jenis': 120,
             'Nama': 180,
             'P': 70,
             'L': 70,
@@ -731,7 +723,7 @@ class BarangWindow:
         tree_container.pack(fill='both', expand=True)
         
         self.tree = ttk.Treeview(tree_container,
-                            columns=('ID', 'Pengirim', 'Penerima', 'Nama', 'Jenis', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD', 'Created'),
+                            columns=('ID', 'Pengirim', 'Penerima', 'Nama',  'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD', 'Created'),
                             show='headings', height=12)
         
         # Configure columns
@@ -739,7 +731,6 @@ class BarangWindow:
         self.tree.heading('Pengirim', text='Pengirim')
         self.tree.heading('Penerima', text='Penerima')
         self.tree.heading('Nama', text='Nama Barang')
-        self.tree.heading('Jenis', text='Jenis Barang')
         self.tree.heading('Dimensi', text='P×L×T (cm)')
         self.tree.heading('Volume', text='Volume (m³)')
         self.tree.heading('Berat', text='Berat (ton)')
@@ -759,7 +750,6 @@ class BarangWindow:
         self.tree.column('Pengirim', width=150)
         self.tree.column('Penerima', width=150)
         self.tree.column('Nama', width=200)
-        self.tree.column('Jenis', width=100)
         self.tree.column('Dimensi', width=100)
         self.tree.column('Volume', width=80)
         self.tree.column('Berat', width=80)
@@ -926,7 +916,6 @@ class BarangWindow:
                     barang.get('sender_name', ''),
                     barang.get('receiver_name', ''),
                     barang.get('nama_barang', ''),
-                    barang.get('jenis_barang', ''),
                     dimensi,
                     barang.get('m3_barang', '-'),
                     barang.get('ton_barang', '-'),
@@ -982,21 +971,20 @@ class BarangWindow:
                         'pengirim': barang[1] if len(barang) > 1 else '',
                         'penerima': barang[2] if len(barang) > 2 else '',
                         'nama_barang': barang[3] if len(barang) > 3 else '',
-                        'jenis_barang': barang[4] if len(barang) > 4 else '',
-                        'dimensi': barang[5] if len(barang) > 5 else '',
-                        'volume_barang': barang[6] if len(barang) > 6 else '',
-                        'berat_barang': barang[7] if len(barang) > 7 else '',
-                        'colli_barang': barang[8] if len(barang) > 8 else '',
-                        'harga_m3_pp': barang[9] if len(barang) > 9 else '',
-                        'harga_m3_pd': barang[10] if len(barang) > 10 else '',
-                        'harga_m3_dd': barang[11] if len(barang) > 11 else '',
-                        'harga_ton_pp': barang[12] if len(barang) > 12 else '',
-                        'harga_ton_pd': barang[13] if len(barang) > 13 else '',
-                        'harga_ton_dd': barang[14] if len(barang) > 14 else '',
-                        'harga_col_pp': barang[15] if len(barang) > 15 else '',
-                        'harga_col_pd': barang[16] if len(barang) > 16 else '',
-                        'harga_col_dd': barang[17] if len(barang) > 17 else '',
-                        'created_at': barang[18] if len(barang) > 18 else ''
+                        'dimensi': barang[4] if len(barang) > 4 else '',
+                        'volume_barang': barang[5] if len(barang) > 5 else '',
+                        'berat_barang': barang[6] if len(barang) > 6 else '',
+                        'colli_barang': barang[7] if len(barang) > 7 else '',
+                        'harga_m3_pp': barang[8] if len(barang) > 8 else '',
+                        'harga_m3_pd': barang[9] if len(barang) > 9 else '',
+                        'harga_m3_dd': barang[10] if len(barang) > 10 else '',
+                        'harga_ton_pp': barang[11] if len(barang) > 11 else '',
+                        'harga_ton_pd': barang[12] if len(barang) > 12 else '',
+                        'harga_ton_dd': barang[13] if len(barang) > 13 else '',
+                        'harga_col_pp': barang[14] if len(barang) > 14 else '',
+                        'harga_col_pd': barang[15] if len(barang) > 15 else '',
+                        'harga_col_dd': barang[16] if len(barang) > 16 else '',
+                        'created_at': barang[17] if len(barang) > 17 else ''
                     }
                     # Parse dimensions if it's in "PxLxT" format
                     if selected_barang['dimensi'] and '×' in selected_barang['dimensi']:
@@ -1106,11 +1094,6 @@ class BarangWindow:
         nama_barang_entry = tk.Entry(form_frame, textvariable=nama_barang_var, font=('Arial', 11))
         nama_barang_entry.pack(fill='x', pady=(5, 10))
         
-        # Jenis Barang
-        tk.Label(form_frame, text="Jenis Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
-        jenis_barang_var = tk.StringVar(value=barang_data.get('jenis_barang', ''))
-        jenis_barang_entry = tk.Entry(form_frame, textvariable=jenis_barang_var, font=('Arial', 11))
-        jenis_barang_entry.pack(fill='x', pady=(5, 10))
 
         # Dimensions
         tk.Label(form_frame, text="Dimensi Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
@@ -1353,7 +1336,6 @@ class BarangWindow:
                 'pengirim': pengirim_id,
                 'penerima': penerima_id,
                 'nama_barang': nama_barang_var.get().strip(),
-                'jenis_barang': jenis_barang_var.get().strip(),
                 'panjang_barang': panjang_var.get().strip() or None,
                 'lebar_barang': lebar_var.get().strip() or None,
                 'tinggi_barang': tinggi_var.get().strip() or None,
@@ -1810,7 +1792,6 @@ class BarangWindow:
                 'nama_barang': ['nama barang', 'nama_barang', 'barang', 'product', 'nama', 'item'],
                 
                 # Optional fields  
-                'jenis_barang': ['jenis barang', 'jenis_barang', 'kategori', 'category', 'type'],
                 'panjang': ['p', 'panjang', 'length'],
                 'lebar': ['l', 'lebar', 'width'], 
                 'tinggi': ['t', 'tinggi', 'height'],
@@ -1922,7 +1903,6 @@ class BarangWindow:
                     return default
                 
                 # Get basic fields
-                jenis_barang = get_field_value('jenis_barang')
                 panjang = get_field_value('panjang')
                 lebar = get_field_value('lebar') 
                 tinggi = get_field_value('tinggi')
@@ -1994,7 +1974,6 @@ class BarangWindow:
                     self.preview_tree.insert('', tk.END, values=(
                         display_pengirim,           # Pengirim
                         display_penerima,           # Penerima  
-                        jenis_barang,               # Jenis
                         nama_barang,                # Nama
                         panjang,                    # P
                         lebar,                      # L
@@ -2023,7 +2002,7 @@ class BarangWindow:
             optional_fields = [f for f in found_fields if f not in required_fields]
             
             # Categorize optional fields
-            basic_fields = [f for f in optional_fields if f in ['jenis_barang', 'panjang', 'lebar', 'tinggi', 'm3', 'ton', 'colli']]
+            basic_fields = [f for f in optional_fields if f in ['panjang', 'lebar', 'tinggi', 'm3', 'ton', 'colli']]
             pricing_fields = [f for f in optional_fields if 'harga' in f]
             
             status_msg = f"✅ File berhasil dibaca: {preview_count} baris data\n\n"
@@ -2076,7 +2055,6 @@ class BarangWindow:
                     'UD. SUMBER REZEKI',
                     'PT. GLOBAL TRADING'
                 ],
-                'Jenis Barang': ['Elektronik', 'Makanan', 'Tekstil'],
                 'Nama Barang': ['TV LED 32 inch', 'Mie Instan 1 Karton', 'Kain Katun 50 Yard'],
                 'P': [50, 40, 30],
                 'L': [30, 30, 25],
@@ -2853,7 +2831,6 @@ class BarangWindow:
                 raise ValueError(f"Format {field_name} tidak valid: '{value}' - {str(e)}")
         
         return {
-            'jenis_barang': get_safe_value('jenis_barang'),
             'panjang_barang': get_safe_value('panjang', 'float'),
             'lebar_barang': get_safe_value('lebar', 'float'),
             'tinggi_barang': get_safe_value('tinggi', 'float'),
@@ -2980,7 +2957,6 @@ class BarangWindow:
             return
         
         customer_id = int(customer_text.split(' - ')[0])
-        jenis_barang = self.jenis_barang_entry.get().strip()
         nama_barang = self.barang_entry.get().strip()
         
         if not nama_barang:
@@ -3008,7 +2984,6 @@ class BarangWindow:
             barang_id = self.db.create_barang(
                 customer_id=customer_id,
                 nama_barang=nama_barang,
-                jenis_barang=jenis_barang,
                 panjang_barang=panjang,
                 lebar_barang=lebar,
                 tinggi_barang=tinggi,
@@ -3043,9 +3018,6 @@ class BarangWindow:
                 return False
             if not self.penerima_var.get():
                 messagebox.showwarning("Peringatan", "Pilih Penerima terlebih dahulu.")
-                return False
-            if not self.jenis_barang_entry.get():
-                messagebox.showwarning("Peringatan", "Jenis Barang tidak boleh kosong.")
                 return False
             if not self.barang_entry.get():
                 messagebox.showwarning("Peringatan", "Nama Barang tidak boleh kosong.")
@@ -3087,7 +3059,6 @@ class BarangWindow:
     def clear_form(self):
         """Clear form fields"""
         self.customer_var.set('')
-        self.jenis_barang_entry.delete(0, tk.END)
         self.barang_entry.delete(0, tk.END)
         self.panjang_entry.delete(0, tk.END)
         self.lebar_entry.delete(0, tk.END)
@@ -3139,7 +3110,6 @@ class BarangWindow:
                     barang['sender_name'],
                     barang['receiver_name'],
                     barang['nama_barang'],
-                    barang['jenis_barang'],
                     dimensi,
                     barang.get('m3_barang', '-'),
                     barang.get('ton_barang', '-'),
