@@ -142,8 +142,10 @@ class BarangWindow:
         
         tk.Label(pengirim_frame, text="Pilih Pengirim:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
         self.pengirim_var = tk.StringVar()
-        self.pengirim_combo = ttk.Combobox(pengirim_frame, textvariable=self.pengirim_var, font=('Arial', 11), width=47, state='readonly')
+        self.pengirim_combo = ttk.Combobox(pengirim_frame, textvariable=self.pengirim_var, font=('Arial', 11), width=47, state='normal')
         self.pengirim_combo.pack(fill='x', pady=(5, 0))
+        
+        self.pengirim_combo.bind('<KeyRelease>', self.filter_pengirim)
         
         # Penerima selection
         penerima_frame = tk.Frame(customer_frame, bg='#ecf0f1')
@@ -151,10 +153,13 @@ class BarangWindow:
         
         tk.Label(penerima_frame, text="Pilih Penerima:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
         self.penerima_var = tk.StringVar()
-        self.penerima_combo = ttk.Combobox(penerima_frame, textvariable=self.penerima_var, font=('Arial', 11), width=47, state='readonly')
+        self.penerima_combo = ttk.Combobox(penerima_frame, textvariable=self.penerima_var, font=('Arial', 11), width=47, state='normal')
         self.penerima_combo.pack(fill='x', pady=(5, 0))
         
+        self.penerima_combo.bind('<KeyRelease>', self.filter_penerima)
+        
         self.load_customer_combo()
+        self.load_pengirim_combo()
         
         # Barang name
         tk.Label(form_frame, text="Nama Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
@@ -331,6 +336,7 @@ class BarangWindow:
         
         # Focus on pengirim combo
         self.pengirim_combo.focus()
+        
     
     def create_excel_tab(self, parent):
         """Create Excel upload tab with scrollable content"""
@@ -645,9 +651,10 @@ class BarangWindow:
             textvariable=self.filter_pengirim_var, 
             font=('Arial', 10), 
             width=18,
-            state='readonly'
+            state='normal'
         )
         self.filter_pengirim_combo.pack(side='left', padx=(5, 15))
+        self.filter_pengirim_combo.bind('<KeyRelease>', self.filter_pengirim_list)
         
         # Filter by Penerima
         tk.Label(search_controls_row2, text="Penerima:", font=('Arial', 10), bg='#ffffff').pack(side='left')
@@ -658,10 +665,11 @@ class BarangWindow:
             textvariable=self.filter_penerima_var, 
             font=('Arial', 10), 
             width=18,
-            state='readonly'
+            state='normal'
         )
         self.filter_penerima_combo.pack(side='left', padx=(5, 15))
-        
+        self.filter_penerima_combo.bind('<KeyRelease>', self.filter_penerima_list)
+
         # Action buttons frame
         action_frame = tk.Frame(list_container, bg='#ecf0f1')
         action_frame.pack(fill='x', pady=(0, 10))
@@ -785,6 +793,8 @@ class BarangWindow:
         
         # Store original data for filtering
         self.original_barang_data = []
+        self.original_pengirim_data = []
+        self.original_penerima_data = []
         
         # Load existing barang
         self.load_pengirim_penerima_filter()
@@ -795,22 +805,21 @@ class BarangWindow:
     def load_pengirim_penerima_filter(self):
         """Load unique pengirim and penerima for filter dropdowns"""
         try:
-            
+            pengirim = self.db.get_all_senders()
             customers = self.db.get_all_customers()
-            pengirim_list = [c['nama_customer'] for c in customers if 'nama_customer' in c]
+            pengirim_list = [c['nama_pengirim'] for c in pengirim]
             penerima_list = [c['nama_customer'] for c in customers if 'nama_customer' in c]
 
-            
+            print("Pengirim:", pengirim_list)
+            print("Penerima:", penerima_list)
+
             # Update combobox values
-            pengirim_list = ['-- Semua Pengirim --'] + sorted(list(pengirim_list))
-            penerima_list = ['-- Semua Penerima --'] + sorted(list(penerima_list))
+            pengirim_list = sorted(list(pengirim_list))
+            penerima_list = sorted(list(penerima_list))
             
             self.filter_pengirim_combo['values'] = pengirim_list
             self.filter_penerima_combo['values'] = penerima_list
             
-            # Set default values
-            self.filter_pengirim_var.set('-- Semua Pengirim --')
-            self.filter_penerima_var.set('-- Semua Penerima --')
             
         except Exception as e:
             print(f"Error loading pengirim/penerima filter: {e}")
@@ -822,8 +831,8 @@ class BarangWindow:
     def clear_search(self):
         """Clear all search filters"""
         self.search_name_var.set('')
-        self.filter_pengirim_var.set('-- Semua Pengirim --')
-        self.filter_penerima_var.set('-- Semua Penerima --')
+        self.filter_penerima_combo.set('')
+        self.filter_pengirim_combo.set('')
         self.filter_barang()
     
     def filter_barang(self):
@@ -837,14 +846,9 @@ class BarangWindow:
         filter_pengirim = self.filter_pengirim_var.get()
         filter_penerima = self.filter_penerima_var.get()
         
-        print(f"Search name: {search_name}")
-        print(f"Filter pengirim: {filter_pengirim}")
-        print(f"Filter penerima: {filter_penerima}")
         
         # Filter data
         filtered_data = []
-        
-        print(f"Filtering data with {len(self.original_barang_data)} items")
         
         for barang in self.original_barang_data:
             show_item = True
@@ -856,7 +860,8 @@ class BarangWindow:
                 # Dictionary structure
                 nama_barang = str(barang.get('nama_barang', '')).lower()
                 pengirim_id = barang.get('pengirim', '')
-                pengirim = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '') if pengirim_id else ''
+                pengirim = self.db.get_sender_by_id(pengirim_id)["nama_pengirim"]
+                print(f"Pengirim ID: {pengirim_id}, Pengirim Name: {pengirim}")
                 penerima_id = barang.get('penerima', '')
                 penerima = self.db.get_customer_by_id(penerima_id).get('nama_customer', '') if penerima_id else '' 
             else:
@@ -879,12 +884,14 @@ class BarangWindow:
                     show_item = False
             
             # Check pengirim filter
-            if filter_pengirim and filter_pengirim != '-- Semua Pengirim --':
+            if filter_pengirim and filter_pengirim != '':
                 if str(pengirim) != filter_pengirim:
                     show_item = False
             
+            print(f"Filter penerima {filter_penerima}, current penerima {penerima}, show_item: {show_item}")
+            
             # Check penerima filter
-            if filter_penerima and filter_penerima != '-- Semua Penerima --':
+            if filter_penerima and filter_penerima != '':
                 if str(penerima) != filter_penerima:
                     show_item = False
             
@@ -1749,8 +1756,96 @@ class BarangWindow:
         customers = self.db.get_all_customers()
         customer_list = [f"{c['customer_id']} - {c['nama_customer']}" for c in customers]
         self.penerima_combo['values'] = customer_list
-        self.pengirim_combo['values'] = customer_list
+        self.original_penerima_data = customer_list
+
+    def load_pengirim_combo(self):
+        """Load senders into combobox"""
+        senders = self.db.get_all_senders()
+        sender_list = [f"{s['pengirim_id']} - {s['nama_pengirim']}" for s in senders]
+        self.pengirim_combo['values'] = sender_list
+        self.original_pengirim_data = sender_list
+
+    def filter_pengirim(self, event):
+        """Filter pengirim combobox saat user mengetik"""
+        typed = self.pengirim_var.get().lower()
         
+        if not hasattr(self, 'original_pengirim_values'):
+            # Simpan nilai asli jika belum ada
+            self.original_pengirim_values = list(self.pengirim_combo['values'])
+        
+        if typed == '':
+            # Jika kosong, tampilkan semua
+            self.pengirim_combo['values'] = self.original_pengirim_values
+        else:
+            # Filter berdasarkan yang diketik
+            filtered = [item for item in self.original_pengirim_values 
+                    if typed in item.lower()]
+            self.pengirim_combo['values'] = filtered
+        
+        # Buka dropdown untuk menampilkan hasil filter
+        # self.pengirim_combo.event_generate('<Button-1>')
+
+    def filter_pengirim_list(self, event):
+        typed = self.filter_pengirim_var.get().lower()
+        
+        if not hasattr(self, 'original_pengirim_values'):
+            # Simpan nilai asli jika belum ada
+            self.original_pengirim_values = list(self.filter_pengirim_combo['values'])
+        
+        if typed == '':
+            # Jika kosong, tampilkan semua
+            self.filter_pengirim_combo['values'] = self.original_pengirim_values
+        else:
+            # Filter berdasarkan yang diketik
+            filtered = [item for item in self.original_pengirim_values 
+                    if typed in item.lower()]
+            self.filter_pengirim_combo['values'] = filtered
+        
+        # Buka dropdown untuk menampilkan hasil filter
+        # self.pengirim_combo.event_generate('<Button-1>')
+        
+            
+    
+    def filter_penerima(self, event):
+        """Filter penerima combobox saat user mengetik"""
+        typed = self.penerima_var.get().lower()
+        
+        if not hasattr(self, 'original_penerima_values'):
+            # Simpan nilai asli jika belum ada
+            self.original_penerima_values = list(self.penerima_combo['values'])
+        
+        if typed == '':
+            # Jika kosong, tampilkan semua
+            self.penerima_combo['values'] = self.original_penerima_values
+        else:
+            # Filter berdasarkan yang diketik
+            filtered = [item for item in self.original_penerima_values 
+                    if typed in item.lower()]
+            self.penerima_combo['values'] = filtered
+        
+        # Buka dropdown untuk menampilkan hasil filter
+        # self.penerima_combo.event_generate('<Button-1>')
+
+    def filter_penerima_list(self, event):
+        """Filter penerima combobox saat user mengetik"""
+        typed = self.filter_penerima_var.get().lower()
+        
+        if not hasattr(self, 'original_penerima_values'):
+            # Simpan nilai asli jika belum ada
+            self.original_penerima_values = list(self.filter_penerima_combo['values'])
+        
+        if typed == '':
+            # Jika kosong, tampilkan semua
+            self.filter_penerima_combo['values'] = self.original_penerima_values
+        else:
+            # Filter berdasarkan yang diketik
+            filtered = [item for item in self.original_penerima_values 
+                    if typed in item.lower()]
+            self.filter_penerima_combo['values'] = filtered
+        
+        # Buka dropdown untuk menampilkan hasil filter
+        # self.penerima_combo.event_generate('<Button-1>')
+
     def browse_file(self):
         """Browse for Excel file"""
         file_types = [
@@ -1883,7 +1978,8 @@ class BarangWindow:
             
             # Get existing customers for validation
             existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
-            
+            existing_pengirim = {s['nama_pengirim'].upper(): s['pengirim_id'] for s in self.db.get_all_senders()}
+
             preview_count = 0
             pengirim_errors = set()
             penerima_errors = set()
@@ -1945,7 +2041,7 @@ class BarangWindow:
                 
                 if pengirim and penerima and nama_barang:
                     # ✅ UPDATED: Check if pengirim and penerima exist
-                    pengirim_exists = pengirim.upper() in existing_customers
+                    pengirim_exists = pengirim.upper() in existing_pengirim
                     penerima_exists = penerima.upper() in existing_customers
                     
                     if not pengirim_exists:
@@ -2359,7 +2455,7 @@ class BarangWindow:
             }
 
 
-    def validate_excel_row_enhanced(self, row, column_mapping, existing_customers, row_number):
+    def validate_excel_row_enhanced(self, row, column_mapping, existing_customers, existing_pengirim, row_number):
         """Enhanced validation for Excel row with better error handling - UPDATED"""
         errors = []
         result = {
@@ -2376,10 +2472,11 @@ class BarangWindow:
         try:
             # ✅ UPDATED: Get pengirim
             pengirim_name = str(row.get(column_mapping.get('pengirim', ''), '')).strip()
+            print(f"Validating row {row_number}: Pengirim='{pengirim_name}'")
             if not pengirim_name or pengirim_name.upper() == 'NAN':
                 errors.append("Pengirim tidak boleh kosong")
             else:
-                pengirim_id = existing_customers.get(pengirim_name.upper())
+                pengirim_id = existing_pengirim.get(pengirim_name.upper())
                 if not pengirim_id:
                     errors.append(f"Pengirim '{pengirim_name}' tidak ditemukan di database")
                 else:
@@ -2541,10 +2638,15 @@ class BarangWindow:
             try:
                 existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
                 print(f"Found {len(existing_customers)} existing customers in database")
-                
+
+                existing_pengirim = {s['nama_pengirim'].upper(): s['pengirim_id'] for s in self.db.get_all_senders()}
+
                 if not existing_customers:
                     raise ValueError("Tidak ada customer yang terdaftar dalam database. Silakan tambahkan customer terlebih dahulu.")
-                    
+                
+                if not existing_pengirim:
+                    raise ValueError("Tidak ada pengirim yang terdaftar dalam database. Silakan tambahkan pengirim terlebih dahulu.")
+                
             except Exception as e:
                 raise ValueError(f"Gagal mengambil data customer: {str(e)}")
             
@@ -2601,8 +2703,10 @@ class BarangWindow:
             for idx, (_, row) in enumerate(valid_rows.iterrows()):
                 try:
                     validation_result = self.validate_excel_row_enhanced(
-                        row, column_mapping, existing_customers, idx + 2
+                        row, column_mapping, existing_customers, existing_pengirim, idx + 2
                     )
+                    
+                    print(f"Validation result: {validation_result}")
                     
                     if validation_result['valid']:
                         valid_data_for_upload.append((idx, row, validation_result))
@@ -2712,6 +2816,7 @@ class BarangWindow:
                     
                     # Get validated data
                     pengirim_id = validation_data['pengirim_id']
+                    print("Pengirim ID:", pengirim_id)
                     penerima_id = validation_data['penerima_id']
                     nama_barang = validation_data['nama_barang']
                     

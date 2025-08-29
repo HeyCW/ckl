@@ -6,6 +6,8 @@ from src.utils.print_handler import PrintHandler
 from datetime import datetime
 import sqlite3
 
+from src.widget.paginated_tree_view import PaginatedTreeView
+
 class ContainerWindow:
     def __init__(self, parent, db, refresh_callback=None):
         self.parent = parent
@@ -222,8 +224,7 @@ class ContainerWindow:
         self.load_containers()
         
         # ADD PRINT BUTTONS HERE
-        self.add_print_buttons_to_container_tab(parent)
-        
+        self.add_print_buttons_to_container_tab(parent)  
         
     def add_print_buttons_to_container_tab(self, parent):
         """Add print buttons to container tab"""
@@ -337,6 +338,8 @@ class ContainerWindow:
                                                 textvariable=self.sender_search_var, 
                                                 width=25)
         self.sender_search_combo.pack(side='left', padx=(5, 20))
+        self.sender_search_combo.bind('<KeyRelease>', self.filter_senders)
+        self.sender_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
 
         # Receiver selection
         receiver_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -348,6 +351,8 @@ class ContainerWindow:
                                                 textvariable=self.receiver_search_var,
                                                 width=25)
         self.receiver_search_combo.pack(side='left', padx=(5, 20))
+        self.receiver_search_combo.bind('<KeyRelease>', self.filter_receivers)
+        self.receiver_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
 
         # Colli input
         colli_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -403,8 +408,10 @@ class ContainerWindow:
                                                     width=37, state="readonly")
         self.delivery_destination_combo.pack(side='left', padx=(5, 20))
         
+        self.original_pengirim_values = []
         
         self.load_customers()
+        self.load_pengirim()
         
         # Actions frame
         actions_frame = tk.Frame(selection_frame, bg='#ecf0f1')
@@ -502,7 +509,7 @@ class ContainerWindow:
         available_tree_container = tk.Frame(left_frame)
         available_tree_container.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
-        self.available_tree = ttk.Treeview(available_tree_container,
+        self.available_tree =  ttk.Treeview(available_tree_container,
                                         columns=('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat'),
                                         show='headings', height=12)
         
@@ -522,18 +529,16 @@ class ContainerWindow:
         self.available_tree.column('Volume', width=70)
         self.available_tree.column('Berat', width=70)
         
-        # Scrollbars for available tree
-        available_v_scroll = ttk.Scrollbar(available_tree_container, orient='vertical', command=self.available_tree.yview)
-        available_h_scroll = ttk.Scrollbar(available_tree_container, orient='horizontal', command=self.available_tree.xview)
-        self.available_tree.configure(yscrollcommand=available_v_scroll.set, xscrollcommand=available_h_scroll.set)
-        
-        self.available_tree.grid(row=0, column=0, sticky='nsew')
-        available_v_scroll.grid(row=0, column=1, sticky='ns')
-        available_h_scroll.grid(row=1, column=0, sticky='ew')
-        
-        available_tree_container.grid_rowconfigure(0, weight=1)
-        available_tree_container.grid_columnconfigure(0, weight=1)
-        
+        # Tambahkan baris ini untuk menampilkan treeview
+        self.available_tree.pack(fill='both', expand=True)
+
+        # Dengan scrollbar
+        v_scrollbar = ttk.Scrollbar(available_tree_container, orient='vertical', command=self.available_tree.yview)
+        self.available_tree.configure(yscrollcommand=v_scrollbar.set)
+
+        self.available_tree.pack(side='left', fill='both', expand=True)
+        v_scrollbar.pack(side='right', fill='y')
+    
         # Right side - Barang in selected container (WITH PRICING)
         right_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
         right_frame.pack(side='right', fill='both', expand=True, padx=(10, 0))
@@ -545,9 +550,12 @@ class ContainerWindow:
         container_tree_frame = tk.Frame(right_frame)
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
-        self.container_barang_tree = ttk.Treeview(container_tree_frame,
-                                                columns=('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
-                                                show='headings', height=12)
+        self.container_barang_tree = PaginatedTreeView(
+                                        container_tree_frame,
+                                        columns=('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
+                                        height=12,
+                                        items_per_page=15
+                                    )
         
         self.container_barang_tree.heading('Pengirim', text='Pengirim')
         self.container_barang_tree.heading('Penerima', text='Penerima')
@@ -575,17 +583,6 @@ class ContainerWindow:
         self.container_barang_tree.column('Total_Harga', width=85)
         self.container_barang_tree.column('Tanggal', width=65)
         
-        # Scrollbars for container barang tree
-        container_barang_v_scroll = ttk.Scrollbar(container_tree_frame, orient='vertical', command=self.container_barang_tree.yview)
-        container_barang_h_scroll = ttk.Scrollbar(container_tree_frame, orient='horizontal', command=self.container_barang_tree.xview)
-        self.container_barang_tree.configure(yscrollcommand=container_barang_v_scroll.set, xscrollcommand=container_barang_h_scroll.set)
-        
-        self.container_barang_tree.grid(row=0, column=0, sticky='nsew')
-        container_barang_v_scroll.grid(row=0, column=1, sticky='ns')
-        container_barang_h_scroll.grid(row=1, column=0, sticky='ew')
-        
-        container_tree_frame.grid_rowconfigure(0, weight=1)
-        container_tree_frame.grid_columnconfigure(0, weight=1)
         
         # Load initial data
         self.load_available_barang()
@@ -1081,23 +1078,22 @@ class ContainerWindow:
             
     def filter_senders(self, event=None):
         """Filter sender combobox based on typed text"""
-        try:
-            typed = self.sender_search_var.get().lower()
-            
-            if not typed:
-                # Reload all customers if nothing typed
-                customers = self.db.execute("SELECT customer_id, nama_customer FROM customers ORDER BY customer_id")
-                customer_list = [f"{customer[0]} - {customer[1]}" for customer in customers]
-                self.sender_search_combo['values'] = customer_list
-                return
-                
-            # Get all customer values and filter
-            all_customers = list(self.sender_search_combo['values'])
-            filtered = [customer for customer in all_customers if typed in customer.lower()]
+        typed = self.sender_search_var.get().lower()
+        
+        if not hasattr(self, 'original_pengirim_values'):
+            # Simpan nilai asli jika belum ada
+            self.original_pengirim_values = list(self.sender_search_combo['values'])
+        
+        if typed == '':
+            # Jika kosong, tampilkan semua
+            self.sender_search_combo['values'] = self.original_pengirim_values
+        else:
+            # Filter berdasarkan yang diketik
+            filtered = [item for item in self.original_pengirim_values 
+                    if typed in item.lower()]
             self.sender_search_combo['values'] = filtered
             
-        except Exception as e:
-            print(f"Error filtering senders: {e}")
+
         
     def filter_receivers(self, event=None):
         """Filter receiver combobox based on typed text"""
@@ -3173,10 +3169,19 @@ class ContainerWindow:
             # Get unique customers from barang table
             customers = self.db.get_all_customers()
             customer_list = [row['nama_customer'] for row in customers if row['nama_customer']]
-            self.sender_search_combo['values'] = customer_list
             self.receiver_search_combo['values'] = customer_list
         except Exception as e:
             print(f"Error loading customers: {e}")
+            
+    def load_pengirim(self):
+        """Load pengirim customers for search dropdown"""
+        try:
+            customers = self.db.get_all_senders()
+            customer_list = [row['nama_pengirim'] for row in customers if row['nama_pengirim']]
+            self.sender_search_combo['values'] = customer_list
+            self.original_pengirim_values = customer_list
+        except Exception as e:
+            print(f"Error loading pengirim customers: {e}")
     
     def load_customer_barang_tree(self, sender_name=None, receiver_name=None):
         """Load barang based on sender and/or receiver selection"""
@@ -3204,7 +3209,7 @@ class ContainerWindow:
                     # Get sender and receiver info from barang
                     # Adjust these field names based on your actual database schema
                     barang_sender_id = safe_get(barang, 'pengirim', '')  # or pengirim field
-                    barang_sender = self.db.get_customer_by_id(barang_sender_id)['nama_customer'] if barang_sender_id else '-'
+                    barang_sender = self.db.get_sender_by_id(barang_sender_id)['nama_pengirim'] if barang_sender_id else '-'
                     barang_receiver_id = safe_get(barang, 'penerima', '')     # receiver field name
                     barang_receiver = self.db.get_customer_by_id(barang_receiver_id)['nama_customer'] if barang_receiver_id else '-'
                     
@@ -3250,7 +3255,7 @@ class ContainerWindow:
                 except Exception as row_error:
                     print(f"Error processing barang row: {row_error}")
                     continue
-        
+            
             # Create descriptive message
             criteria = []
             if sender_name:
@@ -3300,7 +3305,7 @@ class ContainerWindow:
                     # Get values safely
                     pengirim_id = safe_get(barang, 'pengirim', '')
                     penerima_id = safe_get(barang, 'penerima', '')
-                    pengirim_name = self.db.get_customer_by_id(pengirim_id)['nama_customer'] if pengirim_id else '-'
+                    pengirim_name = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else '-'
                     penerima_name = self.db.get_customer_by_id(penerima_id)['nama_customer'] if penerima_id else '-'
                     nama_barang = safe_get(barang, 'nama_barang', '-')
                     m3_barang = safe_get(barang, 'm3_barang', '-')
@@ -3493,6 +3498,7 @@ class ContainerWindow:
                 # Refresh other lists
                 self.load_containers()  # Refresh container list to update item count
                 self.load_customers()   # Refresh customer list
+                self.load_pengirim()    # Refresh pengirim list
             
         except ValueError as ve:
             messagebox.showerror("Error", f"Format data tidak valid: {str(ve)}")
@@ -3729,6 +3735,7 @@ class ContainerWindow:
             self.load_containers()                 # Refresh container list to update item count
             self.load_container_combo()            # Refresh container combo
             self.load_customers()                  # Refresh customer list
+            self.load_pengirim()                   # Refresh pengirim list
             
             # Call refresh callback if provided
             if self.refresh_callback:
@@ -4303,6 +4310,7 @@ class ContainerWindow:
             self.load_container_combo()
             self.load_available_barang()  # Refresh available barang
             self.load_customers()  # Refresh customers
+            self.load_pengirim()   # Refresh pengirim
             
             if self.refresh_callback:
                 self.refresh_callback()

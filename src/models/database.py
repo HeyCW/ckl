@@ -134,6 +134,7 @@ class SQLiteDatabase:
             self.create_barang_table()
             self.create_detail_container_table()
             self.create_delivery_costs_table()
+            self.create_pengirim_table()
             self.create_kapals_table()
             self.insert_default_data()
             logger.info("Database tables initialized successfully")
@@ -300,6 +301,51 @@ class SQLiteDatabase:
                 FOREIGN KEY (container_id) REFERENCES containers (id)
             )
         """)
+        
+    def create_pengirim_table(self):
+        """Create pengirim table with error handling"""
+        query = '''
+        CREATE TABLE IF NOT EXISTS pengirim (
+            pengirim_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nama_pengirim TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        '''
+        try:
+            self.execute(query)
+            logger.info("Pengirim table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create pengirim table: {e}")
+            raise
+        
+    def get_all_senders(self):
+        """Get all senders from database"""
+        try:
+            return self.execute("SELECT * FROM pengirim ORDER BY pengirim_id")
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return []
+        
+    def get_sender_by_id(self, sender_id):
+        """Get sender by ID"""
+        try:
+            return self.execute_one("SELECT * FROM pengirim WHERE pengirim_id = ?", (sender_id,))
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return None
+
+    def create_sender(self, nama):
+        """Add new sender"""
+        try:
+            self.execute("""
+                INSERT INTO pengirim (nama_pengirim) VALUES (?)
+            """, (nama,))
+        except sqlite3.IntegrityError:
+            return False  # Duplicate name
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return False
 
     def get_container_delivery_total(self, container_id):
         """Mendapatkan total biaya pengantaran untuk container tertentu"""
@@ -767,13 +813,12 @@ class BarangDatabase(SQLiteDatabase):
             barang_list = self.execute('''
                 SELECT 
                     b.*,
-                    s.nama_customer AS sender_name,
-                    s.alamat_customer AS sender_address,
+                    s.nama_pengirim AS sender_name,
                     r.nama_customer AS receiver_name,
                     r.alamat_customer AS receiver_address
                 FROM barang b
                 LEFT JOIN customers r ON b.penerima = r.customer_id
-                LEFT JOIN customers s ON b.pengirim = s.customer_id
+                LEFT JOIN pengirim s ON b.pengirim = s.pengirim_id
                 ORDER BY b.barang_id ASC;
 
             ''')

@@ -6,7 +6,7 @@ from PIL import Image, ImageTk
 
 def main():
     try:
-        print("🚀 Starting application...")
+        print("🚀 Starting application...") 
         
         # Import modules
         from src.views.login_window import LoginWindow
