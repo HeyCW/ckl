@@ -443,6 +443,18 @@ class ContainerWindow:
         )
         remove_barang_btn.pack(side='left', padx=(0, 10))
         
+        edit_colli_btn = tk.Button(
+            actions_frame,
+            text="🔢 Edit Colli",
+            font=('Arial', 8, 'bold'),
+            bg='#16a085',
+            fg='white',
+            padx=10,
+            pady=5,
+            command=self.edit_barang_colli_in_container
+        )
+        edit_colli_btn.pack(side='left', padx=(0, 10))
+        
         # Edit price button
         edit_price_btn = tk.Button(
             actions_frame,
@@ -550,12 +562,12 @@ class ContainerWindow:
         container_tree_frame = tk.Frame(right_frame)
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
-        self.container_barang_tree = PaginatedTreeView(
+        self.container_barang_tree = ttk.Treeview(
                                         container_tree_frame,
                                         columns=('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
                                         height=12,
-                                        items_per_page=15
                                     )
+        self.container_barang_tree.pack(fill='both', expand=True)
         
         self.container_barang_tree.heading('Pengirim', text='Pengirim')
         self.container_barang_tree.heading('Penerima', text='Penerima')
@@ -3073,6 +3085,248 @@ class ContainerWindow:
             cursor='hand2',
             command=cancel_edit
         ).pack(side='left')
+        
+    def edit_barang_colli_in_container(self):
+        """Edit colli amount of selected barang in container"""
+        if not self.selected_container_var.get():
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            return
+        
+        selection = self.container_barang_tree.selection()
+        if not selection:
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit jumlah collinya!")
+            return
+        
+        try:
+            container_id = int(self.selected_container_var.get().split(' - ')[0])
+            
+            # Get selected barang details
+            selected_items = []
+            for item in selection:
+                values = self.container_barang_tree.item(item)['values']
+                pengirim = values[0]     # Pengirim column
+                penerima = values[1]     # Penerima column
+                nama_barang = values[2]  # Nama barang column
+                current_colli = values[8] # Colli column
+                harga_unit = values[9]   # Harga per unit
+                assigned_at = values[11] # Assigned at timestamp
+                
+                # Get barang_id from database
+                barang_data = self.db.execute("""
+                    SELECT b.barang_id FROM barang b 
+                    JOIN customers s ON b.pengirim = s.customer_id
+                    JOIN customers r ON b.penerima = r.customer_id
+                    WHERE s.nama_customer = ? AND r.nama_customer = ? AND b.nama_barang = ?
+                """, (pengirim, penerima, nama_barang))
+
+                if barang_data:
+                    barang_id = barang_data[0][0]
+                    selected_items.append({
+                        'id': barang_id,
+                        'name': nama_barang,
+                        'pengirim': pengirim,
+                        'penerima': penerima,
+                        'current_colli': current_colli,
+                        'harga_unit': harga_unit,
+                        'assigned_at': assigned_at
+                    })
+            
+            if not selected_items:
+                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!")
+                return
+            
+            # Show edit colli dialog
+            self.show_edit_colli_dialog(selected_items, container_id)
+            
+        except Exception as e:
+            print(f"Error in edit_barang_colli_in_container: {e}")
+            messagebox.showerror("Error", f"Gagal mengedit colli: {str(e)}")
+
+    def show_edit_colli_dialog(self, selected_items, container_id):
+        """Show dialog to edit colli amounts"""
+        edit_window = tk.Toplevel(self.window)
+        edit_window.title("🔢 Edit Jumlah Colli")
+        edit_window.geometry("600x500")
+        edit_window.configure(bg='#ecf0f1')
+        edit_window.transient(self.window)
+        edit_window.grab_set()
+        
+        # Center window
+        edit_window.update_idletasks()
+        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - 300
+        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - 250
+        edit_window.geometry(f"600x500+{x}+{y}")
+        
+        # Header
+        header = tk.Label(
+            edit_window,
+            text="🔢 EDIT JUMLAH COLLI",
+            font=('Arial', 16, 'bold'),
+            bg='#16a085',
+            fg='white',
+            pady=15
+        )
+        header.pack(fill='x')
+        
+        # Info frame
+        info_frame = tk.Frame(edit_window, bg='#ecf0f1')
+        info_frame.pack(fill='x', padx=20, pady=10)
+        
+        tk.Label(info_frame, 
+                text=f"📝 Mengedit colli untuk {len(selected_items)} barang | 💡 Harga total akan dihitung ulang",
+                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50').pack()
+        
+        # Main frame with scrollbar for multiple items
+        main_frame = tk.Frame(edit_window, bg='#ffffff', relief='solid', bd=1)
+        main_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Create canvas for scrolling
+        canvas = tk.Canvas(main_frame, bg='#ffffff')
+        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='#ffffff')
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Store colli entries
+        colli_entries = {}
+        
+        # Create form for each item
+        for i, item in enumerate(selected_items):
+            item_frame = tk.LabelFrame(scrollable_frame, 
+                                    text=f"Barang {i+1}: {item['name'][:30]}...",
+                                    font=('Arial', 10, 'bold'), bg='#ffffff', fg='#2c3e50')
+            item_frame.pack(fill='x', padx=15, pady=10)
+            
+            # Item details
+            details_frame = tk.Frame(item_frame, bg='#ffffff')
+            details_frame.pack(fill='x', padx=10, pady=5)
+            
+            tk.Label(details_frame, text=f"Pengirim: {item['pengirim']}", 
+                    font=('Arial', 9), bg='#ffffff').pack(anchor='w')
+            tk.Label(details_frame, text=f"Penerima: {item['penerima']}", 
+                    font=('Arial', 9), bg='#ffffff').pack(anchor='w')
+            
+            # Colli input
+            colli_frame = tk.Frame(item_frame, bg='#ffffff')
+            colli_frame.pack(fill='x', padx=10, pady=10)
+            
+            tk.Label(colli_frame, text="Jumlah Colli:", 
+                    font=('Arial', 10, 'bold'), bg='#ffffff').pack(side='left')
+            
+            current_colli_label = tk.Label(colli_frame, 
+                                        text=f"(Saat ini: {item['current_colli']})", 
+                                        font=('Arial', 9), bg='#ffffff', fg='#7f8c8d')
+            current_colli_label.pack(side='left', padx=(5, 10))
+            
+            colli_var = tk.StringVar(value=str(item['current_colli']))
+            colli_entry = tk.Entry(colli_frame, textvariable=colli_var, 
+                                font=('Arial', 10), width=10)
+            colli_entry.pack(side='left', padx=5)
+            
+            colli_entries[item['id']] = {
+                'var': colli_var,
+                'entry': colli_entry,
+                'item': item
+            }
+        
+        # Action buttons
+        btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
+        btn_frame.pack(fill='x', padx=20, pady=15)
+        
+        def save_colli_changes():
+            try:
+                success_count = 0
+                error_count = 0
+                changes_made = []
+                
+                for barang_id, colli_data in colli_entries.items():
+                    try:
+                        new_colli = int(colli_data['var'].get())
+                        old_colli = int(colli_data['item']['current_colli'])
+                        
+                        if new_colli <= 0:
+                            messagebox.showwarning("Peringatan", 
+                                                f"Colli untuk '{colli_data['item']['name']}' harus lebih dari 0!")
+                            continue
+                        
+                        if new_colli != old_colli:
+                            # Calculate new total price
+                            harga_unit = float(str(colli_data['item']['harga_unit']).replace(',', ''))
+                            new_total = harga_unit * new_colli
+                            
+                            # Update database
+                            self.db.execute("""
+                                UPDATE detail_container 
+                                SET colli_amount = ?, total_harga = ?
+                                WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
+                            """, (new_colli, new_total, barang_id, container_id, 
+                                colli_data['item']['assigned_at']))
+                            
+                            changes_made.append({
+                                'name': colli_data['item']['name'],
+                                'old_colli': old_colli,
+                                'new_colli': new_colli,
+                                'new_total': new_total
+                            })
+                            success_count += 1
+                            
+                    except ValueError:
+                        error_count += 1
+                        messagebox.showwarning("Peringatan", 
+                                            f"Format colli tidak valid untuk '{colli_data['item']['name']}'!")
+                    except Exception as e:
+                        error_count += 1
+                        print(f"Error updating colli for barang {barang_id}: {e}")
+                
+                # Show results
+                if success_count > 0:
+                    result_msg = f"✅ Berhasil mengupdate {success_count} barang!\n\n"
+                    result_msg += "Detail perubahan:\n"
+                    for change in changes_made[:5]:  # Show max 5 changes
+                        result_msg += f"• {change['name'][:25]}...\n"
+                        result_msg += f"  Colli: {change['old_colli']} → {change['new_colli']}\n"
+                        result_msg += f"  Total baru: Rp {change['new_total']:,.0f}\n"
+                    
+                    if len(changes_made) > 5:
+                        result_msg += f"... dan {len(changes_made) - 5} perubahan lainnya\n"
+                    
+                    messagebox.showinfo("Sukses", result_msg)
+                    
+                    # Refresh displays
+                    self.load_container_barang(container_id)
+                    edit_window.destroy()
+                else:
+                    messagebox.showinfo("Info", "Tidak ada perubahan colli yang disimpan.")
+                    
+                if error_count > 0:
+                    messagebox.showwarning("Peringatan", f"{error_count} barang gagal diupdate.")
+                    
+            except Exception as e:
+                print(f"Error in save_colli_changes: {e}")
+                messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e)}")
+        
+        tk.Button(btn_frame, text="💾 Simpan Perubahan", 
+                font=('Arial', 12, 'bold'), bg='#27ae60', fg='white',
+                padx=25, pady=10, command=save_colli_changes).pack(side='left', padx=(0, 10))
+        
+        tk.Button(btn_frame, text="❌ Batal", 
+                font=('Arial', 12, 'bold'), bg='#e74c3c', fg='white',
+                padx=25, pady=10, command=edit_window.destroy).pack(side='left')
+        
+        # Focus on first entry
+        if colli_entries:
+            first_entry = list(colli_entries.values())[0]['entry']
+            first_entry.focus_set()
+            first_entry.select_range(0, tk.END)
     
     def edit_barang_price_in_container(self):
         """Edit price of selected barang in container"""
