@@ -239,7 +239,6 @@ class SQLiteDatabase:
             tinggi_barang REAL,
             m3_barang REAL,
             ton_barang REAL,
-            col_barang  INTEGER,
             m3_pp REAL,
             m3_pd REAL,
             m3_dd REAL,
@@ -681,7 +680,7 @@ class BarangDatabase(SQLiteDatabase):
     """Extended database class with barang-specific methods"""
     
     def create_barang(self, pengirim, penerima, nama_barang,
-                 panjang_barang=None, lebar_barang=None, tinggi_barang=None, m3_barang=None, ton_barang=None, col_barang=None,
+                 panjang_barang=None, lebar_barang=None, tinggi_barang=None, m3_barang=None, ton_barang=None, 
                  m3_pp=None, m3_pd=None, m3_dd=None,
                  ton_pp=None, ton_pd=None, ton_dd=None,
                  col_pp=None, col_pd=None, col_dd=None):
@@ -692,11 +691,11 @@ class BarangDatabase(SQLiteDatabase):
         try:
             barang_id = self.execute_insert('''
                 INSERT INTO barang (pengirim, penerima, nama_barang, 
-                                panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, col_barang,
+                                panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang,
                                 m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd,
                                 col_pp, col_pd, col_dd)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (pengirim, penerima, nama_barang, panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, col_barang,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (pengirim, penerima, nama_barang, panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang,
                 m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd, col_pp, col_pd, col_dd))
         
             logger.info(f"Barang created successfully: {nama_barang}")
@@ -732,14 +731,14 @@ class BarangDatabase(SQLiteDatabase):
                 cursor.execute('''
                     UPDATE barang
                     SET pengirim = ?, penerima = ?, nama_barang = ?,
-                        panjang_barang = ?, lebar_barang = ?, tinggi_barang = ?, m3_barang = ?, ton_barang = ?, col_barang = ?,
+                        panjang_barang = ?, lebar_barang = ?, tinggi_barang = ?, m3_barang = ?, ton_barang = ?, 
                         m3_pp = ?, m3_pd = ?, m3_dd = ?, ton_pp = ?, ton_pd = ?, ton_dd = ?,
                         col_pp = ?, col_pd = ?, col_dd = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE barang_id = ?
                 ''', (
                     barang_data.get('pengirim'), barang_data.get('penerima'),
                     barang_data.get('panjang_barang'), barang_data.get('lebar_barang'), barang_data.get('tinggi_barang'),
-                    barang_data.get('m3_barang'), barang_data.get('ton_barang'), barang_data.get('col_barang'),
+                    barang_data.get('m3_barang'), barang_data.get('ton_barang'),
                     barang_data.get('m3_pp'), barang_data.get('m3_pd'), barang_data.get('m3_dd'),
                     barang_data.get('ton_pp'), barang_data.get('ton_pd'), barang_data.get('ton_dd'),
                     barang_data.get('col_pp'), barang_data.get('col_pd'), barang_data.get('col_dd'),
