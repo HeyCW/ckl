@@ -2,13 +2,16 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 import os
+import traceback
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.page import PageMargins
+from src.widget.pdf_packing_list_generator import PDFPackingListGenerator
 
 class PrintHandler:
     def __init__(self, db):
+        self.pdf_generator = PDFPackingListGenerator(db)
         self.db = db
    
     def print_container_invoice(self, container_id):
@@ -993,3 +996,201 @@ class PrintHandler:
         
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat Excel packing list: {str(e)}")
+            
+    def print_customer_packing_list_pdf(self, container_id, filter_criteria=None):
+        """Generate PDF packing list with signature support"""
+        print(f"[DEBUG] PrintHandler.print_customer_packing_list_pdf called")
+        print(f"[DEBUG] container_id: {container_id}, filter_criteria: {filter_criteria}")
+        
+        self.pdf_generator.generate_pdf_packing_list_with_signature(container_id, filter_criteria)
+    
+      
+            
+    def show_sender_receiver_selection_dialog_pdf(self, container_id):
+        """Enhanced dialog for selecting sender-receiver combinations - inline implementation"""
+        print(f"[DEBUG] show_sender_receiver_selection_dialog_pdf called")
+        
+        try:
+            # Get all sender-receiver combinations in the container
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+            
+            if not container_barang:
+                messagebox.showwarning("Peringatan", "Container kosong!")
+                return
+            
+            # Get unique sender-receiver combinations
+            combinations = set()
+            for barang in container_barang:
+                if hasattr(barang, 'keys'):
+                    sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else '-'
+                    receiver = barang['receiver_name'] if 'receiver_name' in barang.keys() and barang['receiver_name'] else '-'
+                else:
+                    sender = barang.get('sender_name', '-')
+                    receiver = barang.get('receiver_name', '-')
+                combinations.add((sender, receiver))
+            
+            combinations = sorted(list(combinations))
+            print(f"[DEBUG] Found {len(combinations)} combinations")
+            
+            if not combinations:
+                messagebox.showwarning("Peringatan", "Tidak ada data pengirim-penerima!")
+                return
+            
+            # If only one combination, use it directly
+            if len(combinations) == 1:
+                sender, receiver = combinations[0]
+                filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
+                self.print_customer_packing_list_pdf(container_id, filter_criteria)
+                return
+            
+            # Create selection dialog directly in method
+            try:
+                dialog = tk.Toplevel()
+                dialog.title("Pilih Kombinasi PDF")
+                dialog.geometry("600x500")
+                dialog.resizable(False, False)
+                dialog.grab_set()
+                dialog.transient()
+                
+                # Center dialog
+                dialog.geometry("+%d+%d" % (dialog.winfo_screenwidth()//2 - 300, 
+                                            dialog.winfo_screenheight()//2 - 250))
+                
+                # Variables for dialog
+                selected_combinations = []
+                dialog_result = {"cancelled": True}
+                
+                # Main frame
+                main_frame = ttk.Frame(dialog)
+                main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+                
+                # Title
+                title_label = ttk.Label(main_frame, 
+                                        text=f"Ditemukan {len(combinations)} kombinasi pengirim-penerima:",
+                                        font=('Arial', 12, 'bold'))
+                title_label.pack(pady=(0, 15))
+                
+                # Instructions
+                instruction_label = ttk.Label(main_frame,
+                                            text="Pilih kombinasi yang ingin dibuat PDF-nya:",
+                                            font=('Arial', 10))
+                instruction_label.pack(pady=(0, 10))
+                
+                # Scrollable frame for checkboxes
+                scroll_frame = ttk.Frame(main_frame)
+                scroll_frame.pack(fill='both', expand=True, pady=(0, 15))
+                
+                canvas = tk.Canvas(scroll_frame, height=250)
+                scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+                scrollable_frame = ttk.Frame(canvas)
+                
+                scrollable_frame.bind(
+                    "<Configure>",
+                    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+                )
+                
+                canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+                canvas.configure(yscrollcommand=scrollbar.set)
+                
+                canvas.pack(side="left", fill="both", expand=True)
+                scrollbar.pack(side="right", fill="y")
+                
+                # Checkboxes for each combination
+                checkbox_vars = []
+                for i, (sender, receiver) in enumerate(combinations):
+                    var = tk.BooleanVar()
+                    checkbox_vars.append(var)
+                    
+                    # Create checkbox with formatted text
+                    cb_text = f"{sender} → {receiver}"
+                    checkbox = ttk.Checkbutton(scrollable_frame, 
+                                                text=cb_text,
+                                                variable=var)
+                    checkbox.pack(anchor='w', pady=3, padx=15)
+                
+                # Select/Deselect All buttons
+                select_frame = ttk.Frame(main_frame)
+                select_frame.pack(fill='x', pady=(0, 15))
+                
+                def select_all():
+                    for var in checkbox_vars:
+                        var.set(True)
+                
+                def deselect_all():
+                    for var in checkbox_vars:
+                        var.set(False)
+                
+                ttk.Button(select_frame, text="Pilih Semua", 
+                            command=select_all).pack(side='left', padx=(0, 10))
+                ttk.Button(select_frame, text="Hapus Semua", 
+                            command=deselect_all).pack(side='left')
+                
+                # Info label
+                info_label = ttk.Label(main_frame,
+                                        text="Tip: Pilih beberapa kombinasi untuk membuat PDF terpisah untuk masing-masing",
+                                        font=('Arial', 8),
+                                        foreground='blue')
+                info_label.pack(pady=(10, 0))
+                
+                # Button frame
+                button_frame = ttk.Frame(main_frame)
+                button_frame.pack(fill='x', pady=(20, 0))
+                
+                def on_create_pdf():
+                    # Validate selection
+                    selected_count = sum(var.get() for var in checkbox_vars)
+                    if selected_count == 0:
+                        messagebox.showwarning("Peringatan", "Pilih minimal satu kombinasi!")
+                        return
+                    
+                    # Get selected combinations
+                    selected_combinations.clear()
+                    for i, var in enumerate(checkbox_vars):
+                        if var.get():
+                            selected_combinations.append(combinations[i])
+                    
+                    dialog_result["cancelled"] = False
+                    dialog.destroy()
+                
+                def on_cancel():
+                    dialog_result["cancelled"] = True
+                    dialog.destroy()
+                
+                ttk.Button(button_frame, text="Buat PDF Terpilih", 
+                            command=on_create_pdf).pack(side='left', padx=(0, 10))
+                ttk.Button(button_frame, text="Batal", 
+                            command=on_cancel).pack(side='right')
+                
+                # Bind keyboard shortcuts
+                dialog.bind("<Return>", lambda e: on_create_pdf())
+                dialog.bind("<Escape>", lambda e: on_cancel())
+                
+                print("[DEBUG] Enhanced dialog created, waiting for user input...")
+                
+                # Wait for dialog to close
+                dialog.wait_window()
+                
+                # Process selection
+                if not dialog_result["cancelled"] and selected_combinations:
+                    print(f"[DEBUG] User selected {len(selected_combinations)} combinations")
+                    
+                    # Create PDF for each selected combination
+                    for sender, receiver in selected_combinations:
+                        filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
+                        print(f"[DEBUG] Creating PDF for: {sender} -> {receiver}")
+                        self.print_customer_packing_list_pdf(container_id, filter_criteria)
+                    
+                    # Show summary
+                    messagebox.showinfo("Selesai", 
+                                        f"Berhasil membuat {len(selected_combinations)} file PDF!")
+                else:
+                    print("[DEBUG] User cancelled or no selection made")
+                    
+            except Exception as dialog_error:
+                print(f"[ERROR] Enhanced dialog error: {dialog_error}")
+                print(f"[ERROR] Traceback: {traceback.format_exc()}")
+                
+        except Exception as e:
+            print(f"[ERROR] Error in combination selection: {e}")
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            messagebox.showerror("Error", f"Error: {str(e)}")            

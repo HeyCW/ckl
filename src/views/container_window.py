@@ -293,7 +293,7 @@ class ContainerWindow:
         container_name = item['values'][3]  # Container column
         
         # Show customer selection dialog
-        self.print_handler.show_sender_receiver_selection_dialog(container_id)
+        self.print_handler.show_sender_receiver_selection_dialog_pdf(container_id)
     
     def create_container_barang_tab(self, parent):
         """Create container-barang management tab with pricing and sender/receiver selection"""
