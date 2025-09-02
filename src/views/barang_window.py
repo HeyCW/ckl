@@ -7,6 +7,8 @@ from src.models.database import AppDatabase
 import re
 from PIL import Image, ImageTk
 
+from src.widget.paginated_tree_view import PaginatedTreeView
+
 class BarangWindow:
     def __init__(self, parent, db, refresh_callback=None):
         self.parent = parent
@@ -627,7 +629,7 @@ class BarangWindow:
             fg='white',
             padx=10,
             pady=2,
-            command=self.clear_search
+            command=self.clear_barang_filter
         )
         clear_search_btn.pack(side='right', padx=5)
         
@@ -723,9 +725,18 @@ class BarangWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        self.tree = ttk.Treeview(tree_container,
-                            columns=('ID', 'Pengirim', 'Penerima', 'Nama',  'Dimensi', 'Volume', 'Berat', 'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD', 'Created'),
-                            show='headings', height=12)
+        columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat', 
+               'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 
+               'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 
+               'Harga/Col_DD', 'Created')
+        
+        self.tree = PaginatedTreeView(
+            parent=tree_container,
+            columns=columns,
+            show='headings',
+            height=12,
+            items_per_page=100  
+        )
         
         # Configure columns
         self.tree.heading('ID', text='ID')
@@ -764,23 +775,13 @@ class BarangWindow:
         self.tree.column('Harga/Col_DD', width=100)
         self.tree.column('Created', width=120)
         
-        # Scrollbars
-        v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical', command=self.tree.yview)
-        h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal', command=self.tree.xview)
-        self.tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
-        
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        v_scrollbar.grid(row=0, column=1, sticky='ns')
-        h_scrollbar.grid(row=1, column=0, sticky='ew')
-        
-        tree_container.grid_rowconfigure(0, weight=1)
-        tree_container.grid_columnconfigure(0, weight=1)
-        
         # Bind double-click to edit
         self.tree.bind('<Double-1>', lambda e: self.update_barang())
         
         # Bind selection change to update info
         self.tree.bind('<<TreeviewSelect>>', self.on_tree_select)
+        
+        self.tree.pack(fill='both', expand=True)
         
         # Store original data for filtering
         self.original_barang_data = []
@@ -813,128 +814,184 @@ class BarangWindow:
         """Handle search input changes"""
         self.filter_barang()
     
-    def clear_search(self):
-        """Clear all search filters"""
-        self.search_name_var.set('')
-        self.filter_penerima_combo.set('')
-        self.filter_pengirim_combo.set('')
-        self.filter_barang()
+    def clear_barang_filter(self):
+        """Clear semua filter dan reload semua data barang"""
+        try:
+            # Clear filter inputs (sesuaikan dengan nama field Anda)
+            if hasattr(self, 'search_nama'):
+                self.search_nama.delete(0, tk.END)
+            if hasattr(self, 'search_pengirim'):
+                if hasattr(self.search_pengirim, 'set'):  # Combobox
+                    self.search_pengirim.set('')
+                else:  # Entry
+                    self.search_pengirim.delete(0, tk.END)
+            if hasattr(self, 'search_penerima'):
+                if hasattr(self.search_penerima, 'set'):  # Combobox
+                    self.search_penerima.set('')
+                else:  # Entry
+                    self.search_penerima.delete(0, tk.END)
+            
+            # Reload semua data
+            self.load_barang()
+            
+        except Exception as e:
+            print(f"Error clearing filter: {str(e)}")
     
     def filter_barang(self):
-        """Filter barang based on search criteria"""
-        # Clear current display
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        # Get search criteria
-        search_name = self.search_name_var.get().strip()
-        filter_pengirim = self.filter_pengirim_var.get()
-        filter_penerima = self.filter_penerima_var.get()
-        
-        
-        # Filter data
-        filtered_data = []
-        
-        for barang in self.original_barang_data:
-            show_item = True
+        """Filter barang based on search criteria for PaginatedTreeView"""
+        try:
+            if not hasattr(self, 'original_barang_data') or not self.original_barang_data:
+                self.load_barang()  # Load data if not available
+                return
+            
+            # Get search criteria
+            search_name = self.search_name_var.get().strip()
+            filter_pengirim = self.filter_pengirim_var.get()
+            filter_penerima = self.filter_penerima_var.get()
+            
+            print(f"Filtering with: name='{search_name}', pengirim='{filter_pengirim}', penerima='{filter_penerima}'")
+            
+            # Filter data
+            filtered_data = []
+            
+            for barang in self.original_barang_data:
+                show_item = True
+                
+                print(f"Processing item: {barang.get('nama_barang', 'Unknown')}")
 
-            print(f"Filtering item: {barang}")
-
-            # Determine data structure and extract values accordingly
-            if isinstance(barang, dict):
-                # Dictionary structure
-                nama_barang = str(barang.get('nama_barang', '')).lower()
-                pengirim_id = barang.get('pengirim', '')
-                pengirim = self.db.get_customer_by_id(pengirim_id)["nama_customer"]
-                print(f"Pengirim ID: {pengirim_id}, Pengirim Name: {pengirim}")
-                penerima_id = barang.get('penerima', '')
-                penerima = self.db.get_customer_by_id(penerima_id).get('nama_customer', '') if penerima_id else '' 
-            else:
-                # List/tuple structure - adjust indices based on your column order
-                nama_barang = str(barang[3]).lower() if len(barang) > 3 else ''  # Nama Barang column
-                pengirim = str(barang[1]) if len(barang) > 1 else ''  # Pengirim column
-                penerima = str(barang[2]) if len(barang) > 2 else ''  # Penerima column
-            
-            # Check name filter with flexible matching
-            if search_name:
-                search_terms = search_name.lower().split()
-                match_found = False
+                # Extract values for filtering (assuming dict structure based on your code)
+                if isinstance(barang, dict):
+                    # Dictionary structure
+                    nama_barang = str(barang.get('nama_barang', '')).lower()
+                    
+                    # Get pengirim name
+                    pengirim_id = barang.get('pengirim', '')
+                    try:
+                        pengirim_data = self.db.get_customer_by_id(pengirim_id) if pengirim_id else {}
+                        pengirim = pengirim_data.get('nama_customer', '') if pengirim_data else ''
+                    except Exception as e:
+                        print(f"Error getting pengirim data: {e}")
+                        pengirim = ''
+                    
+                    # Get penerima name
+                    penerima_id = barang.get('penerima', '')
+                    try:
+                        penerima_data = self.db.get_customer_by_id(penerima_id) if penerima_id else {}
+                        penerima = penerima_data.get('nama_customer', '') if penerima_data else ''
+                    except Exception as e:
+                        print(f"Error getting penerima data: {e}")
+                        penerima = ''
+                    
+                    print(f"Pengirim ID: {pengirim_id}, Name: {pengirim}")
+                    print(f"Penerima ID: {penerima_id}, Name: {penerima}")
+                    
+                else:
+                    # List/tuple structure - adjust indices based on your column order
+                    nama_barang = str(barang[3]).lower() if len(barang) > 3 else ''
+                    pengirim = str(barang[1]) if len(barang) > 1 else ''
+                    penerima = str(barang[2]) if len(barang) > 2 else ''
                 
-                for term in search_terms:
-                    if term in nama_barang:
-                        match_found = True
-                        break
+                # Check name filter with flexible matching
+                if search_name:
+                    search_terms = search_name.lower().split()
+                    match_found = False
+                    
+                    for term in search_terms:
+                        if term in nama_barang:
+                            match_found = True
+                            break
+                    
+                    if not match_found:
+                        show_item = False
+                        print(f"Name filter failed for: {nama_barang}")
                 
-                if not match_found:
-                    show_item = False
-            
-            # Check pengirim filter
-            if filter_pengirim and filter_pengirim != '':
-                print(f"Pengirim: {pengirim} dan filter pengirim {filter_pengirim}")
-                if filter_pengirim.lower() not in str(pengirim).lower():
-                    show_item = False
-            
-            print(f"Filter penerima {filter_penerima}, current penerima {penerima}, show_item: {show_item}")
-            
-            # Check penerima filter
-            if filter_penerima and filter_penerima != '':
-                if filter_penerima.lower() not in str(penerima).lower():
-                    show_item = False
-            
-            if show_item:
-                filtered_data.append(barang)
-        
-        # Display filtered data
-        for barang in filtered_data:
-            if isinstance(barang, dict):
-                # Dictionary structure - format for display
-                dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
+                # Check pengirim filter
+                if filter_pengirim and filter_pengirim.strip() != '':
+                    if filter_pengirim.lower() not in str(pengirim).lower():
+                        show_item = False
+                        print(f"Pengirim filter failed: {pengirim} vs {filter_pengirim}")
                 
-                # Format currency
-                harga_m3_pp = f"Rp {barang.get('m3_pp', 0):,.0f}" if barang.get('m3_pp') else '-'
-                harga_m3_pd = f"Rp {barang.get('m3_pd', 0):,.0f}" if barang.get('m3_pd') else '-'
-                harga_m3_dd = f"Rp {barang.get('m3_dd', 0):,.0f}" if barang.get('m3_dd') else '-'
-                harga_ton_pp = f"Rp {barang.get('ton_pp', 0):,.0f}" if barang.get('ton_pp') else '-'
-                harga_ton_pd = f"Rp {barang.get('ton_pd', 0):,.0f}" if barang.get('ton_pd') else '-'
-                harga_ton_dd = f"Rp {barang.get('ton_dd', 0):,.0f}" if barang.get('ton_dd') else '-'
-                harga_col_pp = f"Rp {barang.get('col_pp', 0):,.0f}" if barang.get('col_pp') else '-'
-                harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') else '-'
-                harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') else '-'
+                # Check penerima filter
+                if filter_penerima and filter_penerima.strip() != '':
+                    if filter_penerima.lower() not in str(penerima).lower():
+                        show_item = False
+                        print(f"Penerima filter failed: {penerima} vs {filter_penerima}")
                 
-                # Format date
-                created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
-                
-                self.tree.insert('', 'end', values=(
-                    barang.get('barang_id', ''),
-                    barang.get('sender_name', ''),
-                    barang.get('receiver_name', ''),
-                    barang.get('nama_barang', ''),
-                    dimensi,
-                    barang.get('m3_barang', '-'),
-                    barang.get('ton_barang', '-'),
-                    harga_m3_pp,
-                    harga_m3_pd,
-                    harga_m3_dd,
-                    harga_ton_pp,
-                    harga_ton_pd,
-                    harga_ton_dd,
-                    harga_col_pp,
-                    harga_col_pd,
-                    harga_col_dd,
-                    created_date
-                ))
-            else:
-                # List/tuple structure - display as is
-                self.tree.insert('', 'end', values=barang)
-        
-        # Update info label
-        total_count = len(self.original_barang_data)
-        filtered_count = len(filtered_data)
-        if total_count != filtered_count:
-            self.info_label.config(text=f"📊 Menampilkan {filtered_count} dari {total_count} barang")
-        else:
-            self.info_label.config(text="💡 Pilih barang dari tabel untuk edit/hapus")
+                if show_item:
+                    filtered_data.append(barang)
             
+            print(f"Filtered {len(filtered_data)} items from {len(self.original_barang_data)} total")
+            
+            # Format filtered data for PaginatedTreeView
+            formatted_data = []
+            
+            for barang in filtered_data:
+                if isinstance(barang, dict):
+                    # Dictionary structure - format for display
+                    dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
+                    
+                    # Format currency
+                    harga_m3_pp = f"Rp {barang.get('m3_pp', 0):,.0f}" if barang.get('m3_pp') else '-'
+                    harga_m3_pd = f"Rp {barang.get('m3_pd', 0):,.0f}" if barang.get('m3_pd') else '-'
+                    harga_m3_dd = f"Rp {barang.get('m3_dd', 0):,.0f}" if barang.get('m3_dd') else '-'
+                    harga_ton_pp = f"Rp {barang.get('ton_pp', 0):,.0f}" if barang.get('ton_pp') else '-'
+                    harga_ton_pd = f"Rp {barang.get('ton_pd', 0):,.0f}" if barang.get('ton_pd') else '-'
+                    harga_ton_dd = f"Rp {barang.get('ton_dd', 0):,.0f}" if barang.get('ton_dd') else '-'
+                    harga_col_pp = f"Rp {barang.get('col_pp', 0):,.0f}" if barang.get('col_pp') else '-'
+                    harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') else '-'
+                    harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') else '-'
+                    
+                    # Format date
+                    created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
+                    
+                    # Create row tuple
+                    row_data = (
+                        barang.get('barang_id', ''),
+                        barang.get('sender_name', ''),
+                        barang.get('receiver_name', ''),
+                        barang.get('nama_barang', ''),
+                        dimensi,
+                        barang.get('m3_barang', '-'),
+                        barang.get('ton_barang', '-'),
+                        barang.get('col_barang', '-'),  # Tambahkan col_barang jika ada
+                        harga_m3_pp,
+                        harga_m3_pd,
+                        harga_m3_dd,
+                        harga_ton_pp,
+                        harga_ton_pd,
+                        harga_ton_dd,
+                        harga_col_pp,
+                        harga_col_pd,
+                        harga_col_dd,
+                        created_date
+                    )
+                    
+                    formatted_data.append(row_data)
+                else:
+                    # List/tuple structure - add as is
+                    formatted_data.append(barang)
+            
+            # Set filtered data to PaginatedTreeView
+            self.tree.set_data(formatted_data)
+            
+            # Update info label
+            total_count = len(self.original_barang_data)
+            filtered_count = len(filtered_data)
+            
+            if hasattr(self, 'info_label'):
+                if total_count != filtered_count:
+                    self.info_label.config(text=f"Menampilkan {filtered_count} dari {total_count} barang")
+                else:
+                    self.info_label.config(text="Pilih barang dari tabel untuk edit/hapus")
+            
+            print(f"Filter completed successfully: {filtered_count} items displayed")
+            
+        except Exception as e:
+            print(f"Error in filter_barang: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Gagal menerapkan filter: {str(e)}")
+                
     def update_barang(self):
         """Update selected barang"""
         selection = self.tree.selection()
@@ -3146,18 +3203,17 @@ class BarangWindow:
         self.customer_combo.focus()
     
     def load_barang(self):
-        """Load barang into treeview"""
+        """Load barang into PaginatedTreeView"""
         try:
-            print("🔄 Loading barang from database...")
-            
-            # Clear existing items
-            for item in self.tree.get_children():
-                self.tree.delete(item)
+            print("Loading barang from database...")
             
             # Load barang from database
             barang_list = self.db.get_all_barang()
             self.original_barang_data = barang_list  # Store original data for filtering
-            print(f"📊 Found {len(barang_list)} barang in database")
+            print(f"Found {len(barang_list)} barang in database")
+            
+            # Format data untuk PaginatedTreeView
+            formatted_data = []
             
             for barang in barang_list:
                 # Format dimensions
@@ -3179,7 +3235,8 @@ class BarangWindow:
                 # Format date
                 created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
                 
-                self.tree.insert('', tk.END, values=(
+                # Buat tuple data untuk row ini
+                row_data = (
                     barang['barang_id'],
                     barang['sender_name'],
                     barang['receiver_name'],
@@ -3198,16 +3255,21 @@ class BarangWindow:
                     harga_col_pd,
                     harga_col_dd,
                     created_date
-                ))
+                )
+                
+                formatted_data.append(row_data)
             
-            print("✅ Barang list loaded successfully")
+            # Set data ke PaginatedTreeView
+            self.tree.set_data(formatted_data)
+            
+            print("Barang list loaded successfully")
             
         except Exception as e:
-            print(f"💥 Error loading barang: {str(e)}")
+            print(f"Error loading barang: {str(e)}")
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal memuat daftar barang: {str(e)}")
-    
+        
     def on_tab_changed(self, event):
         """Handle tab change event"""
         selected_tab = event.widget.select()

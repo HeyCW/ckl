@@ -31,7 +31,7 @@ class ContainerWindow:
         """Create container management window"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("🚢 Data Container")
-        self.window.geometry("1400x800")
+        self.window.geometry("1400x1000")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
@@ -534,10 +534,18 @@ class ContainerWindow:
         available_tree_container = tk.Frame(left_frame)
         available_tree_container.pack(fill='both', expand=True, padx=10, pady=(0, 10))
         
-        self.available_tree =  ttk.Treeview(available_tree_container,
-                                        columns=('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat'),
-                                        show='headings', height=12)
-        
+        columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat')
+
+        # Buat PaginatedTreeView
+        self.available_tree = PaginatedTreeView(
+            parent=available_tree_container,
+            columns=columns,
+            show='headings',
+            height=12,
+            items_per_page=15  # Jumlah item per halaman
+        )
+
+        # Configure headings
         self.available_tree.heading('ID', text='ID')
         self.available_tree.heading('Pengirim', text='Pengirim')
         self.available_tree.heading('Penerima', text='Penerima')
@@ -545,7 +553,8 @@ class ContainerWindow:
         self.available_tree.heading('Dimensi', text='P×L×T (cm)')
         self.available_tree.heading('Volume', text='Volume (m³)')
         self.available_tree.heading('Berat', text='Berat (ton)')
-        
+
+        # Configure columns
         self.available_tree.column('ID', width=40)
         self.available_tree.column('Pengirim', width=90)
         self.available_tree.column('Penerima', width=90)
@@ -553,16 +562,11 @@ class ContainerWindow:
         self.available_tree.column('Dimensi', width=80)
         self.available_tree.column('Volume', width=70)
         self.available_tree.column('Berat', width=70)
-        
-        # Tambahkan baris ini untuk menampilkan treeview
+
+        # Pack PaginatedTreeView (sudah include scrollbar dan pagination controls)
         self.available_tree.pack(fill='both', expand=True)
-
-        # Dengan scrollbar
-        v_scrollbar = ttk.Scrollbar(available_tree_container, orient='vertical', command=self.available_tree.yview)
-        self.available_tree.configure(yscrollcommand=v_scrollbar.set)
-
-        self.available_tree.pack(side='left', fill='both', expand=True)
-        v_scrollbar.pack(side='right', fill='y')
+        
+        self.load_available_barang()
     
         # Right side - Barang in selected container (WITH PRICING)
         right_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
@@ -3454,95 +3458,179 @@ class ContainerWindow:
             print(f"Error loading pengirim customers: {e}")
     
     def load_customer_barang_tree(self, sender_name=None, receiver_name=None):
-        """Load barang based on sender and/or receiver selection - similar to filter_barang"""
+        """Load barang based on sender and/or receiver selection for PaginatedTreeView"""
         try:
-            # Clear existing items
-            for item in self.available_tree.get_children():
-                self.available_tree.delete(item)
-        
-            # Get all barang data (similar to original_barang_data in filter_barang)
+            print(f"Loading customer barang tree with sender: {sender_name}, receiver: {receiver_name}")
+            
+            # Get all barang data
             all_barang = self.db.get_all_barang()
             
-            # Filter data
+            # Filter out None values
+            if all_barang:
+                all_barang = [barang for barang in all_barang if barang is not None]
+            else:
+                all_barang = []
+            
+            # Filter data based on sender and receiver
             filtered_data = []
             
-            for barang in all_barang:
-                show_item = True
-                
-                print(f"Loading item: {barang}")
-                
-                # Determine data structure and extract values accordingly (same as filter_barang)
-                if isinstance(barang, dict):
-                    # Dictionary structure
-                    nama_barang = str(barang.get('nama_barang', ''))
-                    pengirim_id = barang.get('pengirim', '')
-                    try:
-                        pengirim = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else ''
-                    except:
-                        pengirim = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '') if pengirim_id else ''
+            for i, barang in enumerate(all_barang):
+                try:
+                    if barang is None:
+                        print(f"Warning: Barang at index {i} is None, skipping...")
+                        continue
                     
-                    penerima_id = barang.get('penerima', '')
-                    penerima = self.db.get_customer_by_id(penerima_id).get('nama_customer', '') if penerima_id else ''
+                    show_item = True
                     
-                    print(f"Pengirim ID: {pengirim_id}, Pengirim Name: {pengirim}")
-                    print(f"Penerima ID: {penerima_id}, Penerima Name: {penerima}")
-                else:
-                    # List/tuple structure - adjust indices based on your column order
-                    nama_barang = str(barang[3]) if len(barang) > 3 else ''  # Nama Barang column
-                    pengirim = str(barang[1]) if len(barang) > 1 else ''      # Pengirim column
-                    penerima = str(barang[2]) if len(barang) > 2 else ''      # Penerima column
-                
-                # Check sender filter (similar to pengirim filter in filter_barang)
-                if sender_name and sender_name.strip() != '':
-                    print(f"Sender filter: {sender_name}, Current sender: {pengirim}")
-                    if sender_name.lower() not in str(pengirim).lower():
-                        show_item = False
-                
-                # Check receiver filter (similar to penerima filter in filter_barang)
-                if receiver_name and receiver_name.strip() != '':
-                    print(f"Receiver filter: {receiver_name}, Current receiver: {penerima}")
-                    if receiver_name.lower() not in str(penerima).lower():
-                        show_item = False
-                
-                print(f"Show item: {show_item}")
-                
-                if show_item:
-                    filtered_data.append(barang)
+                    print(f"Processing item {i}: {barang.get('nama_barang', 'Unknown') if isinstance(barang, dict) else 'Unknown'}")
+                    
+                    # Extract values for filtering
+                    if isinstance(barang, dict):
+                        # Dictionary structure
+                        nama_barang = str(barang.get('nama_barang', ''))
+                        
+                        # Get pengirim name with proper None checking
+                        pengirim_id = barang.get('pengirim', '')
+                        pengirim = ''
+                        if pengirim_id:
+                            try:
+                                # Try get_sender_by_id first
+                                sender_data = self.db.get_sender_by_id(pengirim_id)
+                                if sender_data and isinstance(sender_data, dict):
+                                    pengirim = sender_data.get('nama_pengirim', '')
+                                else:
+                                    # Fallback to get_customer_by_id
+                                    customer_data = self.db.get_customer_by_id(pengirim_id)
+                                    if customer_data and isinstance(customer_data, dict):
+                                        pengirim = customer_data.get('nama_customer', '')
+                            except Exception as e:
+                                print(f"Error getting sender data for ID {pengirim_id}: {e}")
+                                # Use fallback from barang data
+                                pengirim = barang.get('sender_name', '')
+                        
+                        # Get penerima name with proper None checking
+                        penerima_id = barang.get('penerima', '')
+                        penerima = ''
+                        if penerima_id:
+                            try:
+                                customer_data = self.db.get_customer_by_id(penerima_id)
+                                if customer_data and isinstance(customer_data, dict):
+                                    penerima = customer_data.get('nama_customer', '')
+                                else:
+                                    print(f"Warning: get_customer_by_id({penerima_id}) returned invalid data")
+                            except Exception as e:
+                                print(f"Error getting receiver data for ID {penerima_id}: {e}")
+                                # Use fallback from barang data
+                                penerima = barang.get('receiver_name', '')
+                        
+                        print(f"Pengirim ID: {pengirim_id}, Name: {pengirim}")
+                        print(f"Penerima ID: {penerima_id}, Name: {penerima}")
+                        
+                    elif isinstance(barang, (list, tuple)) and len(barang) > 0:
+                        # List/tuple structure
+                        nama_barang = str(barang[3]) if len(barang) > 3 else ''
+                        pengirim = str(barang[1]) if len(barang) > 1 else ''
+                        penerima = str(barang[2]) if len(barang) > 2 else ''
+                    else:
+                        print(f"Warning: Invalid barang data structure at index {i}")
+                        continue
+                    
+                    # Check sender filter
+                    if sender_name and sender_name.strip() != '':
+                        print(f"Sender filter: {sender_name}, Current sender: {pengirim}")
+                        if sender_name.lower() not in str(pengirim).lower():
+                            show_item = False
+                    
+                    # Check receiver filter
+                    if receiver_name and receiver_name.strip() != '':
+                        print(f"Receiver filter: {receiver_name}, Current receiver: {penerima}")
+                        if receiver_name.lower() not in str(penerima).lower():
+                            show_item = False
+                    
+                    print(f"Show item: {show_item}")
+                    
+                    if show_item:
+                        filtered_data.append(barang)
+                        
+                except Exception as e:
+                    print(f"Error processing barang row {i}: {e}")
+                    continue
             
-            # Display filtered data (similar to filter_barang display logic)
-            for barang in filtered_data:
-                if isinstance(barang, dict):
-                    # Dictionary structure - format for display
-                    # Format dimensions
-                    panjang = barang.get('panjang_barang', '-')
-                    lebar = barang.get('lebar_barang', '-')
-                    tinggi = barang.get('tinggi_barang', '-')
-                    dimensi = f"{panjang}×{lebar}×{tinggi}"
-                    
-                    # Get sender and receiver names for display
-                    pengirim_id = barang.get('pengirim', '')
-                    try:
-                        sender_name_display = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else '-'
-                    except:
-                        sender_name_display = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '-') if pengirim_id else '-'
-                    
-                    penerima_id = barang.get('penerima', '')
-                    receiver_name_display = self.db.get_customer_by_id(penerima_id).get('nama_customer', '-') if penerima_id else '-'
-                    
-                    self.available_tree.insert('', 'end', values=(
-                        barang.get('barang_id', ''),
-                        sender_name_display,           # Pengirim column
-                        receiver_name_display,         # Penerima column
-                        barang.get('nama_barang', '-'), # Nama column
-                        dimensi,                       # Dimensi column
-                        barang.get('m3_barang', '-'),  # Volume column
-                        barang.get('ton_barang', '-')  # Berat column
-                    ))
-                else:
-                    # List/tuple structure - display as is (similar to filter_barang)
-                    self.available_tree.insert('', 'end', values=barang)
+            print(f"Filtered {len(filtered_data)} items from {len(all_barang)} total")
             
-            # Create descriptive message (similar to info_label update in filter_barang)
+            # Format filtered data for PaginatedTreeView
+            formatted_data = []
+            
+            for i, barang in enumerate(filtered_data):
+                try:
+                    if barang is None:
+                        continue
+                        
+                    if isinstance(barang, dict):
+                        # Dictionary structure - format for display
+                        # Format dimensions
+                        panjang = barang.get('panjang_barang', '-')
+                        lebar = barang.get('lebar_barang', '-')
+                        tinggi = barang.get('tinggi_barang', '-')
+                        dimensi = f"{panjang}×{lebar}×{tinggi}"
+                        
+                        # Get sender and receiver names for display with error handling
+                        pengirim_id = barang.get('pengirim', '')
+                        sender_name_display = '-'
+                        if pengirim_id:
+                            try:
+                                sender_data = self.db.get_sender_by_id(pengirim_id)
+                                if sender_data and isinstance(sender_data, dict):
+                                    sender_name_display = sender_data.get('nama_pengirim', '-')
+                                else:
+                                    customer_data = self.db.get_customer_by_id(pengirim_id)
+                                    if customer_data and isinstance(customer_data, dict):
+                                        sender_name_display = customer_data.get('nama_customer', '-')
+                            except Exception as e:
+                                print(f"Error getting sender display name: {e}")
+                                sender_name_display = barang.get('sender_name', '-')
+                        
+                        penerima_id = barang.get('penerima', '')
+                        receiver_name_display = '-'
+                        if penerima_id:
+                            try:
+                                customer_data = self.db.get_customer_by_id(penerima_id)
+                                if customer_data and isinstance(customer_data, dict):
+                                    receiver_name_display = customer_data.get('nama_customer', '-')
+                            except Exception as e:
+                                print(f"Error getting receiver display name: {e}")
+                                receiver_name_display = barang.get('receiver_name', '-')
+                        
+                        # Format volume and weight
+                        volume = str(barang.get('m3_barang', '-'))
+                        berat = str(barang.get('ton_barang', '-'))
+                        
+                        # Create row tuple
+                        row_data = (
+                            str(barang.get('barang_id', '')),
+                            sender_name_display,
+                            receiver_name_display,
+                            str(barang.get('nama_barang', '-')),
+                            dimensi,
+                            volume,
+                            berat
+                        )
+                        
+                        formatted_data.append(row_data)
+                        
+                    elif isinstance(barang, (list, tuple)):
+                        # List/tuple structure - add as is
+                        if len(barang) > 0:
+                            formatted_data.append(barang)
+                            
+                except Exception as e:
+                    print(f"Error formatting customer barang row {i}: {e}")
+                    continue
+            
+            # Set filtered data to PaginatedTreeView
+            self.available_tree.set_data(formatted_data)
+            
+            # Create descriptive message
             total_count = len(all_barang)
             filtered_count = len(filtered_data)
             
@@ -3554,113 +3642,56 @@ class ContainerWindow:
             
             if criteria:
                 criteria_text = " & ".join(criteria)
-                print(f"📊 Menampilkan {filtered_count} dari {total_count} barang dengan kriteria: {criteria_text}")
+                print(f"Menampilkan {filtered_count} dari {total_count} barang dengan kriteria: {criteria_text}")
             else:
-                print(f"💡 Menampilkan semua {filtered_count} barang")
+                print(f"Menampilkan semua {filtered_count} barang")
             
-            print(f"✅ Successfully loaded {filtered_count} barang")
+            print(f"Successfully loaded {filtered_count} barang to PaginatedTreeView")
             
         except Exception as e:
-            print(f"❌ Error loading barang tree: {e}")
+            print(f"Error loading customer barang tree: {e}")
             import traceback
             traceback.print_exc()
-            # Fallback to show all barang without filter
+            
+            # Fallback: try to show all barang without filter
             try:
-                all_barang = self.db.get_all_barang()
-                for barang in all_barang:
-                    if isinstance(barang, dict):
-                        # Same display logic as above
-                        panjang = barang.get('panjang_barang', '-')
-                        lebar = barang.get('lebar_barang', '-')
-                        tinggi = barang.get('tinggi_barang', '-')
-                        dimensi = f"{panjang}×{lebar}×{tinggi}"
-                        
-                        pengirim_id = barang.get('pengirim', '')
-                        try:
-                            sender_name_display = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else '-'
-                        except:
-                            sender_name_display = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '-') if pengirim_id else '-'
-                        
-                        penerima_id = barang.get('penerima', '')
-                        receiver_name_display = self.db.get_customer_by_id(penerima_id).get('nama_customer', '-') if penerima_id else '-'
-                        
-                        self.available_tree.insert('', 'end', values=(
-                            barang.get('barang_id', ''),
-                            sender_name_display,
-                            receiver_name_display,
-                            barang.get('nama_barang', '-'),
-                            dimensi,
-                            barang.get('m3_barang', '-'),
-                            barang.get('ton_barang', '-')
-                        ))
-                    else:
-                        self.available_tree.insert('', 'end', values=barang)
+                print("Attempting fallback: loading all barang without filter...")
+                self.load_all_customer_barang_fallback()
             except Exception as fallback_error:
-                print(f"❌ Fallback also failed: {fallback_error}")
-            
+                print(f"Fallback also failed: {fallback_error}")
+                # Set empty data to clear the tree
+                self.available_tree.set_data([])
+                      
     def load_available_barang(self):
-        """Load available barang (not in any container)"""
+        """Load available barang ke PaginatedTreeView"""
         try:
-            # Clear existing items
-            for item in self.available_tree.get_children():
-                self.available_tree.delete(item)
+            # Ambil data dari database
+            barang_list = self.db.get_all_barang()
             
-            # Get all barang
-            all_barang = self.db.get_all_barang()
-            
-            # Show only available barang (not in any container)
-            available_count = 0
-            for barang in all_barang:
-                try:
-                    # Safe way to get values from sqlite3.Row object
-                    def safe_get(row, key, default='-'):
-                        try:
-                            return row[key] if row[key] is not None else default
-                        except (KeyError, IndexError):
-                            return default
-                    
-                    barang_id = safe_get(barang, 'barang_id', 0)
-                    
-                    # Format dimensions
-                    panjang = safe_get(barang, 'panjang_barang', '-')
-                    lebar = safe_get(barang, 'lebar_barang', '-')
-                    tinggi = safe_get(barang, 'tinggi_barang', '-')
-                    dimensi = f"{panjang}×{lebar}×{tinggi}"
-                    
-                    # Get values safely
-                    pengirim_id = safe_get(barang, 'pengirim', '')
-                    penerima_id = safe_get(barang, 'penerima', '')
-                    pengirim_name = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else '-'
-                    penerima_name = self.db.get_customer_by_id(penerima_id)['nama_customer'] if penerima_id else '-'
-                    nama_barang = safe_get(barang, 'nama_barang', '-')
-                    m3_barang = safe_get(barang, 'm3_barang', '-')
-                    ton_barang = safe_get(barang, 'ton_barang', '-')
-
-                    print(f"Barang ID: {barang_id}, Pengirim: {pengirim_name}, Penerima: {penerima_name}, Nama Barang: {nama_barang}, kubikasi: {m3_barang}")
-
-                    self.available_tree.insert('', tk.END, values=(
-                        barang_id,
-                        pengirim_name,
-                        penerima_name,
-                        nama_barang,
-                        dimensi,
-                        m3_barang,
-                        ton_barang
-                    ))
-                    available_count += 1
-                        
-                except Exception as row_error:
-                    print(f"Error processing available barang row: {row_error}")
+            # Format data
+            formatted_data = []
+            for barang in barang_list:
+                if barang is None:
                     continue
-            
-            print(f"✅ Loaded {available_count} available barang in tree")
+                
+                row_data = (
+                    str(barang.get('barang_id', '')),
+                    str(barang.get('sender_name', '')), 
+                    str(barang.get('receiver_name', '')),
+                    str(barang.get('nama_barang', '')),
+                    f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}",
+                    f"{float(barang.get('m3_barang', 0)):.4f}" if barang.get('m3_barang') else '0.0000',
+                    f"{float(barang.get('ton_barang', 0)):.3f}" if barang.get('ton_barang') else '0.000'
+                )
+                formatted_data.append(row_data)
+            self.available_tree.set_data(formatted_data)
+            print(f"Loaded {len(formatted_data)} items to PaginatedTreeView")
             
         except Exception as e:
-            print(f"Error loading available barang: {e}")
-            import traceback
-            traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat daftar barang: {str(e)}")
-            
+            print(f"Error loading barang: {e}")
+            self.available_tree.set_data([])  # Set empty jika error
+        
+           
     def clear_selection(self):
         """Clear customer and barang selection"""
         self.selected_container_var.set("")
@@ -3841,10 +3872,14 @@ class ContainerWindow:
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
         
-        x = parent_x + (parent_width // 2) - (1400 // 2)
-        y = parent_y + (parent_height // 2) - (800 // 2)
+        # Ubah ukuran di sini
+        window_width = 1400  # dari 1400
+        window_height = 850  # dari 800
         
-        self.window.geometry(f"1400x800+{x}+{y}")
+        x = parent_x + (parent_width // 2) - (window_width // 2)
+        y = parent_y + (parent_height // 2) - (window_height // 2)
+        
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
     
     def load_container_combo(self):
         """Load containers into combobox"""
