@@ -338,8 +338,8 @@ class ContainerWindow:
                                                 textvariable=self.sender_search_var, 
                                                 width=25)
         self.sender_search_combo.pack(side='left', padx=(5, 20))
+        self.sender_search_var.trace('w', self.on_sender_receiver_select)
         self.sender_search_combo.bind('<KeyRelease>', self.filter_senders)
-        self.sender_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
 
         # Receiver selection
         receiver_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -351,8 +351,8 @@ class ContainerWindow:
                                                 textvariable=self.receiver_search_var,
                                                 width=25)
         self.receiver_search_combo.pack(side='left', padx=(5, 20))
+        self.receiver_search_var.trace('w', self.on_sender_receiver_select)
         self.receiver_search_combo.bind('<KeyRelease>', self.filter_receivers)
-        self.receiver_search_combo.bind('<<ComboboxSelected>>', self.on_sender_receiver_select)
 
         # Colli input
         colli_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -1127,8 +1127,11 @@ class ContainerWindow:
         except Exception as e:
             print(f"Error filtering receivers: {e}")
 
-    def on_sender_receiver_select(self, event=None):
+    def on_sender_receiver_select(self, *args):
         """Handle selection of sender or receiver to load available barang"""
+        # *args akan menangkap semua argument tambahan dari trace()
+        # trace() mengirim: (var_name, index, mode)
+        
         sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
         receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
         
@@ -3430,103 +3433,158 @@ class ContainerWindow:
     def load_pengirim(self):
         """Load pengirim customers for search dropdown"""
         try:
-            customers = self.db.get_all_senders()
-            customer_list = [row['nama_pengirim'] for row in customers if row['nama_pengirim']]
+            customers = self.db.get_all_customers()
+            customer_list = [row['nama_customer'] for row in customers if row['nama_customer']]
             self.sender_search_combo['values'] = customer_list
             self.original_pengirim_values = customer_list
         except Exception as e:
             print(f"Error loading pengirim customers: {e}")
     
     def load_customer_barang_tree(self, sender_name=None, receiver_name=None):
-        """Load barang based on sender and/or receiver selection"""
+        """Load barang based on sender and/or receiver selection - similar to filter_barang"""
         try:
             # Clear existing items
             for item in self.available_tree.get_children():
                 self.available_tree.delete(item)
         
-            # Get all barang first
+            # Get all barang data (similar to original_barang_data in filter_barang)
             all_barang = self.db.get_all_barang()
-        
-            # Show barang based on selection criteria
-            filtered_barang_count = 0
-            for barang in all_barang:
-                try:
-                    # Safe way to get values from sqlite3.Row object
-                    def safe_get(row, key, default='-'):
-                        try:
-                            return row[key] if row[key] is not None else default
-                        except (KeyError, IndexError):
-                            return default
-                
-                    barang_id = safe_get(barang, 'barang_id', 0)
-                    
-                    # Get sender and receiver info from barang
-                    # Adjust these field names based on your actual database schema
-                    barang_sender_id = safe_get(barang, 'pengirim', '')  # or pengirim field
-                    barang_sender = self.db.get_sender_by_id(barang_sender_id)['nama_pengirim'] if barang_sender_id else '-'
-                    barang_receiver_id = safe_get(barang, 'penerima', '')     # receiver field name
-                    barang_receiver = self.db.get_customer_by_id(barang_receiver_id)['nama_customer'] if barang_receiver_id else '-'
-                    
-                    print(f"Barang ID: {barang_id}, Sender: {barang_sender}, Receiver: {barang_receiver}")
-                    
-                    # Filter logic: show barang that match criteria
-                    show_barang = True
-                    
-                    if sender_name and receiver_name:
-                        # Both selected: must match both sender AND receiver
-                        show_barang = (barang_sender == sender_name and barang_receiver == receiver_name)
-                    elif sender_name:
-                        # Only sender selected: must match sender
-                        show_barang = (barang_sender == sender_name)
-                    elif receiver_name:
-                        # Only receiver selected: must match receiver
-                        show_barang = (barang_receiver == receiver_name)
-                    # If neither selected, show all barang (show_barang remains True)
-                    
-                    if show_barang:
-                        # Format dimensions
-                        panjang = safe_get(barang, 'panjang_barang', '-')
-                        lebar = safe_get(barang, 'lebar_barang', '-')
-                        tinggi = safe_get(barang, 'tinggi_barang', '-')
-                        dimensi = f"{panjang}×{lebar}×{tinggi}"
-                    
-                        # Get values safely
-                        nama_barang = safe_get(barang, 'nama_barang', '-')
-                        m3_barang = safe_get(barang, 'm3_barang', '-')
-                        ton_barang = safe_get(barang, 'ton_barang', '-')
-                    
-                        self.available_tree.insert('', tk.END, values=(
-                            barang_id,
-                            barang_sender,    # Pengirim column
-                            barang_receiver,  # Penerima column
-                            nama_barang,      # Nama column
-                            dimensi,          # Dimensi column
-                            m3_barang,        # Volume column
-                            ton_barang        # Berat column
-                        ))
-                        filtered_barang_count += 1
-                    
-                except Exception as row_error:
-                    print(f"Error processing barang row: {row_error}")
-                    continue
             
-            # Create descriptive message
+            # Filter data
+            filtered_data = []
+            
+            for barang in all_barang:
+                show_item = True
+                
+                print(f"Loading item: {barang}")
+                
+                # Determine data structure and extract values accordingly (same as filter_barang)
+                if isinstance(barang, dict):
+                    # Dictionary structure
+                    nama_barang = str(barang.get('nama_barang', ''))
+                    pengirim_id = barang.get('pengirim', '')
+                    try:
+                        pengirim = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else ''
+                    except:
+                        pengirim = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '') if pengirim_id else ''
+                    
+                    penerima_id = barang.get('penerima', '')
+                    penerima = self.db.get_customer_by_id(penerima_id).get('nama_customer', '') if penerima_id else ''
+                    
+                    print(f"Pengirim ID: {pengirim_id}, Pengirim Name: {pengirim}")
+                    print(f"Penerima ID: {penerima_id}, Penerima Name: {penerima}")
+                else:
+                    # List/tuple structure - adjust indices based on your column order
+                    nama_barang = str(barang[3]) if len(barang) > 3 else ''  # Nama Barang column
+                    pengirim = str(barang[1]) if len(barang) > 1 else ''      # Pengirim column
+                    penerima = str(barang[2]) if len(barang) > 2 else ''      # Penerima column
+                
+                # Check sender filter (similar to pengirim filter in filter_barang)
+                if sender_name and sender_name.strip() != '':
+                    print(f"Sender filter: {sender_name}, Current sender: {pengirim}")
+                    if sender_name.lower() not in str(pengirim).lower():
+                        show_item = False
+                
+                # Check receiver filter (similar to penerima filter in filter_barang)
+                if receiver_name and receiver_name.strip() != '':
+                    print(f"Receiver filter: {receiver_name}, Current receiver: {penerima}")
+                    if receiver_name.lower() not in str(penerima).lower():
+                        show_item = False
+                
+                print(f"Show item: {show_item}")
+                
+                if show_item:
+                    filtered_data.append(barang)
+            
+            # Display filtered data (similar to filter_barang display logic)
+            for barang in filtered_data:
+                if isinstance(barang, dict):
+                    # Dictionary structure - format for display
+                    # Format dimensions
+                    panjang = barang.get('panjang_barang', '-')
+                    lebar = barang.get('lebar_barang', '-')
+                    tinggi = barang.get('tinggi_barang', '-')
+                    dimensi = f"{panjang}×{lebar}×{tinggi}"
+                    
+                    # Get sender and receiver names for display
+                    pengirim_id = barang.get('pengirim', '')
+                    try:
+                        sender_name_display = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else '-'
+                    except:
+                        sender_name_display = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '-') if pengirim_id else '-'
+                    
+                    penerima_id = barang.get('penerima', '')
+                    receiver_name_display = self.db.get_customer_by_id(penerima_id).get('nama_customer', '-') if penerima_id else '-'
+                    
+                    self.available_tree.insert('', 'end', values=(
+                        barang.get('barang_id', ''),
+                        sender_name_display,           # Pengirim column
+                        receiver_name_display,         # Penerima column
+                        barang.get('nama_barang', '-'), # Nama column
+                        dimensi,                       # Dimensi column
+                        barang.get('m3_barang', '-'),  # Volume column
+                        barang.get('ton_barang', '-')  # Berat column
+                    ))
+                else:
+                    # List/tuple structure - display as is (similar to filter_barang)
+                    self.available_tree.insert('', 'end', values=barang)
+            
+            # Create descriptive message (similar to info_label update in filter_barang)
+            total_count = len(all_barang)
+            filtered_count = len(filtered_data)
+            
             criteria = []
-            if sender_name:
+            if sender_name and sender_name.strip():
                 criteria.append(f"Pengirim: {sender_name}")
-            if receiver_name:
+            if receiver_name and receiver_name.strip():
                 criteria.append(f"Penerima: {receiver_name}")
             
-            criteria_text = " & ".join(criteria) if criteria else "Semua barang"
-            print(f"✅ Loaded {filtered_barang_count} barang dengan kriteria: {criteria_text}")
-        
+            if criteria:
+                criteria_text = " & ".join(criteria)
+                print(f"📊 Menampilkan {filtered_count} dari {total_count} barang dengan kriteria: {criteria_text}")
+            else:
+                print(f"💡 Menampilkan semua {filtered_count} barang")
+            
+            print(f"✅ Successfully loaded {filtered_count} barang")
+            
         except Exception as e:
             print(f"❌ Error loading barang tree: {e}")
             import traceback
             traceback.print_exc()
-            # Fallback to all barang
-            self.load_available_barang()
-        
+            # Fallback to show all barang without filter
+            try:
+                all_barang = self.db.get_all_barang()
+                for barang in all_barang:
+                    if isinstance(barang, dict):
+                        # Same display logic as above
+                        panjang = barang.get('panjang_barang', '-')
+                        lebar = barang.get('lebar_barang', '-')
+                        tinggi = barang.get('tinggi_barang', '-')
+                        dimensi = f"{panjang}×{lebar}×{tinggi}"
+                        
+                        pengirim_id = barang.get('pengirim', '')
+                        try:
+                            sender_name_display = self.db.get_sender_by_id(pengirim_id)['nama_pengirim'] if pengirim_id else '-'
+                        except:
+                            sender_name_display = self.db.get_customer_by_id(pengirim_id).get('nama_customer', '-') if pengirim_id else '-'
+                        
+                        penerima_id = barang.get('penerima', '')
+                        receiver_name_display = self.db.get_customer_by_id(penerima_id).get('nama_customer', '-') if penerima_id else '-'
+                        
+                        self.available_tree.insert('', 'end', values=(
+                            barang.get('barang_id', ''),
+                            sender_name_display,
+                            receiver_name_display,
+                            barang.get('nama_barang', '-'),
+                            dimensi,
+                            barang.get('m3_barang', '-'),
+                            barang.get('ton_barang', '-')
+                        ))
+                    else:
+                        self.available_tree.insert('', 'end', values=barang)
+            except Exception as fallback_error:
+                print(f"❌ Fallback also failed: {fallback_error}")
+            
     def load_available_barang(self):
         """Load available barang (not in any container)"""
         try:

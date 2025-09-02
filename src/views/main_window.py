@@ -114,18 +114,18 @@ class MainWindow:
         row1_frame.pack(pady=20)
         
         # Pengirim button
-        customer_btn = tk.Button(
-            row1_frame,
-            text="👥\n\nDATA PENGIRIM\n\nTambah & Lihat Pengirim",
-            font=('Arial', 14, 'bold'),
-            bg="#f7e30c",
-            fg='white',
-            relief='flat',
-            width=20,
-            height=6,
-            command=self.show_pengirim_window
-        )
-        customer_btn.pack(side='left', padx=30)
+        # customer_btn = tk.Button(
+        #     row1_frame,
+        #     text="👥\n\nDATA PENGIRIM\n\nTambah & Lihat Pengirim",
+        #     font=('Arial', 14, 'bold'),
+        #     bg="#f7e30c",
+        #     fg='white',
+        #     relief='flat',
+        #     width=20,
+        #     height=6,
+        #     command=self.show_pengirim_window
+        # )
+        # customer_btn.pack(side='left', padx=30)
         
         # Customer button
         customer_btn = tk.Button(
@@ -207,12 +207,12 @@ class MainWindow:
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}")
             
-    def show_pengirim_window(self):
-        """Show pengirim management window"""
-        try:
-            SenderWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window pengirim:\n{str(e)}")
+    # def show_pengirim_window(self):
+    #     """Show pengirim management window"""
+    #     try:
+    #         SenderWindow(self.root, self.db)
+    #     except Exception as e:
+    #         messagebox.showerror("Error", f"Tidak dapat membuka window pengirim:\n{str(e)}")
 
     def show_barang_window(self):
         """Show barang management window"""

@@ -199,11 +199,6 @@ class BarangWindow:
         self.ton_entry = tk.Entry(other_frame, font=('Arial', 10), width=10)
         self.ton_entry.pack(side='left', padx=(5, 20))
         
-        # Colli
-        tk.Label(other_frame, text="Colli:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.col_entry = tk.Entry(other_frame, font=('Arial', 10), width=10)
-        self.col_entry.pack(side='left', padx=5)
-        
         # Price frame with multiple pricing options
         price_frame = tk.Frame(form_frame, bg='#ecf0f1')
         price_frame.pack(fill='x', pady=10)
@@ -452,7 +447,7 @@ class BarangWindow:
         tree_container.pack(fill='both', expand=True, pady=5)
         
         # Updated columns with Pengirim, Penerima and all pricing types
-        columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 'Colli', 
+        columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 
                   'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD')
         
         # Create Treeview with scrollbars - using ONLY pack manager
@@ -471,7 +466,6 @@ class BarangWindow:
             'T': 'T(cm)',
             'M3': 'M³',
             'Ton': 'Ton',
-            'Colli': 'Colli',
             'M3_PP': 'M³ P→P',
             'M3_PD': 'M³ P→D',
             'M3_DD': 'M³ D→D',
@@ -496,7 +490,6 @@ class BarangWindow:
             'T': 70,
             'M3': 80,
             'Ton': 80,
-            'Colli': 80,
             'M3_PP': 100,
             'M3_PD': 100,
             'M3_DD': 100,
@@ -731,7 +724,7 @@ class BarangWindow:
         tree_container.pack(fill='both', expand=True)
         
         self.tree = ttk.Treeview(tree_container,
-                            columns=('ID', 'Pengirim', 'Penerima', 'Nama',  'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD', 'Created'),
+                            columns=('ID', 'Pengirim', 'Penerima', 'Nama',  'Dimensi', 'Volume', 'Berat', 'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD', 'Created'),
                             show='headings', height=12)
         
         # Configure columns
@@ -742,7 +735,6 @@ class BarangWindow:
         self.tree.heading('Dimensi', text='P×L×T (cm)')
         self.tree.heading('Volume', text='Volume (m³)')
         self.tree.heading('Berat', text='Berat (ton)')
-        self.tree.heading('Colli', text='Colli')
         self.tree.heading('Harga/M3_PP', text='Harga/M3_PP (Rp)')
         self.tree.heading('Harga/M3_PD', text='Harga/M3_PD (Rp)')
         self.tree.heading('Harga/M3_DD', text='Harga/M3_DD (Rp)')
@@ -761,7 +753,6 @@ class BarangWindow:
         self.tree.column('Dimensi', width=100)
         self.tree.column('Volume', width=80)
         self.tree.column('Berat', width=80)
-        self.tree.column('Colli', width=60)
         self.tree.column('Harga/M3_PP', width=100)
         self.tree.column('Harga/M3_PD', width=100)
         self.tree.column('Harga/M3_DD', width=100)
@@ -805,20 +796,14 @@ class BarangWindow:
     def load_pengirim_penerima_filter(self):
         """Load unique pengirim and penerima for filter dropdowns"""
         try:
-            pengirim = self.db.get_all_senders()
             customers = self.db.get_all_customers()
-            pengirim_list = [c['nama_pengirim'] for c in pengirim]
-            penerima_list = [c['nama_customer'] for c in customers if 'nama_customer' in c]
-
-            print("Pengirim:", pengirim_list)
-            print("Penerima:", penerima_list)
+            customers_list = [c['nama_customer'] for c in customers if 'nama_customer' in c]
 
             # Update combobox values
-            pengirim_list = sorted(list(pengirim_list))
-            penerima_list = sorted(list(penerima_list))
-            
-            self.filter_pengirim_combo['values'] = pengirim_list
-            self.filter_penerima_combo['values'] = penerima_list
+            customers_list = sorted(list(customers_list))
+
+            self.filter_pengirim_combo['values'] = customers_list
+            self.filter_penerima_combo['values'] = customers_list
             
             
         except Exception as e:
@@ -860,7 +845,7 @@ class BarangWindow:
                 # Dictionary structure
                 nama_barang = str(barang.get('nama_barang', '')).lower()
                 pengirim_id = barang.get('pengirim', '')
-                pengirim = self.db.get_sender_by_id(pengirim_id)["nama_pengirim"]
+                pengirim = self.db.get_customer_by_id(pengirim_id)["nama_customer"]
                 print(f"Pengirim ID: {pengirim_id}, Pengirim Name: {pengirim}")
                 penerima_id = barang.get('penerima', '')
                 penerima = self.db.get_customer_by_id(penerima_id).get('nama_customer', '') if penerima_id else '' 
@@ -885,14 +870,15 @@ class BarangWindow:
             
             # Check pengirim filter
             if filter_pengirim and filter_pengirim != '':
-                if str(pengirim) != filter_pengirim:
+                print(f"Pengirim: {pengirim} dan filter pengirim {filter_pengirim}")
+                if filter_pengirim.lower() not in str(pengirim).lower():
                     show_item = False
             
             print(f"Filter penerima {filter_penerima}, current penerima {penerima}, show_item: {show_item}")
             
             # Check penerima filter
             if filter_penerima and filter_penerima != '':
-                if str(penerima) != filter_penerima:
+                if filter_penerima.lower() not in str(penerima).lower():
                     show_item = False
             
             if show_item:
@@ -926,7 +912,6 @@ class BarangWindow:
                     dimensi,
                     barang.get('m3_barang', '-'),
                     barang.get('ton_barang', '-'),
-                    barang.get('col_barang', '-'),
                     harga_m3_pp,
                     harga_m3_pd,
                     harga_m3_dd,
@@ -1760,8 +1745,8 @@ class BarangWindow:
 
     def load_pengirim_combo(self):
         """Load senders into combobox"""
-        senders = self.db.get_all_senders()
-        sender_list = [f"{s['pengirim_id']} - {s['nama_pengirim']}" for s in senders]
+        senders = self.db.get_all_customers()
+        sender_list = [f"{s['customer_id']} - {s['nama_customer']}" for s in senders]
         self.pengirim_combo['values'] = sender_list
         self.original_pengirim_data = sender_list
 
@@ -1803,9 +1788,7 @@ class BarangWindow:
         
         # Buka dropdown untuk menampilkan hasil filter
         # self.pengirim_combo.event_generate('<Button-1>')
-        
-            
-    
+
     def filter_penerima(self, event):
         """Filter penerima combobox saat user mengetik"""
         typed = self.penerima_var.get().lower()
@@ -1892,7 +1875,6 @@ class BarangWindow:
                 'tinggi': ['t', 'tinggi', 'height'],
                 'm3': ['m3', 'volume', 'vol'],
                 'ton': ['ton', 'berat', 'weight'],
-                'colli': ['colli', 'col', 'kemasan', 'package'],
                 
                 # ✅ NEW: All pricing fields (PP, PD, DD)
                 'harga_m3_pp': ['m3_pp', 'harga_m3_pp', 'harga m3 pp', 'm³ p→p', 'm3 pelabuhan-pelabuhan'],
@@ -1924,6 +1906,8 @@ class BarangWindow:
                 best_score = 0
                 
                 for col in df.columns:
+                    print(f"Matching for field '{field}': checking column '{col}'")
+                    
                     if col in used_columns:
                         continue
                         
@@ -1978,7 +1962,6 @@ class BarangWindow:
             
             # Get existing customers for validation
             existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
-            existing_pengirim = {s['nama_pengirim'].upper(): s['pengirim_id'] for s in self.db.get_all_senders()}
 
             preview_count = 0
             pengirim_errors = set()
@@ -1991,8 +1974,10 @@ class BarangWindow:
                 
                 # ✅ ENHANCED: Better field value extraction
                 def get_field_value(field_name, default=''):
+                    print(f"Extracting field '{field_name}'")
                     if field_name in found_columns:
                         value = row.get(found_columns[field_name], default)
+                        print(f"  Raw value: {value}")
                         if pd.isna(value) or str(value).strip().lower() in ['nan', 'none', '']:
                             return ''
                         return str(value).strip()
@@ -2004,7 +1989,6 @@ class BarangWindow:
                 tinggi = get_field_value('tinggi')
                 m3 = get_field_value('m3')
                 ton = get_field_value('ton')
-                colli = get_field_value('colli')
                 
                 # ✅ NEW: Get all pricing fields
                 harga_m3_pp = get_field_value('harga_m3_pp')
@@ -2041,7 +2025,7 @@ class BarangWindow:
                 
                 if pengirim and penerima and nama_barang:
                     # ✅ UPDATED: Check if pengirim and penerima exist
-                    pengirim_exists = pengirim.upper() in existing_pengirim
+                    pengirim_exists = pengirim.upper() in existing_customers
                     penerima_exists = penerima.upper() in existing_customers
                     
                     if not pengirim_exists:
@@ -2076,7 +2060,6 @@ class BarangWindow:
                         tinggi,                     # T
                         m3,                         # M3
                         ton,                        # Ton
-                        colli,                      # Colli
                         format_currency(harga_m3_pp),   # M3_PP
                         format_currency(harga_m3_pd),   # M3_PD
                         format_currency(harga_m3_dd),   # M3_DD
@@ -2135,7 +2118,6 @@ class BarangWindow:
             )
             self.upload_btn.config(state='disabled')
 
-
     def download_template(self):
         """Download Excel template with updated column structure"""
         try:
@@ -2144,7 +2126,7 @@ class BarangWindow:
                 'Pengirim': [
                     'PT. ANEKA PLASTIK INDONESIA',
                     'CV. MAJU BERSAMA',
-                    'PT. TEKNOLOGI MODERN',
+                    'PT. TEKNOLOGI MODERN'
                 ],
                 'Penerima': [
                     'PT. TEKNOLOGI MODERN',
@@ -2157,7 +2139,6 @@ class BarangWindow:
                 'T': [10, 25, 20],
                 'M3': [0.015, 0.030, 0.015],
                 'Ton': [0.012, 0.008, 0.005],
-                'Colli': [1, 5, 2],
                 'M3_PP': [150000, 175000, 200000],
                 'M3_PD': [180000, 200000, 230000],
                 'M3_DD': [220000, 250000, 280000],
@@ -2293,9 +2274,7 @@ class BarangWindow:
                 )
             
             messagebox.showerror("Error Download Template", error_dialog)     
-        
-        
-        
+           
     def validate_excel_row(self, row_data, column_mapping, existing_customers, row_index):
         """Validate single row from Excel data - UPDATED for Pengirim-Penerima system"""
         errors = []
@@ -2454,8 +2433,7 @@ class BarangWindow:
                 'row_index': row_index
             }
 
-
-    def validate_excel_row_enhanced(self, row, column_mapping, existing_customers, existing_pengirim, row_number):
+    def validate_excel_row_enhanced(self, row, column_mapping, existing_customers, row_number):
         """Enhanced validation for Excel row with better error handling - UPDATED"""
         errors = []
         result = {
@@ -2476,7 +2454,7 @@ class BarangWindow:
             if not pengirim_name or pengirim_name.upper() == 'NAN':
                 errors.append("Pengirim tidak boleh kosong")
             else:
-                pengirim_id = existing_pengirim.get(pengirim_name.upper())
+                pengirim_id = existing_customers.get(pengirim_name.upper())
                 if not pengirim_id:
                     errors.append(f"Pengirim '{pengirim_name}' tidak ditemukan di database")
                 else:
@@ -2639,13 +2617,9 @@ class BarangWindow:
                 existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
                 print(f"Found {len(existing_customers)} existing customers in database")
 
-                existing_pengirim = {s['nama_pengirim'].upper(): s['pengirim_id'] for s in self.db.get_all_senders()}
 
                 if not existing_customers:
                     raise ValueError("Tidak ada customer yang terdaftar dalam database. Silakan tambahkan customer terlebih dahulu.")
-                
-                if not existing_pengirim:
-                    raise ValueError("Tidak ada pengirim yang terdaftar dalam database. Silakan tambahkan pengirim terlebih dahulu.")
                 
             except Exception as e:
                 raise ValueError(f"Gagal mengambil data customer: {str(e)}")
@@ -2703,7 +2677,7 @@ class BarangWindow:
             for idx, (_, row) in enumerate(valid_rows.iterrows()):
                 try:
                     validation_result = self.validate_excel_row_enhanced(
-                        row, column_mapping, existing_customers, existing_pengirim, idx + 2
+                        row, column_mapping, existing_customers,idx + 2
                     )
                     
                     print(f"Validation result: {validation_result}")
@@ -2941,7 +2915,6 @@ class BarangWindow:
             'tinggi_barang': get_safe_value('tinggi', 'float'),
             'm3_barang': get_safe_value('m3', 'float'),
             'ton_barang': get_safe_value('ton', 'float'),
-            'col_barang': get_safe_value('colli', 'int'),
             # Pricing fields
             'm3_pp': get_safe_value('harga_m3_pp', 'float'),
             'm3_pd': get_safe_value('harga_m3_pd', 'float'),
@@ -2953,7 +2926,6 @@ class BarangWindow:
             'col_pd': get_safe_value('harga_col_pd', 'float'),
             'col_dd': get_safe_value('harga_col_dd', 'float'),
         }
-
 
     def show_enhanced_error_details(self, validation_errors, customer_not_found, success_count, total_count):
         """Show enhanced error details in a popup window"""
@@ -3076,7 +3048,6 @@ class BarangWindow:
             tinggi = float(self.tinggi_entry.get()) if self.tinggi_entry.get() else None
             m3 = float(self.m3_entry.get()) if self.m3_entry.get() else None
             ton = float(self.ton_entry.get()) if self.ton_entry.get() else None
-            col = int(self.col_entry.get()) if self.col_entry.get() else None
             
             # Get pricing information - priority: m3 > ton > coll
             harga_satuan = None
@@ -3094,7 +3065,6 @@ class BarangWindow:
                 tinggi_barang=tinggi,
                 m3_barang=m3,
                 ton_barang=ton,
-                col_barang=col,
                 harga_m3=harga_m3,
                 harga_ton=harga_ton,
                 harga_col=harga_coll,
@@ -3130,7 +3100,7 @@ class BarangWindow:
             if not self.panjang_entry.get() or not self.lebar_entry.get() or not self.tinggi_entry.get():
                 messagebox.showwarning("Peringatan", "Dimensi Barang tidak boleh kosong.")
                 return False
-            if not self.m3_entry.get() or not self.ton_entry.get() or not self.col_entry.get():
+            if not self.m3_entry.get() or not self.ton_entry.get():
                 messagebox.showwarning("Peringatan", "Volume dan Berat Barang tidak boleh kosong.")
                 return False
             
@@ -3170,7 +3140,6 @@ class BarangWindow:
         self.tinggi_entry.delete(0, tk.END)
         self.m3_entry.delete(0, tk.END)
         self.ton_entry.delete(0, tk.END)
-        self.col_entry.delete(0, tk.END)
         self.harga_m3_entry.delete(0, tk.END)
         self.harga_ton_entry.delete(0, tk.END)
         self.harga_coll_entry.delete(0, tk.END)

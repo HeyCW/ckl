@@ -812,12 +812,12 @@ class BarangDatabase(SQLiteDatabase):
             barang_list = self.execute('''
                 SELECT 
                     b.*,
-                    s.nama_pengirim AS sender_name,
+                    s.nama_customer AS sender_name,
                     r.nama_customer AS receiver_name,
                     r.alamat_customer AS receiver_address
                 FROM barang b
                 LEFT JOIN customers r ON b.penerima = r.customer_id
-                LEFT JOIN pengirim s ON b.pengirim = s.pengirim_id
+                LEFT JOIN customers s ON b.pengirim = s.customer_id
                 ORDER BY b.barang_id ASC;
 
             ''')
