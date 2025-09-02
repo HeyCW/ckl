@@ -176,6 +176,19 @@ class ContainerWindow:
         )
         delete_btn.pack(side='left')
         
+        # Di bagian button yang sudah ada, tambahkan:
+        summary_btn = tk.Button(
+            btn_frame,  # frame tempat button lain
+            text="📊 Lihat Summary",
+            font=('Arial', 12, 'bold'),
+            bg='#9b59b6',
+            fg='white',
+            padx=10,
+            pady=5,
+            command=self.view_selected_container_summary  # method yang sudah ada
+        )
+        summary_btn.pack(side='left', padx=5)
+        
         # Container list
         list_frame = tk.Frame(parent, bg='#ecf0f1')
         list_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
@@ -245,7 +258,7 @@ class ContainerWindow:
             btn_frame,
             text="🧾 Print Invoice Container",
             font=('Arial', 11, 'bold'),
-            bg='#8e44ad',
+            bg="#4bc23b",
             fg='white',
             padx=20,
             pady=8,
@@ -258,7 +271,7 @@ class ContainerWindow:
             btn_frame,
             text="📋 Print Customer Packing List",
             font=('Arial', 11, 'bold'),
-            bg='#2980b9',
+            bg="#1b9b0a",
             fg='white',
             padx=20,
             pady=8,
@@ -4408,7 +4421,129 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal membuat dialog summary: {str(dialog_error)}")
+
+    def view_selected_container_summary(self):
+        """View detailed summary of selected container from tree including pricing"""
+        # Get selected item from container tree
+        selected_items = self.container_tree.selection()
+        
+        if not selected_items:
+            messagebox.showwarning("Peringatan", "Pilih container dari tabel terlebih dahulu!")
+            return
+        
+        try:
+            # Get the first selected item
+            selected_item = selected_items[0]
             
+            # Get container data from tree item
+            item_values = self.container_tree.item(selected_item)['values']
+            
+            if not item_values:
+                messagebox.showerror("Error", "Data container tidak valid!")
+                return
+            
+            # Extract container ID (assuming it's in the first column)
+            container_id = int(item_values[0])  # Adjust index if container ID is in different column
+            
+            print(f"Selected container ID from tree: {container_id}")
+            
+            # Get container details
+            container = self.db.get_container_by_id(container_id)
+            if not container:
+                messagebox.showerror("Error", "Container tidak ditemukan!")
+                return
+            
+            # Get barang in container with colli and pricing
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+            
+            # Safe way to get values from sqlite3.Row object
+            def safe_get(row, key, default=0):
+                try:
+                    value = row[key]
+                    return value if value is not None else default
+                except (KeyError, IndexError):
+                    return default
+            
+            # Calculate totals including pricing
+            total_volume = 0
+            total_weight = 0
+            total_colli = 0
+            total_nilai = 0
+            
+            for b in container_barang:
+                try:
+                    m3_value = safe_get(b, 'm3_barang', 0)
+                    total_volume += float(m3_value) if m3_value not in [None, '', '-'] else 0
+                    
+                    ton_value = safe_get(b, 'ton_barang', 0)
+                    total_weight += float(ton_value) if ton_value not in [None, '', '-'] else 0
+                    
+                    colli_value = safe_get(b, 'colli_amount', 0)
+                    total_colli += int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    
+                    # Calculate total pricing
+                    total_harga_value = safe_get(b, 'total_harga', 0)
+                    total_nilai += float(total_harga_value) if total_harga_value not in [None, '', '-'] else 0
+                    
+                except (ValueError, TypeError) as ve:
+                    print(f"Error calculating totals for barang: {ve}")
+                    continue
+            
+            # Group by customer with pricing
+            customer_summary = {}
+            for barang in container_barang:
+                try:
+                    customer = safe_get(barang, 'nama_customer', 'Unknown Customer')
+                    
+                    if customer not in customer_summary:
+                        customer_summary[customer] = {
+                            'count': 0,
+                            'volume': 0,
+                            'weight': 0,
+                            'colli': 0,
+                            'nilai': 0
+                        }
+                    
+                    customer_summary[customer]['count'] += 1
+                    
+                    # Safe calculation for customer summary
+                    try:
+                        m3_value = safe_get(barang, 'm3_barang', 0)
+                        customer_summary[customer]['volume'] += float(m3_value) if m3_value not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        pass
+                    
+                    try:
+                        ton_value = safe_get(barang, 'ton_barang', 0)
+                        customer_summary[customer]['weight'] += float(ton_value) if ton_value not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        pass
+                    
+                    try:
+                        colli_value = safe_get(b, 'colli_amount', 0)
+                        customer_summary[customer]['colli'] += int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        pass
+                    
+                    try:
+                        nilai_value = safe_get(barang, 'total_harga', 0)
+                        customer_summary[customer]['nilai'] += float(nilai_value) if nilai_value not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        pass
+                        
+                except Exception as customer_error:
+                    print(f"Error processing customer summary for barang: {customer_error}")
+                    continue
+            
+            self.show_container_summary_dialog_with_pricing(container, container_barang, customer_summary, 
+                                            total_volume, total_weight, total_colli, total_nilai)
+            
+        except Exception as e:
+            print(f"Error in view_selected_container_summary: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Gagal membuat summary container: {str(e)}")
+
     def view_container_details(self, event):
         """View container details on double-click"""
         selection = self.container_tree.selection()
@@ -4449,8 +4584,7 @@ class ContainerWindow:
         except sqlite3.Error as e:
             # Tampilkan pesan error ke user
             messagebox.showerror("Database Error", f"Gagal menambahkan container:\n{str(e)}")
-
-            
+     
     def edit_container(self):
         """Edit selected container - opens dialog"""
         selection = self.container_tree.selection()
