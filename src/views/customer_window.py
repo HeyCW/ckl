@@ -7,6 +7,8 @@ import re
 from src.models.database import AppDatabase
 from PIL import Image, ImageTk
 
+from src.widget.paginated_tree_view import PaginatedTreeView
+
 class CustomerWindow:
     def __init__(self, parent, db, refresh_callback=None):
         self.parent = parent
@@ -405,36 +407,35 @@ class CustomerWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        self.tree = ttk.Treeview(tree_container,
-                               columns=('ID', 'Nama', 'Alamat', 'Created'),
-                               show='headings', height=12)
-        
+        # Define columns
+        columns = ('ID', 'Nama', 'Alamat', 'Created')
+
+        # Create PaginatedTreeView instead of regular TreeView
+        self.tree = PaginatedTreeView(
+            parent=tree_container,
+            columns=columns,
+            show='headings',
+            height=12,
+            items_per_page=15  # Show 15 customers per page
+        )
+
         # Configure columns
         self.tree.heading('ID', text='ID')
         self.tree.heading('Nama', text='Nama Customer')
         self.tree.heading('Alamat', text='Alamat')
         self.tree.heading('Created', text='Tanggal Dibuat')
-        
+
         self.tree.column('ID', width=60)
         self.tree.column('Nama', width=250)
         self.tree.column('Alamat', width=400)
         self.tree.column('Created', width=150)
-        
-        # Scrollbars
-        v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical', command=self.tree.yview)
-        h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal', command=self.tree.xview)
-        self.tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
-        
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        v_scrollbar.grid(row=0, column=1, sticky='ns')
-        h_scrollbar.grid(row=1, column=0, sticky='ew')
-        
-        tree_container.grid_rowconfigure(0, weight=1)
-        tree_container.grid_columnconfigure(0, weight=1)
-        
+
+        # Pack PaginatedTreeView (sudah include scrollbar dan pagination)
+        self.tree.pack(fill='both', expand=True)
+
         # Bind double-click to edit
         self.tree.bind('<Double-1>', lambda e: self.update_customer())
-        
+
         # Bind selection change to update info
         self.tree.bind('<<TreeviewSelect>>', self.on_tree_select)
         
@@ -1024,10 +1025,12 @@ class CustomerWindow:
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
         
-        x = parent_x + (parent_width // 2) - (1200 // 2)
-        y = parent_y + (parent_height // 2) - (800 // 2)
+        # Ubah ukuran di sini
+        window_width = 1400  # dari 1400
+        window_height = 850  # dari 800
         
-        self.window.geometry(f"1200x800+{x}+{y}")
+        x = parent_x + (parent_width // 2) - (window_width // 2)
+        y = parent_y + (parent_height // 2) - (window_height // 2) - 50
     
     def browse_file(self):
         """Browse for Excel file"""
@@ -1449,38 +1452,44 @@ class CustomerWindow:
         self.name_entry.focus()
     
     def load_customers(self):
-        """Load customers into treeview with error handling"""
+        """Load customers into PaginatedTreeView with error handling"""
         try:
-            print("🔄 Loading customers from database...")
-            
-            # Clear existing items
-            for item in self.tree.get_children():
-                self.tree.delete(item)
+            print("Loading customers from database...")
             
             # Load customers from database
             customers = self.db.get_all_customers()
             self.original_customer_data = customers  # Store original data for filtering
-            print(f"📊 Found {len(customers)} customers in database")
+            print(f"Found {len(customers)} customers in database")
+            
+            # Format data untuk PaginatedTreeView
+            formatted_data = []
             
             for customer in customers:
                 # Format date
                 created_date = customer.get('created_at', '')[:10] if customer.get('created_at') else '-'
                 
-                self.tree.insert('', tk.END, values=(
-                    customer['customer_id'],
-                    customer['nama_customer'],
-                    customer['alamat_customer'] or '-',
-                    created_date
-                ))
+                formatted_data.append({
+                    'iid': str(customer['customer_id']),
+                    'values': (
+                        customer['customer_id'],
+                        customer['nama_customer'],
+                        customer['alamat_customer'] or '-',
+                        created_date
+                    )
+                })
             
-            print("✅ Customer list loaded successfully")
+            # Set data to PaginatedTreeView
+            self.tree.set_data(formatted_data)
+            
+            print("Customer list loaded successfully with pagination")
             
         except Exception as e:
-            print(f"💥 Error loading customers: {str(e)}")
+            print(f"Error loading customers: {str(e)}")
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal memuat daftar customer: {str(e)}")
-    
+        
+        
     def on_tab_changed(self, event):
         """Handle tab change event"""
         selected_tab = event.widget.select()

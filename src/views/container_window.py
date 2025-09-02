@@ -202,34 +202,35 @@ class ContainerWindow:
         container_tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         container_tree_container.pack(fill='both', expand=True)
         
-        self.container_tree = ttk.Treeview(container_tree_container, 
-                                         columns=('ID', 'Kapal', 'Container', 'Ref JOA','Items'), 
-                                         show='headings', height=8)
-        
+        # Container columns
+        container_columns = ('ID', 'Kapal', 'Container', 'Ref JOA', 'Items')
+
+        # Create PaginatedTreeView
+        self.container_tree = PaginatedTreeView(
+            parent=container_tree_container,
+            columns=container_columns,
+            show='headings',
+            height=8,
+            items_per_page=10
+        )
+
+        # Configure headings
         self.container_tree.heading('ID', text='ID')
         self.container_tree.heading('Kapal', text='Kapal')
         self.container_tree.heading('Container', text='Container')
         self.container_tree.heading('Ref JOA', text='Ref JOA')
         self.container_tree.heading('Items', text='Jumlah Barang')
-        
+
+        # Configure columns
         self.container_tree.column('ID', width=40)
         self.container_tree.column('Kapal', width=120)
         self.container_tree.column('Container', width=120)
         self.container_tree.column('Ref JOA', width=100)
         self.container_tree.column('Items', width=100)
-        
-        # Scrollbars
-        container_v_scrollbar = ttk.Scrollbar(container_tree_container, orient='vertical', command=self.container_tree.yview)
-        container_h_scrollbar = ttk.Scrollbar(container_tree_container, orient='horizontal', command=self.container_tree.xview)
-        self.container_tree.configure(yscrollcommand=container_v_scrollbar.set, xscrollcommand=container_h_scrollbar.set)
-        
-        self.container_tree.grid(row=0, column=0, sticky='nsew')
-        container_v_scrollbar.grid(row=0, column=1, sticky='ns')
-        container_h_scrollbar.grid(row=1, column=0, sticky='ew')
-        
-        container_tree_container.grid_rowconfigure(0, weight=1)
-        container_tree_container.grid_columnconfigure(0, weight=1)
-        
+
+        # Pack PaginatedTreeView (sudah include scrollbar dan pagination)
+        self.container_tree.pack(fill='both', expand=True)
+
         # Bind double-click to view container details
         self.container_tree.bind('<Double-1>', self.view_container_details)
         
@@ -326,7 +327,7 @@ class ContainerWindow:
 
         # === KIRI ===
         left_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        left_frame.grid(row=0, column=0, sticky='nw', padx=(10, 100))
+        left_frame.grid(row=0, column=0, sticky='nw', padx=(0, 5))
 
         # Container selection
         container_select_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -571,21 +572,28 @@ class ContainerWindow:
         # Right side - Barang in selected container (WITH PRICING)
         right_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
         right_frame.pack(side='right', fill='both', expand=True, padx=(10, 0))
-        
+
+
         self.container_label = tk.Label(right_frame, text="📦 Barang dalam Container", font=('Arial', 12, 'bold'), bg='#ffffff')
         self.container_label.pack(pady=10)
-        
-        # Container barang tree WITH PRICING COLUMNS
+
+        # Container barang tree WITH PRICING COLUMNS - MENGGUNAKAN PaginatedTreeView
         container_tree_frame = tk.Frame(right_frame)
-        container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
-        
-        self.container_barang_tree = ttk.Treeview(
-                                        container_tree_frame,
-                                        columns=('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
-                                        height=12,
-                                    )
-        self.container_barang_tree.pack(fill='both', expand=True)
-        
+        container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))  # Tambah padding untuk pagination
+
+        # Define columns
+        container_columns = ('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal')
+
+        # Create PaginatedTreeView instead of regular TreeView
+        self.container_barang_tree = PaginatedTreeView(
+            parent=container_tree_frame,
+            columns=container_columns,
+            show='headings',
+            height=10, 
+            items_per_page=20
+        )
+
+        # Configure headings
         self.container_barang_tree.heading('Pengirim', text='Pengirim')
         self.container_barang_tree.heading('Penerima', text='Penerima')
         self.container_barang_tree.heading('Nama', text='Nama Barang')
@@ -598,7 +606,8 @@ class ContainerWindow:
         self.container_barang_tree.heading('Harga_Unit', text='Harga/Unit')
         self.container_barang_tree.heading('Total_Harga', text='Total Harga')
         self.container_barang_tree.heading('Tanggal', text='Ditambahkan')
-        
+
+        # Configure columns
         self.container_barang_tree.column('Pengirim', width=70)
         self.container_barang_tree.column('Penerima', width=70)
         self.container_barang_tree.column('Nama', width=90)
@@ -611,13 +620,12 @@ class ContainerWindow:
         self.container_barang_tree.column('Harga_Unit', width=75)
         self.container_barang_tree.column('Total_Harga', width=85)
         self.container_barang_tree.column('Tanggal', width=65)
-        
-        
-        # Load initial data
-        self.load_available_barang()
 
-    # === FUNGSI-FUNGSI TAMBAHAN UNTUK BIAYA PENGANTARAN ===
-    
+        # Pack PaginatedTreeView
+        self.container_barang_tree.pack(fill='both', expand=True)
+
+        
+
     def load_destinations(self, event=None):
         try:
             print("load_destinations dipanggil")
@@ -3877,7 +3885,7 @@ class ContainerWindow:
         window_height = 850  # dari 800
         
         x = parent_x + (parent_width // 2) - (window_width // 2)
-        y = parent_y + (parent_height // 2) - (window_height // 2)
+        y = parent_y + (parent_height // 2) - (window_height // 2) - 50
         
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
     
@@ -3887,7 +3895,7 @@ class ContainerWindow:
             containers = self.db.get_all_containers()
             container_list = []
             for c in containers:
-                container_text = f"{c['container_id']} - {c.get('container', 'No Container')} ({c.get('destination', 'No Dest')})"
+                container_text = f"{c['container_id']} - {c.get('container', 'No Container')}"
                 container_list.append(container_text)
             
             self.container_combo['values'] = container_list
@@ -3907,14 +3915,13 @@ class ContainerWindow:
             self.container_label.config(text=f"📦 Barang dalam Container: {container_info}")
     
     def load_container_barang(self, container_id):
-        """Load barang in specific container with pricing"""
+        """Load barang in specific container with pricing using PaginatedTreeView"""
         try:
-            # Clear existing items
-            for item in self.container_barang_tree.get_children():
-                self.container_barang_tree.delete(item)
-            
             # Load barang in container with pricing
             container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+            
+            # Format data untuk PaginatedTreeView
+            formatted_data = []
             
             for barang in container_barang:
                 try:
@@ -3932,8 +3939,7 @@ class ContainerWindow:
                     dimensi = f"{panjang}×{lebar}×{tinggi}"
                     
                     assigned_at = safe_get(barang, 'assigned_at', '')
-
-
+                    
                     # Get values safely
                     pengirim = safe_get(barang, 'sender_name', '')
                     penerima = safe_get(barang, 'receiver_name', '')
@@ -3949,33 +3955,45 @@ class ContainerWindow:
                     # Format pricing display
                     harga_display = f"{float(harga_per_unit):,.0f}" if str(harga_per_unit).replace('.', '').isdigit() else harga_per_unit
                     total_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').isdigit() else total_harga
-
-                    self.container_barang_tree.insert('', tk.END, values=(
-                        pengirim,
-                        penerima,
-                        nama_barang,
-                        satuan,
-                        door_type,
-                        dimensi,
-                        m3_barang,
-                        ton_barang,
-                        colli_amount,
-                        harga_display,
-                        total_display,
-                        assigned_at
-                    ))
+                    
+                    # Get barang_id untuk iid (assuming ada field id atau barang_id)
+                    barang_id = safe_get(barang, 'barang_id', safe_get(barang, 'id', ''))
+                    
+                    formatted_data.append({
+                        'iid': str(barang_id),
+                        'values': (
+                            pengirim,
+                            penerima,
+                            nama_barang,
+                            satuan,
+                            door_type,
+                            dimensi,
+                            m3_barang,
+                            ton_barang,
+                            colli_amount,
+                            harga_display,
+                            total_display,
+                            assigned_at
+                        )
+                    })
                     
                 except Exception as row_error:
                     print(f"Error processing barang row: {row_error}")
                     print(f"Barang data: {dict(barang) if hasattr(barang, 'keys') else barang}")
                     continue
+            
+            # Set data to PaginatedTreeView
+            self.container_barang_tree.set_data(formatted_data)
+            
+            print(f"Loaded {len(formatted_data)} barang in container")  # Debug
                     
         except Exception as e:
             print(f"Error loading container barang: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat barang dalam container: {str(e)}")         
-                
+            messagebox.showerror("Error", f"Gagal memuat barang dalam container: {str(e)}")
+
+         
     def remove_barang_from_container(self):
         """Remove selected barang from container"""
         # Check if container is selected
@@ -4811,26 +4829,36 @@ class ContainerWindow:
         
     
     def load_containers(self):
-        """Load containers into treeview with item count"""
+        """Load containers into PaginatedTreeView with item count"""
         try:
-            # Clear existing items
-            for item in self.container_tree.get_children():
-                self.container_tree.delete(item)
-            
             # Load containers from database
             containers = self.db.get_all_containers()
+            
+            # Format data untuk PaginatedTreeView
+            formatted_data = []
+            
             for container in containers:
                 # Count barang in this container
                 container_barang = self.db.get_barang_in_container(container['container_id'])
                 item_count = len(container_barang)
                 
-                self.container_tree.insert('', tk.END, values=(
-                    container['container_id'],
-                    container.get('kapal_feeder', '-'),
-                    container.get('container', '-'),
-                    container.get('ref_joa', '-'),
-                    f"{item_count} items"  # Show item count
-                ))
+                formatted_data.append({
+                    'iid': str(container['container_id']),
+                    'values': (
+                        container['container_id'],
+                        container.get('kapal_feeder', '-'),
+                        container.get('container', '-'),
+                        container.get('ref_joa', '-'),
+                        f"{item_count} items"
+                    )
+                })
+            
+            # Set data ke PaginatedTreeView
+            self.container_tree.set_data(formatted_data)
+            
+            print(f"Loaded {len(formatted_data)} containers with pagination")
+            
         except Exception as e:
             print(f"Error loading containers: {e}")
             messagebox.showerror("Error", f"Gagal memuat daftar container: {str(e)}")
+

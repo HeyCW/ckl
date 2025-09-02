@@ -4,6 +4,8 @@ from tkinter import font
 from datetime import datetime
 import logging
 
+from src.widget.paginated_tree_view import PaginatedTreeView
+
 logger = logging.getLogger(__name__)
 
 class KapalWindow:
@@ -32,36 +34,22 @@ class KapalWindow:
             return False
         return True
     
-    def center_window(self, window, width, height):
-        """Center window on parent or screen"""
-        try:
-            if self.parent and self.parent.winfo_exists():
-                # Get parent window position and size
-                parent_x = self.parent.winfo_x()
-                parent_y = self.parent.winfo_y()
-                parent_width = self.parent.winfo_width()
-                parent_height = self.parent.winfo_height()
-                
-                # Calculate center position relative to parent
-                x = parent_x + (parent_width - width) // 2
-                y = parent_y + (parent_height - height) // 2
-            else:
-                # Center on screen if no parent
-                screen_width = window.winfo_screenwidth()
-                screen_height = window.winfo_screenheight()
-                x = (screen_width - width) // 2
-                y = (screen_height - height) // 2
-            
-            # Ensure window is not positioned off-screen
-            x = max(0, min(x, window.winfo_screenwidth() - width))
-            y = max(0, min(y, window.winfo_screenheight() - height))
-            
-            window.geometry(f"{width}x{height}+{x}+{y}")
-            
-        except Exception as e:
-            logger.error(f"Error centering window: {e}")
-            # Fallback to default positioning
-            window.geometry(f"{width}x{height}")
+    def center_window(self):
+        """Center window on parent"""
+        self.window.update_idletasks()
+        parent_x = self.parent.winfo_x()
+        parent_y = self.parent.winfo_y()
+        parent_width = self.parent.winfo_width()
+        parent_height = self.parent.winfo_height()
+        
+        # Ubah ukuran di sini
+        window_width = 1400  # dari 1400
+        window_height = 850  # dari 800
+        
+        x = parent_x + (parent_width // 2) - (window_width // 2)
+        y = parent_y + (parent_height // 2) - (window_height // 2) - 50
+        
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
     
     def create_window(self):
         """Create the main kapal management window"""
@@ -268,36 +256,32 @@ class KapalWindow:
         v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical')
         h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal')
         
-        # Treeview
+        # Define columns
         columns = ('ID', 'Feeder', 'ETD Sub', 'Party', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
-        self.tree = ttk.Treeview(
-            tree_container, 
-            columns=columns, 
+
+        # Create PaginatedTreeView instead of regular TreeView
+        self.tree = PaginatedTreeView(
+            parent=tree_container,
+            columns=columns,
             show='headings',
-            yscrollcommand=v_scrollbar.set,
-            xscrollcommand=h_scrollbar.set
+            height=15,  # Adjust height as needed
+            items_per_page=20  # Show 20 kapal per page
         )
-        
-        # Configure scrollbars
-        v_scrollbar.config(command=self.tree.yview)
-        h_scrollbar.config(command=self.tree.xview)
-        
-        # Pack scrollbars and treeview
-        v_scrollbar.pack(side='right', fill='y')
-        h_scrollbar.pack(side='bottom', fill='x')
-        self.tree.pack(side='left', fill='both', expand=True)
-        
+
         # Configure column headings and widths
         column_widths = {
             'ID': 50, 'Feeder': 100, 'ETD Sub': 90, 'Party': 100,
             'CLS': 90, 'Open': 90, 'Full': 90, 'Destination': 150,
             'Created': 130, 'Updated': 130
         }
-        
+
         for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=column_widths.get(col, 100), minwidth=50)
-        
+
+        # Pack PaginatedTreeView (sudah include scrollbar dan pagination)
+        self.tree.pack(fill='both', expand=True)
+
         # Bind selection event
         self.tree.bind('<<TreeviewSelect>>', self.on_item_select)
     
@@ -414,21 +398,20 @@ class KapalWindow:
             messagebox.showerror("Error", f"Gagal menghapus data: {e}")
     
     def load_data(self):
-        """Load all kapal data into treeview"""
+        """Load all kapal data into PaginatedTreeView"""
         try:
-            # Clear existing data
-            for item in self.tree.get_children():
-                self.tree.delete(item)
-            
             # Fetch data from database
             query = """
-                SELECT kapal_id, feeder, etd_sub, party, cls, open, full, 
-                       destination, created_at, updated_at 
-                FROM kapals 
+                SELECT kapal_id, feeder, etd_sub, party, cls, open, full,
+                    destination, created_at, updated_at
+                FROM kapals
                 ORDER BY created_at DESC
             """
             
             result = self.db.execute(query)
+            
+            # Format data untuk PaginatedTreeView
+            formatted_data = []
             
             if result:
                 for row in result:
@@ -447,14 +430,21 @@ class KapalWindow:
                             formatted_value = str(value) if value is not None else ''
                         formatted_row.append(formatted_value)
                     
-                    self.tree.insert('', 'end', values=formatted_row)
+                    # Add to formatted data with kapal_id as iid
+                    formatted_data.append({
+                        'iid': str(row[0]) if row[0] else '',  # kapal_id as iid
+                        'values': tuple(formatted_row)
+                    })
             
-            logger.info(f"Loaded {len(result) if result else 0} kapal records")
+            # Set data to PaginatedTreeView
+            self.tree.set_data(formatted_data)
+            
+            logger.info(f"Loaded {len(formatted_data)} kapal records with pagination")
             
         except Exception as e:
             logger.error(f"Error loading kapal data: {e}")
             messagebox.showerror("Error", f"Gagal memuat data: {e}")
-    
+        
     def setup_date_placeholder(self, entry):
         """Setup placeholder behavior for date entries"""
         def on_focus_in(event):

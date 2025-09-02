@@ -336,7 +336,7 @@ class BarangWindow:
         
     
     def create_excel_tab(self, parent):
-        """Create Excel upload tab with scrollable content"""
+        """Create Excel upload tab with scroll isolation - COMPLETE FIXED VERSION"""
         # Main container with scroll
         main_container = tk.Frame(parent, bg='#ecf0f1')
         main_container.pack(fill='both', expand=True, padx=10, pady=10)
@@ -355,26 +355,12 @@ class BarangWindow:
         )
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-
         canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
 
         # Pack
         h_scrollbar.pack(side="bottom", fill="x")
         v_scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
-          
-        # Bind mouse wheel to canvas
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
-        def _bind_to_mousewheel(event):
-            canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        def _unbind_from_mousewheel(event):
-            canvas.unbind_all("<MouseWheel>")
-        
-        canvas.bind('<Enter>', _bind_to_mousewheel)
-        canvas.bind('<Leave>', _unbind_from_mousewheel)
         
         # Content frame (now inside scrollable_frame)
         content_frame = tk.Frame(scrollable_frame, bg='#ecf0f1')
@@ -396,16 +382,16 @@ class BarangWindow:
         instruction_text = tk.Label(
             instruction_frame,
             text="Format Excel yang dibutuhkan:\n\n" +
-                 "• Pengirim: Nama pengirim yang sudah terdaftar (WAJIB)\n" +
-                 "• Penerima: Nama penerima yang sudah terdaftar (WAJIB)\n" +
-                 "• Nama Barang: Nama produk/barang (WAJIB)\n" +
-                 "• P, L, T: Panjang, Lebar, Tinggi (cm)\n" +
-                 "• M3: Volume (m³), Ton: Berat (ton), Colli: Jumlah kemasan\n\n" +
-                 "Harga per Jenis Layanan:\n" +
-                 "• M3_PP, M3_PD, M3_DD: Harga/m³ (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n" +
-                 "• TON_PP, TON_PD, TON_DD: Harga/ton (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n" +
-                 "• COLLI_PP, COLLI_PD, COLLI_DD: Harga/colli (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n\n" +
-                 "Pastikan pengirim dan penerima sudah terdaftar di sistem!",
+                "• Pengirim: Nama pengirim yang sudah terdaftar (WAJIB)\n" +
+                "• Penerima: Nama penerima yang sudah terdaftar (WAJIB)\n" +
+                "• Nama Barang: Nama produk/barang (WAJIB)\n" +
+                "• P, L, T: Panjang, Lebar, Tinggi (cm)\n" +
+                "• M3: Volume (m³), Ton: Berat (ton), Colli: Jumlah kemasan\n\n" +
+                "Harga per Jenis Layanan:\n" +
+                "• M3_PP, M3_PD, M3_DD: Harga/m³ (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n" +
+                "• TON_PP, TON_PD, TON_DD: Harga/ton (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n" +
+                "• COLLI_PP, COLLI_PD, COLLI_DD: Harga/colli (Pelabuhan-Pelabuhan, Pelabuhan-Door, Door-Door)\n\n" +
+                "Pastikan pengirim dan penerima sudah terdaftar di sistem!",
             font=('Arial', 10),
             fg='#34495e',
             bg='#ffffff',
@@ -438,25 +424,25 @@ class BarangWindow:
         )
         browse_btn.pack(side='right', padx=(5, 0))
         
-        # Preview area
+        # Preview area dengan scroll isolation
         preview_frame = tk.Frame(content_frame, bg='#ecf0f1')
         preview_frame.pack(fill='both', expand=True, pady=10)
         
         tk.Label(preview_frame, text="📋 Preview Data:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
         
-        # Create container frame for treeview and scrollbars
-        tree_container = tk.Frame(preview_frame, bg='#ecf0f1')
+        # ✅ KUNCI UTAMA: Container khusus untuk TreeView dengan scroll isolation
+        tree_container = tk.Frame(preview_frame, bg='#ecf0f1', relief='solid', bd=1)
         tree_container.pack(fill='both', expand=True, pady=5)
         
-        # Updated columns with Pengirim, Penerima and all pricing types
+        # Updated columns
         columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 
-                  'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD')
+                'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD')
         
-        # Create Treeview with scrollbars - using ONLY pack manager
+        # ✅ GUNAKAN TREEVIEW BIASA (sesuai kode asli Anda)
         self.preview_tree = ttk.Treeview(tree_container, 
-                                       columns=columns, 
-                                       show='headings',
-                                       height=20)
+                                    columns=columns, 
+                                    show='headings',
+                                    height=20)
         
         # Configure column headers
         headers = {
@@ -482,7 +468,7 @@ class BarangWindow:
         for col_id, header_text in headers.items():
             self.preview_tree.heading(col_id, text=header_text)
         
-        # Configure column widths - make them fixed and wide enough to force horizontal scroll
+        # Configure column widths
         column_widths = {
             'Pengirim': 150,
             'Penerima': 150,
@@ -503,23 +489,151 @@ class BarangWindow:
             'COLLI_DD': 100
         }
         
-        # Total width will be about 2000px, forcing horizontal scroll
         for col_id, width in column_widths.items():
             self.preview_tree.column(col_id, width=width, minwidth=width, stretch=False)
         
-        # Create scrollbars - using ONLY pack manager
-        v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical', command=self.preview_tree.yview)
-        h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal', command=self.preview_tree.xview)
+        # Create scrollbars untuk TreeView
+        tree_v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical', command=self.preview_tree.yview)
+        tree_h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal', command=self.preview_tree.xview)
         
         # Configure treeview scrollbars
-        self.preview_tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        self.preview_tree.configure(yscrollcommand=tree_v_scrollbar.set, xscrollcommand=tree_h_scrollbar.set)
         
-        # Pack everything using pack manager only - NO GRID!
-        h_scrollbar.pack(side='bottom', fill='x')
-        v_scrollbar.pack(side='right', fill='y')
+        # Pack TreeView dan scrollbars
+        tree_h_scrollbar.pack(side='bottom', fill='x')
+        tree_v_scrollbar.pack(side='right', fill='y')
         self.preview_tree.pack(fill='both', expand=True)
         
-        # Bind keyboard events for navigation
+        # ✅ IMPLEMENTASI SCROLL ISOLATION YANG BENAR
+        def setup_scroll_isolation():
+            """Setup scroll isolation untuk preview tree"""
+            
+            # Mouse tracking untuk tree area
+            self.mouse_in_tree_area = False
+            
+            def on_tree_area_enter(event):
+                """Mouse masuk ke area tree - disable canvas scroll"""
+                self.mouse_in_tree_area = True
+                # Unbind canvas scroll
+                canvas.unbind_all("<MouseWheel>")
+                canvas.unbind_all("<Button-4>")  # Linux
+                canvas.unbind_all("<Button-5>")  # Linux
+                print("Mouse entered tree area - canvas scroll disabled")
+            
+            def on_tree_area_leave(event):
+                """Mouse keluar dari area tree - enable canvas scroll"""
+                self.mouse_in_tree_area = False
+                # Re-enable canvas scroll dengan delay untuk menghindari conflict
+                self.window.after(50, restore_canvas_scroll)
+                print("Mouse left tree area - scheduling canvas scroll restore")
+            
+            def restore_canvas_scroll():
+                """Restore canvas scrolling functionality"""
+                if not getattr(self, 'mouse_in_tree_area', False):
+                    def _on_canvas_mousewheel(event):
+                        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                    
+                    def _on_canvas_button4(event):  # Linux scroll up
+                        canvas.yview_scroll(-1, "units")
+                        
+                    def _on_canvas_button5(event):  # Linux scroll down
+                        canvas.yview_scroll(1, "units")
+                    
+                    canvas.bind_all("<MouseWheel>", _on_canvas_mousewheel)
+                    canvas.bind_all("<Button-4>", _on_canvas_button4)
+                    canvas.bind_all("<Button-5>", _on_canvas_button5)
+                    print("Canvas scroll restored")
+            
+            def on_tree_scroll(event):
+                """Handle scroll events dalam tree area"""
+                if self.mouse_in_tree_area:
+                    # Allow TreeView to handle its own scrolling
+                    try:
+                        # Determine scroll direction
+                        if event.delta > 0:  # Scroll up
+                            self.preview_tree.yview_scroll(-1, "units")
+                        else:  # Scroll down
+                            self.preview_tree.yview_scroll(1, "units")
+                    except:
+                        # Fallback for systems without delta
+                        if event.num == 4:  # Linux scroll up
+                            self.preview_tree.yview_scroll(-1, "units")
+                        elif event.num == 5:  # Linux scroll down
+                            self.preview_tree.yview_scroll(1, "units")
+                    
+                    # Stop event propagation
+                    return "break"
+                
+                # If not in tree area, let canvas handle
+                return None
+            
+            # Bind events ke tree container dan semua children
+            def bind_tree_isolation_events(widget):
+                """Bind isolation events ke widget dan children secara recursive"""
+                try:
+                    widget.bind("<Enter>", on_tree_area_enter, '+')
+                    widget.bind("<Leave>", on_tree_area_leave, '+')
+                    widget.bind("<MouseWheel>", on_tree_scroll, '+')
+                    widget.bind("<Button-4>", on_tree_scroll, '+')  # Linux
+                    widget.bind("<Button-5>", on_tree_scroll, '+')  # Linux
+                    
+                    # Recursive untuk children
+                    for child in widget.winfo_children():
+                        bind_tree_isolation_events(child)
+                        
+                except Exception as e:
+                    print(f"Error binding events to {widget}: {e}")
+            
+            # Apply ke tree container dan semua contents
+            bind_tree_isolation_events(tree_container)
+            
+            # Special handling untuk TreeView scrollbars
+            try:
+                tree_v_scrollbar.bind("<Enter>", on_tree_area_enter, '+')
+                tree_v_scrollbar.bind("<Leave>", on_tree_area_leave, '+')
+                tree_h_scrollbar.bind("<Enter>", on_tree_area_enter, '+')
+                tree_h_scrollbar.bind("<Leave>", on_tree_area_leave, '+')
+            except:
+                pass
+            
+            print("✅ Scroll isolation setup completed")
+        
+        # ✅ SETUP CANVAS SCROLL (untuk area di luar tree)
+        def setup_canvas_scroll():
+            """Setup default canvas scrolling"""
+            def _on_canvas_mousewheel(event):
+                if not getattr(self, 'mouse_in_tree_area', False):
+                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            def _on_canvas_button4(event):  # Linux scroll up
+                if not getattr(self, 'mouse_in_tree_area', False):
+                    canvas.yview_scroll(-1, "units")
+                    
+            def _on_canvas_button5(event):  # Linux scroll down
+                if not getattr(self, 'mouse_in_tree_area', False):
+                    canvas.yview_scroll(1, "units")
+            
+            def _bind_canvas_mousewheel(event):
+                if not getattr(self, 'mouse_in_tree_area', False):
+                    canvas.bind_all("<MouseWheel>", _on_canvas_mousewheel)
+                    canvas.bind_all("<Button-4>", _on_canvas_button4)
+                    canvas.bind_all("<Button-5>", _on_canvas_button5)
+            
+            def _unbind_canvas_mousewheel(event):
+                canvas.unbind_all("<MouseWheel>")
+                canvas.unbind_all("<Button-4>")
+                canvas.unbind_all("<Button-5>")
+            
+            # Bind canvas enter/leave events
+            canvas.bind('<Enter>', _bind_canvas_mousewheel)
+            canvas.bind('<Leave>', _unbind_canvas_mousewheel)
+            
+            # Initial canvas scroll binding
+            canvas.bind_all("<MouseWheel>", _on_canvas_mousewheel)
+            canvas.bind_all("<Button-4>", _on_canvas_button4)
+            canvas.bind_all("<Button-5>", _on_canvas_button5)
+        
+        # Bind keyboard events untuk TreeView navigation (dari kode asli)
         def on_key_press(event):
             if event.keysym == 'Right':
                 self.preview_tree.xview_scroll(1, "units")
@@ -534,9 +648,13 @@ class BarangWindow:
                 self.preview_tree.yview_scroll(-1, "units")
                 return "break"
         
-        # Bind events
+        # Bind keyboard events
         self.preview_tree.bind('<Key>', on_key_press)
         self.preview_tree.bind('<Button-1>', lambda e: self.preview_tree.focus_set())
+        
+        # Apply scroll isolation setelah semua widget dibuat
+        self.window.after(100, setup_scroll_isolation)
+        self.window.after(200, setup_canvas_scroll)
         
         # Upload buttons
         upload_btn_frame = tk.Frame(content_frame, bg='#ecf0f1')
@@ -579,10 +697,11 @@ class BarangWindow:
         )
         self.status_label.pack(pady=10, fill='x')
         
-        # Store canvas reference
+        # Store references
         self.excel_canvas = canvas
         self.excel_scrollable_frame = scrollable_frame
-   
+        self.tree_container = tree_container
+    
     def create_list_tab(self, parent):
         """Create barang list tab with search, update, delete functionality"""
         # Container
@@ -1788,10 +1907,14 @@ class BarangWindow:
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
         
-        x = parent_x + (parent_width // 2) - (1200 // 2)
-        y = parent_y + (parent_height // 2) - (800 // 2)
+        # Ubah ukuran di sini
+        window_width = 1400  # dari 1400
+        window_height = 850  # dari 800
         
-        self.window.geometry(f"1200x800+{x}+{y}")
+        x = parent_x + (parent_width // 2) - (window_width // 2)
+        y = parent_y + (parent_height // 2) - (window_height // 2) - 50
+        
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
     
     def load_customer_combo(self):
         """Load customers into combobox"""
