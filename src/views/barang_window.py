@@ -1919,14 +1919,14 @@ class BarangWindow:
     def load_customer_combo(self):
         """Load customers into combobox"""
         customers = self.db.get_all_customers()
-        customer_list = [f"{c['customer_id']} - {c['nama_customer']}" for c in customers]
+        customer_list = [f"{c['nama_customer']}" for c in customers]
         self.penerima_combo['values'] = customer_list
         self.original_penerima_data = customer_list
 
     def load_pengirim_combo(self):
         """Load senders into combobox"""
         senders = self.db.get_all_customers()
-        sender_list = [f"{s['customer_id']} - {s['nama_customer']}" for s in senders]
+        sender_list = [f"{s['nama_customer']}" for s in senders]
         self.pengirim_combo['values'] = sender_list
         self.original_pengirim_data = sender_list
 
@@ -3202,70 +3202,140 @@ class BarangWindow:
         ).pack(pady=10)
     
     def add_barang(self):
-        """Add new barang manually with enhanced pricing"""
+        """Add new barang manually with enhanced pricing for pengirim-penerima system"""
         
+        # Validate form data
         if not self.validated_barang():
-            return 
-        
-        customer_text = self.customer_var.get()
-        if not customer_text:
-            messagebox.showerror("Error", "Pilih customer terlebih dahulu!")
-            self.customer_combo.focus()
-            return
-        
-        customer_id = int(customer_text.split(' - ')[0])
-        nama_barang = self.barang_entry.get().strip()
-        
-        if not nama_barang:
-            messagebox.showerror("Error", "Nama barang harus diisi!")
-            self.barang_entry.focus()
             return
         
         try:
-            # Get numeric values
-            panjang = float(self.panjang_entry.get()) if self.panjang_entry.get() else None
-            lebar = float(self.lebar_entry.get()) if self.lebar_entry.get() else None
-            tinggi = float(self.tinggi_entry.get()) if self.tinggi_entry.get() else None
-            m3 = float(self.m3_entry.get()) if self.m3_entry.get() else None
-            ton = float(self.ton_entry.get()) if self.ton_entry.get() else None
+            # Get pengirim and penerima names
+            pengirim_name = self.pengirim_var.get().strip()
+            penerima_name = self.penerima_var.get().strip()
             
-            # Get pricing information - priority: m3 > ton > coll
-            harga_satuan = None
-            pricing_method = None
+            if not pengirim_name:
+                messagebox.showerror("Error", "Pilih pengirim terlebih dahulu!")
+                self.pengirim_combo.focus()
+                return
+                
+            if not penerima_name:
+                messagebox.showerror("Error", "Pilih penerima terlebih dahulu!")
+                self.penerima_combo.focus()
+                return
             
-            harga_m3 = float(self.harga_m3_entry.get()) if self.harga_m3_entry.get() else None
-            harga_ton = float(self.harga_ton_entry.get()) if self.harga_ton_entry.get() else None
-            harga_coll = float(self.harga_coll_entry.get()) if self.harga_coll_entry.get() else None
+            # Get customer IDs from names
+            pengirim_id = self.db.get_customer_id_by_name(pengirim_name)
+            penerima_id = self.db.get_customer_id_by_name(penerima_name)
             
+            if not pengirim_id:
+                messagebox.showerror("Error", f"Pengirim '{pengirim_name}' tidak ditemukan dalam database!")
+                return
+                
+            if not penerima_id:
+                messagebox.showerror("Error", f"Penerima '{penerima_name}' tidak ditemukan dalam database!")
+                return
+            
+            # Get basic barang data
+            nama_barang = self.barang_entry.get().strip()
+            
+            if not nama_barang:
+                messagebox.showerror("Error", "Nama barang harus diisi!")
+                self.barang_entry.focus()
+                return
+            
+            # Get numeric values with error handling
+            def get_numeric_value(entry_widget, field_name):
+                try:
+                    value = entry_widget.get().strip()
+                    if not value:
+                        return None
+                    return float(value)
+                except ValueError:
+                    raise ValueError(f"Format {field_name} tidak valid: '{value}' (gunakan angka)")
+            
+            panjang = get_numeric_value(self.panjang_entry, "panjang")
+            lebar = get_numeric_value(self.lebar_entry, "lebar")
+            tinggi = get_numeric_value(self.tinggi_entry, "tinggi")
+            m3 = get_numeric_value(self.m3_entry, "volume")
+            ton = get_numeric_value(self.ton_entry, "berat")
+            
+            # Get pricing information for all service types
+            # M3 pricing
+            harga_m3_pp = get_numeric_value(self.harga_m3_pp_entry, "Harga M3 PP") if hasattr(self, 'harga_m3_pp_entry') else None
+            harga_m3_pd = get_numeric_value(self.harga_m3_pd_entry, "Harga M3 PD") if hasattr(self, 'harga_m3_pd_entry') else None
+            harga_m3_dd = get_numeric_value(self.harga_m3_dd_entry, "Harga M3 DD") if hasattr(self, 'harga_m3_dd_entry') else None
+            
+            # Ton pricing
+            harga_ton_pp = get_numeric_value(self.harga_ton_pp_entry, "Harga Ton PP") if hasattr(self, 'harga_ton_pp_entry') else None
+            harga_ton_pd = get_numeric_value(self.harga_ton_pd_entry, "Harga Ton PD") if hasattr(self, 'harga_ton_pd_entry') else None
+            harga_ton_dd = get_numeric_value(self.harga_ton_dd_entry, "Harga Ton DD") if hasattr(self, 'harga_ton_dd_entry') else None
+            
+            # Colli pricing (using correct attribute names)
+            harga_col_pp = get_numeric_value(self.harga_colli_pp_entry, "Harga Colli PP") if hasattr(self, 'harga_colli_pp_entry') else None
+            harga_col_pd = get_numeric_value(self.harga_colli_pd_entry, "Harga Colli PD") if hasattr(self, 'harga_colli_pd_entry') else None
+            harga_col_dd = get_numeric_value(self.harga_colli_dd_entry, "Harga Colli DD") if hasattr(self, 'harga_colli_dd_entry') else None
+            
+            # Create barang in database using the new pengirim-penerima system
             barang_id = self.db.create_barang(
-                customer_id=customer_id,
+                pengirim=pengirim_id,
+                penerima=penerima_id,
                 nama_barang=nama_barang,
                 panjang_barang=panjang,
                 lebar_barang=lebar,
                 tinggi_barang=tinggi,
                 m3_barang=m3,
                 ton_barang=ton,
-                harga_m3=harga_m3,
-                harga_ton=harga_ton,
-                harga_col=harga_coll,
+                # All pricing options
+                m3_pp=harga_m3_pp,
+                m3_pd=harga_m3_pd,
+                m3_dd=harga_m3_dd,
+                ton_pp=harga_ton_pp,
+                ton_pd=harga_ton_pd,
+                ton_dd=harga_ton_dd,
+                col_pp=harga_col_pp,
+                col_pd=harga_col_pd,
+                col_dd=harga_col_dd
             )
             
-            pricing_info = f" dengan harga {pricing_method}" if pricing_method else ""
-            messagebox.showinfo("Sukses", f"Barang berhasil ditambahkan dengan ID: {barang_id}{pricing_info}")
-            self.clear_form()
+            # Generate pricing summary for success message
+            pricing_methods = []
+            if any([harga_m3_pp, harga_m3_pd, harga_m3_dd]):
+                pricing_methods.append("M³")
+            if any([harga_ton_pp, harga_ton_pd, harga_ton_dd]):
+                pricing_methods.append("Ton")
+            if any([harga_col_pp, harga_col_pd, harga_col_dd]):
+                pricing_methods.append("Colli")
             
-            # Refresh and switch to list tab
+            pricing_info = f" dengan metode pricing: {', '.join(pricing_methods)}" if pricing_methods else ""
+            
+            # Success message
+            success_msg = (
+                f"Barang berhasil ditambahkan!\n\n"
+                f"ID Barang: {barang_id}\n"
+                f"Nama: {nama_barang}\n"
+                f"Pengirim: {pengirim_name}\n"
+                f"Penerima: {penerima_name}{pricing_info}"
+            )
+            
+            messagebox.showinfo("Sukses", success_msg)
+            
+            # Clear form and refresh
+            self.clear_form()
             self.load_barang()
+            
             if self.refresh_callback:
                 self.refresh_callback()
             
+            # Switch to list tab to see the added barang
             self.notebook.select(2)  # Switch to list tab
             
-        except ValueError:
-            messagebox.showerror("Error", "Pastikan format angka benar!")
+        except ValueError as ve:
+            messagebox.showerror("Format Error", str(ve))
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menambahkan barang: {str(e)}")
-    
+            error_msg = f"Gagal menambahkan barang: {str(e)}"
+            print(f"Add barang error: {error_msg}")
+            messagebox.showerror("Error", error_msg)
+            
     def validated_barang(self):
             # Validate input fields for barang
             if not self.pengirim_combo.get():
@@ -3292,9 +3362,9 @@ class BarangWindow:
             harga_ton_pd = self.harga_ton_pd_entry.get().strip()
             harga_ton_dd = self.harga_ton_dd_entry.get().strip()
             
-            harga_col_pp = self.harga_col_pp_entry.get().strip()
-            harga_col_pd = self.harga_col_pd_entry.get().strip()
-            harga_col_dd = self.harga_col_dd_entry.get().strip()
+            harga_col_pp = self.harga_colli_pp_entry.get().strip()
+            harga_col_pd = self.harga_colli_pd_entry.get().strip()
+            harga_col_dd = self.harga_colli_dd_entry.get().strip()
 
             if not (harga_m3_pp or harga_m3_pd or harga_m3_dd or 
                        harga_ton_pp or harga_ton_pd or harga_ton_dd or 
@@ -3312,19 +3382,44 @@ class BarangWindow:
             return True
     
     def clear_form(self):
-        """Clear form fields"""
-        self.customer_var.set('')
-        self.barang_entry.delete(0, tk.END)
-        self.panjang_entry.delete(0, tk.END)
-        self.lebar_entry.delete(0, tk.END)
-        self.tinggi_entry.delete(0, tk.END)
-        self.m3_entry.delete(0, tk.END)
-        self.ton_entry.delete(0, tk.END)
-        self.harga_m3_entry.delete(0, tk.END)
-        self.harga_ton_entry.delete(0, tk.END)
-        self.harga_coll_entry.delete(0, tk.END)
-        self.customer_combo.focus()
-    
+        """Clear form fields - updated for pengirim-penerima system"""
+        try:
+            # Clear customer selections
+            self.pengirim_var.set('')
+            self.penerima_var.set('')
+            
+            # Clear basic fields
+            self.barang_entry.delete(0, tk.END)
+            self.panjang_entry.delete(0, tk.END)
+            self.lebar_entry.delete(0, tk.END)
+            self.tinggi_entry.delete(0, tk.END)
+            self.m3_entry.delete(0, tk.END)
+            self.ton_entry.delete(0, tk.END)
+            
+            # Clear all pricing fields if they exist
+            pricing_entries = [
+                'harga_m3_pp_entry', 'harga_m3_pd_entry', 'harga_m3_dd_entry',
+                'harga_ton_pp_entry', 'harga_ton_pd_entry', 'harga_ton_dd_entry',
+                'harga_colli_pp_entry', 'harga_colli_pd_entry', 'harga_colli_dd_entry'
+            ]
+            
+            for entry_name in pricing_entries:
+                if hasattr(self, entry_name):
+                    entry = getattr(self, entry_name)
+                    entry.delete(0, tk.END)
+            
+            # Focus on pengirim combo for next input
+            self.pengirim_combo.focus()
+            
+        except Exception as e:
+            print(f"Error clearing form: {str(e)}")
+            # Try basic clearing even if some fields fail
+            try:
+                self.barang_entry.delete(0, tk.END)
+                self.pengirim_combo.focus()
+            except:
+                pass
+        
     def load_barang(self):
         """Load barang into PaginatedTreeView"""
         try:

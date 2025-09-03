@@ -1031,6 +1031,8 @@ class CustomerWindow:
         
         x = parent_x + (parent_width // 2) - (window_width // 2)
         y = parent_y + (parent_height // 2) - (window_height // 2) - 50
+        
+        self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
     
     def browse_file(self):
         """Browse for Excel file"""

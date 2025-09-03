@@ -34,6 +34,62 @@ class KapalWindow:
             return False
         return True
     
+    def create_window(self):
+        """Create and configure the main kapal window"""
+        try:
+            # Create new window
+            self.window = tk.Toplevel(self.parent)
+            self.window.title("Kelola Data Kapal")
+            self.window.transient(self.parent)
+            self.window.grab_set()
+            
+            # Set window properties
+            self.window.resizable(True, True)
+            self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
+            
+            # Center the window
+            self.center_window()
+            
+            # Create main container
+            main_frame = ttk.Frame(self.window)
+            main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            
+            # Create header
+            self.create_header(main_frame)
+            
+            # Create form frame
+            self.create_form_frame(main_frame)
+            
+            # Create buttons frame
+            self.create_buttons_frame(main_frame)
+            
+            # Create treeview frame
+            self.create_treeview_frame(main_frame)
+            
+            # Load initial data
+            self.load_data()
+            
+            # Focus on first entry
+            if 'feeder' in self.entries:
+                self.entries['feeder'].focus()
+                
+            logger.info("Kapal window created successfully")
+            
+        except Exception as e:
+            logger.error(f"Error creating kapal window: {e}")
+            raise
+    
+    def on_window_close(self):
+        """Handle window close event"""
+        try:
+            if self.window:
+                self.window.grab_release()
+                self.window.destroy()
+                self.window = None
+            logger.info("Kapal window closed")
+        except Exception as e:
+            logger.error(f"Error closing kapal window: {e}")
+    
     def center_window(self):
         """Center window on parent"""
         self.window.update_idletasks()
@@ -51,49 +107,7 @@ class KapalWindow:
         
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
     
-    def create_window(self):
-        """Create the main kapal management window"""
-        try:
-            self.window = tk.Toplevel(self.parent)
-            self.window.title("Manajemen Data Kapal")
-            self.window.configure(bg='#f0f0f0')
-            self.window.transient(self.parent)
-            self.window.grab_set()
-            
-            # Set window size and center it
-            width, height = 1200, 700
-            self.center_window(self.window, width, height)
-
-            # Create header frame
-            self.create_header(self.window)
-
-            # Create main frame
-            main_frame = ttk.Frame(self.window)
-            main_frame.pack(fill='both', expand=True, padx=10, pady=10)
-            
-            # Create form frame
-            self.create_form_frame(main_frame)
-            
-            # Create buttons frame
-            self.create_buttons_frame(main_frame)
-            
-            # Create treeview frame
-            self.create_treeview_frame(main_frame)
-            
-            # Load data
-            self.load_data()
-            
-            # Ensure window stays on top initially
-            self.window.lift()
-            self.window.focus_set()
-            
-        except Exception as e:
-            logger.error(f"Error creating kapal window: {e}")
-            if hasattr(self, 'window') and self.window:
-                self.window.destroy()
-                self.window = None
-            raise e  # Re-raise to be caught by show_window
-        
+    
     def create_header(self, parent):
         """Create header frame with title"""
         header_frame = tk.Frame(parent, bg='#28a745', height=80)  # Green header like in the image

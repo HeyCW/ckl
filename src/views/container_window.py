@@ -747,6 +747,7 @@ class ContainerWindow:
             
             # Clear form dan reset placeholder
             self.delivery_desc_var.set('')
+            self.cost_description_var.set('')
             self.delivery_desc_entry.delete(0, tk.END)
             self.delivery_cost_var.set('0')
             self.delivery_destination_combo.set('Surabaya')
@@ -1852,8 +1853,10 @@ class ContainerWindow:
             
             # Only allow editing for auto_pricing and harga_unit columns
             if column == '#4':  # auto_pricing column
+                print("Testing4")
                 self._edit_auto_pricing(tree, item_id, pricing_data_store, colli_amount)
             elif column == '#5':  # harga_unit column
+                print("Testing5")
                 self._edit_harga_unit(tree, item_id, pricing_data_store, colli_amount)
         
         tree.bind('<Double-1>', on_double_click)
@@ -2382,6 +2385,7 @@ class ContainerWindow:
             bg='#ecf0f1',
             fg='#2c3e50'
         )
+        
         info_label.pack(anchor='w')
         
         # Create combination controls
@@ -2545,6 +2549,7 @@ class ContainerWindow:
         return barang_details
 
     def _populate_edit_pricing_table(self, tree, selected_items, barang_details, pricing_data_store):
+        print(f"Selected items: {selected_items}")
         """Populate the edit pricing table with current data"""
         for item in selected_items:
             barang_detail = barang_details.get(item['id'], {})
@@ -2574,21 +2579,27 @@ class ContainerWindow:
             pricing_data_store[item['id']] = {
                 'item': item,
                 'pricing_info': pricing_info,
-                'current_method': 'Manual',
+                'current_method': "Harga/"+selected_items[0]['satuan'] + "_" + selected_items[0]['door_type'],
                 'current_price': current_price,
                 'original_price': current_price,
                 'colli_amount': colli
             }
             
-            # Calculate initial total
-            total_baru = current_price * colli
+            total_baru = 0
+            
+            if(selected_items[0]['satuan'] == 'm3'):
+                total_baru = current_price * colli * barang_detail.get('m3_barang', 0) or 0
+            elif (selected_items[0]['satuan'] == 'ton'):
+                total_baru = current_price * colli * barang_detail.get('ton_barang', 0) or 0
+            else:
+                total_baru = current_price * colli
             
             # Insert into tree
             tree.insert('', tk.END, iid=item['id'], values=(
                 item['name'],
                 str(colli),
                 f"{current_price:,.0f}",
-                'Manual',
+                "Harga/" + selected_items[0]['satuan'] + "_" + selected_items[0]['door_type'],
                 f"{current_price:,.0f}",
                 f"Rp {total_baru:,.0f}",
             ), tags=('row',))
@@ -2975,12 +2986,29 @@ class ContainerWindow:
                 changed_items = []
                 
                 for item_id, data in pricing_data_store.items():
+                    print(f"Data di confirm: {data}")
                     if pricing_tree.exists(item_id):
                         current_price = data['current_price']
                         original_price = data['original_price']
                         method = data['current_method']
                         colli = data['colli_amount']
-                        total = current_price * colli
+                        
+                        # Ambil data dari pricing_info
+                        m3_barang = data['pricing_info']['m3_barang']
+                        ton_barang = data['pricing_info']['ton_barang']
+                        
+                        # Ambil satuan dari item data
+                        satuan = method.split('/')[1].split('_')[0]
+                        
+                        total = 0
+                        
+                        if satuan == "m3":
+                            total = current_price * colli * m3_barang
+                        elif satuan == "ton":
+                            total = current_price * colli * ton_barang
+                        else:
+                            total = current_price * colli
+                        
                         
                         pricing_data[item_id] = {
                             'harga_per_unit': current_price,
@@ -3374,13 +3402,62 @@ class ContainerWindow:
             selected_items = []
             for item in selection:
                 values = self.container_barang_tree.item(item)['values']
-                # Find barang_id from database based on customer and nama_barang
-                pengirim = values[0]  # Customer column
-                penerima = values[1]  # Nama barang column
-                nama_barang = values[2]  # Nama barang column
-                current_harga = values[7] if len(values) > 6 else "0"  # Current price
-                current_total = values[8] if len(values) > 7 else "0"  # Current total
-                colli = values[6]  # Colli column
+                
+                # PERBAIKAN: Mapping yang benar berdasarkan struktur treeview
+                # Berdasarkan load_container_barang, struktur values adalah:
+                # (pengirim, penerima, nama_barang, satuan, door_type, dimensi, m3_barang, ton_barang, colli_amount, harga_display, total_display, assigned_at)
+                
+                pengirim = values[0]      # Pengirim column (index 0)
+                penerima = values[1]      # Penerima column (index 1) 
+                nama_barang = values[2]   # Nama barang column (index 2)
+                satuan = values[3]        # Satuan column (index 3)
+                door_type = values[4]     # Door type column (index 4)
+                dimensi = values[5]       # Dimensi column (index 5)
+                m3_barang = values[6]     # M3 column (index 6)
+                ton_barang = values[7]    # Ton column (index 7)
+                colli = values[8]         # Colli column (index 8)
+                current_harga = values[9] # Harga per unit (index 9) - PERBAIKAN!
+                current_total = values[10] # Total harga (index 10) - PERBAIKAN!
+                assigned_at = values[11]  # Assigned at timestamp (index 11)
+                
+                print(f"Debug edit price values: {values}")
+                print(f"Current harga: {current_harga}, Current total: {current_total}")
+                
+                # PERBAIKAN: Safe parsing untuk harga yang mungkin berformat currency
+                def safe_parse_currency(value, default=0):
+                    """Safely parse currency value that might contain commas, Rp, etc."""
+                    try:
+                        if not value or str(value).strip() in ['-', '', 'None']:
+                            return default
+                        
+                        # Clean currency formatting
+                        clean_value = str(value).replace('Rp', '').replace(',', '').replace(' ', '').strip()
+                        
+                        if not clean_value:
+                            return default
+                        
+                        return float(clean_value)
+                        
+                    except (ValueError, TypeError) as e:
+                        print(f"Error parsing currency value '{value}': {e}")
+                        return default
+                
+                # Parse current prices safely
+                parsed_current_harga = safe_parse_currency(current_harga, 0)
+                parsed_current_total = safe_parse_currency(current_total, 0)
+                
+                # PERBAIKAN: Safe parsing untuk colli (might be float)
+                def safe_parse_colli(value, default=1):
+                    """Safely parse colli value"""
+                    try:
+                        if not value or str(value).strip() in ['-', '', 'None']:
+                            return default
+                        return int(float(str(value)))
+                    except (ValueError, TypeError) as e:
+                        print(f"Error parsing colli value '{value}': {e}")
+                        return default
+                
+                parsed_colli = safe_parse_colli(colli, 1)
                 
                 # Get barang_id from database
                 barang_data = self.db.execute("""
@@ -3397,10 +3474,17 @@ class ContainerWindow:
                         'name': nama_barang,
                         'pengirim': pengirim,
                         'penerima': penerima,
-                        'current_harga': current_harga,
-                        'current_total': current_total,
-                        'colli': colli
+                        'satuan': satuan,
+                        'door_type': door_type,
+                        'current_harga': parsed_current_harga,  # Already parsed as float
+                        'current_total': parsed_current_total,  # Already parsed as float
+                        'colli': parsed_colli,                  # Already parsed as int
+                        'assigned_at': assigned_at              # For unique identification
                     })
+                    
+                    print(f"Added item: {nama_barang}, harga: {parsed_current_harga}, total: {parsed_current_total}, colli: {parsed_colli}")
+                else:
+                    print(f"WARNING: Barang tidak ditemukan dalam database: {pengirim} -> {penerima}: {nama_barang}")
             
             if not selected_items:
                 messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!")
@@ -3416,22 +3500,76 @@ class ContainerWindow:
                 
                 for barang_id, price_data in edit_result['pricing_data'].items():
                     try:
-                        # Update price in detail_container table
-                        self.db.execute("""
-                            UPDATE detail_container 
-                            SET harga_per_unit = ?, total_harga = ? 
-                            WHERE barang_id = ? AND container_id = ?
-                        """, (
-                            price_data['harga_per_unit'], 
-                            price_data['total_harga'], 
-                            barang_id, 
-                            container_id
-                        ))
-                        success_count += 1
+                        # Find the corresponding item for assigned_at
+                        corresponding_item = next((item for item in selected_items if str(item['id']) == str(barang_id)), None)
                         
+                        if corresponding_item:
+                            # PERBAIKAN: Update dengan assigned_at untuk unique identification
+                            update_query = """
+                                UPDATE detail_container 
+                                SET harga_per_unit = ?, total_harga = ? 
+                                WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
+                            """
+                            update_params = (
+                                price_data['harga_per_unit'], 
+                                price_data['total_harga'], 
+                                barang_id, 
+                                container_id,
+                                corresponding_item['assigned_at']
+                            )
+                            
+                            print(f"Updating price: {update_query}")
+                            print(f"Parameters: {update_params}")
+                            
+                            # Check if record exists
+                            check_query = "SELECT COUNT(*) FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at = ?"
+                            check_params = (barang_id, container_id, corresponding_item['assigned_at'])
+                            check_result = self.db.execute(check_query, check_params)
+                            count = check_result[0][0] if check_result else 0
+                            
+                            print(f"Records found to update: {count}")
+                            
+                            if count > 0:
+                                result = self.db.execute(update_query, update_params)
+                                success_count += 1
+                                print(f"✅ Updated price for barang {barang_id}")
+                            else:
+                                # Try fallback without assigned_at
+                                fallback_query = """
+                                    UPDATE detail_container 
+                                    SET harga_per_unit = ?, total_harga = ? 
+                                    WHERE barang_id = ? AND container_id = ?
+                                """
+                                fallback_params = (
+                                    price_data['harga_per_unit'], 
+                                    price_data['total_harga'], 
+                                    barang_id, 
+                                    container_id
+                                )
+                                
+                                result = self.db.execute(fallback_query, fallback_params)
+                                success_count += 1
+                                print(f"✅ Updated price for barang {barang_id} (fallback method)")
+                        else:
+                            # Fallback: update without assigned_at
+                            self.db.execute("""
+                                UPDATE detail_container 
+                                SET harga_per_unit = ?, total_harga = ? 
+                                WHERE barang_id = ? AND container_id = ?
+                            """, (
+                                price_data['harga_per_unit'], 
+                                price_data['total_harga'], 
+                                barang_id, 
+                                container_id
+                            ))
+                            success_count += 1
+                            print(f"✅ Updated price for barang {barang_id} (no assigned_at)")
+                            
                     except Exception as e:
                         error_count += 1
                         print(f"❌ Error updating price for barang {barang_id}: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
                 # Show result
                 if success_count > 0:
@@ -3443,8 +3581,10 @@ class ContainerWindow:
             
         except Exception as e:
             print(f"Error in edit_barang_price_in_container: {e}")
+            import traceback
+            traceback.print_exc()
             messagebox.showerror("Error", f"Gagal mengedit harga: {str(e)}")
-    
+        
     def load_customers(self):
         """Load all customers for search dropdown"""
         try:
@@ -3960,7 +4100,7 @@ class ContainerWindow:
                     barang_id = safe_get(barang, 'barang_id', safe_get(barang, 'id', ''))
                     
                     formatted_data.append({
-                        'iid': str(barang_id),
+                        'iid': f"{barang_id}_{assigned_at}" if assigned_at else f"{barang_id}",
                         'values': (
                             pengirim,
                             penerima,
@@ -4014,20 +4154,34 @@ class ContainerWindow:
             selected_items = []
             for item in selection:
                 values = self.container_barang_tree.item(item)['values']
-                pengirim = values[0]     # Customer column
-                penerima = values[1]     # Receiver column
-                nama_barang = values[2]  # Nama barang column
-                colli = values[6]        # Colli column
-                harga_unit = values[7]   # Harga per unit
-                total_harga = values[8]  # Total harga
+                
+                # PERBAIKAN: Mapping yang benar berdasarkan struktur treeview
+                # Berdasarkan load_container_barang, struktur values adalah:
+                # (pengirim, penerima, nama_barang, satuan, door_type, dimensi, m3_barang, ton_barang, colli_amount, harga_display, total_display, assigned_at)
+                
+                pengirim = values[0]      # Pengirim column (index 0)
+                penerima = values[1]      # Penerima column (index 1) 
+                nama_barang = values[2]   # Nama barang column (index 2)
+                satuan = values[3]        # Satuan column (index 3)
+                door_type = values[4]     # Door type column (index 4)
+                dimensi = values[5]       # Dimensi column (index 5)
+                m3_barang = values[6]     # M3 column (index 6)
+                ton_barang = values[7]    # Ton column (index 7)
+                colli = values[8]         # Colli column (index 8)
+                harga_unit = values[9]    # Harga per unit (index 9)
+                total_harga = values[10]  # Total harga (index 10)
+                assigned_at = values[11]  # Assigned at timestamp (index 11) - PERBAIKAN DI SINI!
+                
+                print(f"Debug values: {values}")
+                print(f"Assigned at: {assigned_at}")
 
                 # Get barang_id from database
                 barang_data = self.db.execute("""
                     SELECT b.barang_id FROM barang b 
-                    JOIN customers r ON b.penerima = r.customer_id
                     JOIN customers s ON b.pengirim = s.customer_id
-                    WHERE r.nama_customer = ? AND s.nama_customer = ? AND b.nama_barang = ?
-                """, (penerima, pengirim, nama_barang))
+                    JOIN customers r ON b.penerima = r.customer_id
+                    WHERE s.nama_customer = ? AND r.nama_customer = ? AND b.nama_barang = ?
+                """, (pengirim, penerima, nama_barang))
 
                 if barang_data:
                     barang_id = barang_data[0][0]
@@ -4039,8 +4193,14 @@ class ContainerWindow:
                         'colli': colli,
                         'harga_unit': harga_unit,
                         'total_harga': total_harga,
-                        'assigned_at': values[9]  # Assigned at timestamp
+                        'assigned_at': assigned_at  # Sekarang menggunakan index yang benar
                     })
+                else:
+                    print(f"WARNING: Barang tidak ditemukan: {pengirim} -> {penerima}: {nama_barang}")
+            
+            if not selected_items:
+                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!")
+                return
             
             # Confirm removal with details including pricing
             if len(selected_items) == 1:
@@ -4051,16 +4211,21 @@ class ContainerWindow:
                             f"Penerima: {item['penerima']}\n" + \
                             f"Colli: {item['colli']}\n" + \
                             f"Harga/Unit: Rp {item['harga_unit']}\n" + \
-                            f"Total Harga: Rp {item['total_harga']}\n\n" + \
+                            f"Total Harga: Rp {item['total_harga']}\n" + \
+                            f"Assigned At: {item['assigned_at']}\n\n" + \
                             f"Barang akan dikembalikan ke daftar barang tersedia."
             else:
                 total_nilai = 0
                 confirm_msg = f"Hapus {len(selected_items)} barang dari container?\n\n"
                 for i, item in enumerate(selected_items[:3], 1):  # Show max 3 items
-                    confirm_msg += f"{i}. {item['nama']} ({item['customer']}) - {item['colli']} colli - Rp {item['total_harga']}\n"
+                    confirm_msg += f"{i}. {item['nama']} ({item['pengirim']} -> {item['penerima']}) - {item['colli']} colli - Rp {item['total_harga']}\n"
                     try:
-                        total_nilai += float(str(item['total_harga']).replace(',', ''))
-                    except:
+                        # Clean the total_harga value
+                        clean_total = str(item['total_harga']).replace(',', '').replace('Rp', '').replace(' ', '')
+                        if clean_total and clean_total.replace('.', '').isdigit():
+                            total_nilai += float(clean_total)
+                    except Exception as parse_error:
+                        print(f"Error parsing total_harga {item['total_harga']}: {parse_error}")
                         pass
                 if len(selected_items) > 3:
                     confirm_msg += f"... dan {len(selected_items) - 3} barang lainnya\n"
@@ -4075,22 +4240,55 @@ class ContainerWindow:
             error_count = 0
             
             for item in selected_items:
-
                 print("Items to remove:")
                 print(f" - {item['nama']} (Pengirim: {item['pengirim']}, Penerima: {item['penerima']}, Colli: {item['colli']}, Harga/Unit: Rp {item['harga_unit']}, Total Harga: Rp {item['total_harga']}, Assigned At: {item['assigned_at']})")
 
                 try:
-                    # Remove from detail_container table
-                    result = self.db.execute(
-                        "DELETE FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at = ?",
-                        (item['id'], container_id, item['assigned_at'])
-                    )
+                    # PERBAIKAN: Tambahkan debug untuk melihat query yang dijalankan
+                    delete_query = "DELETE FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at = ?"
+                    delete_params = (item['id'], container_id, item['assigned_at'])
+                    
+                    print(f"Executing delete query: {delete_query}")
+                    print(f"Parameters: {delete_params}")
+                    
+                    # Check if record exists before deleting
+                    check_query = "SELECT COUNT(*) FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at = ?"
+                    check_result = self.db.execute(check_query, delete_params)
+                    if check_result:
+                        count = check_result[0][0] if check_result else 0
+                        print(f"Records found to delete: {count}")
+                        
+                        if count == 0:
+                            print(f"WARNING: No records found for barang_id={item['id']}, container_id={container_id}, assigned_at={item['assigned_at']}")
+                            # Try alternative query without assigned_at
+                            alt_delete_query = "DELETE FROM detail_container WHERE barang_id = ? AND container_id = ?"
+                            alt_delete_params = (item['id'], container_id)
+                            print(f"Trying alternative delete: {alt_delete_query} with params {alt_delete_params}")
+                            
+                            alt_check_result = self.db.execute("SELECT COUNT(*) FROM detail_container WHERE barang_id = ? AND container_id = ?", alt_delete_params)
+                            alt_count = alt_check_result[0][0] if alt_check_result else 0
+                            print(f"Records found with alternative query: {alt_count}")
+                            
+                            if alt_count > 0:
+                                result = self.db.execute(alt_delete_query, alt_delete_params)
+                                print(f"Alternative delete result: {result}")
+                            else:
+                                error_count += 1
+                                print(f"❌ No records found for barang {item['id']} in container {container_id}")
+                                continue
+                        else:
+                            # Execute original delete
+                            result = self.db.execute(delete_query, delete_params)
+                            print(f"Delete result: {result}")
+                    
                     success_count += 1
                     print(f"✅ Removed barang {item['id']} from container {container_id}")
                     
                 except Exception as e:
                     error_count += 1
                     print(f"❌ Failed to remove barang {item['id']}: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # Show result message
             if error_count == 0:
@@ -4128,7 +4326,8 @@ class ContainerWindow:
             error_detail = traceback.format_exc()
             print(f"💥 Error in remove_barang_from_container: {error_detail}")
             messagebox.showerror("Error", f"Gagal menghapus barang dari container!\n\nError: {str(e)}")
-    
+        
+        
     def view_container_summary(self):
         """View detailed summary of selected container including pricing"""
         if not self.selected_container_var.get():
