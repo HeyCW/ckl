@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from tkinter import font
 from datetime import datetime
 import logging
+from PIL import Image, ImageTk
 
 from src.widget.paginated_tree_view import PaginatedTreeView
 
@@ -46,6 +47,18 @@ class KapalWindow:
             # Set window properties
             self.window.resizable(True, True)
             self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
+            
+            try:
+                # Load dan resize image
+                icon_image = Image.open("assets/logo.jpg")
+                icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+                icon_photo = ImageTk.PhotoImage(icon_image)
+                
+                # Set sebagai window icon
+                self.window.iconphoto(False, icon_photo)
+                
+            except Exception as e:
+                print(f"Icon tidak ditemukan: {e}")
             
             # Center the window
             self.center_window()

@@ -1052,6 +1052,7 @@ class PrintHandler:
                 dialog.grab_set()
                 dialog.transient()
                 
+                
                 # Center dialog
                 dialog.geometry("+%d+%d" % (dialog.winfo_screenwidth()//2 - 300, 
                                             dialog.winfo_screenheight()//2 - 250))

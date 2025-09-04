@@ -5,6 +5,7 @@ from src.models.database import AppDatabase
 from src.utils.print_handler import PrintHandler
 from datetime import datetime
 import sqlite3
+from PIL import Image, ImageTk
 
 from src.widget.paginated_tree_view import PaginatedTreeView
 
@@ -35,6 +36,18 @@ class ContainerWindow:
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
+        
+        try:
+            # Load dan resize image
+            icon_image = Image.open("assets/logo.jpg")
+            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+        
+            # Set sebagai window icon
+            self.window.iconphoto(False, icon_photo)
+            
+        except Exception as e:
+            print(f"Icon tidak ditemukan: {e}")
         
         # Center window
         self.center_window()
@@ -773,6 +786,18 @@ class ContainerWindow:
         delivery_window.title(f"Kelola Biaya Pengantaran - Container {self.selected_container_var.get()}")
         delivery_window.geometry("1000x600")  # Perbesar untuk kolom lokasi
         delivery_window.configure(bg='#ecf0f1')
+        
+        try:
+            # Load dan resize image
+            icon_image = Image.open("assets/logo.jpg")
+            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+        
+            # Set sebagai window icon
+            delivery_window.iconphoto(False, icon_photo)
+            
+        except Exception as e:
+            print(f"Icon tidak ditemukan: {e}")
         
         # Header
         header_frame = tk.Frame(delivery_window, bg='#e67e22', height=80)
@@ -2307,6 +2332,18 @@ class ContainerWindow:
         pricing_window.transient(self.window)
         pricing_window.grab_set()
         
+        try:
+            # Load dan resize image
+            icon_image = Image.open("assets/logo.jpg")
+            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+        
+            # Set sebagai window icon
+            pricing_window.iconphoto(False, icon_photo)
+            
+        except Exception as e:
+            print(f"Icon tidak ditemukan: {e}")
+        
         # Center window
         pricing_window.update_idletasks()
         x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (650)
@@ -3206,6 +3243,18 @@ class ContainerWindow:
         edit_window.configure(bg='#ecf0f1')
         edit_window.transient(self.window)
         edit_window.grab_set()
+        
+        try:
+            # Load dan resize image
+            icon_image = Image.open("assets/logo.jpg")
+            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+        
+            # Set sebagai window icon
+            edit_window.iconphoto(False, icon_photo)
+            
+        except Exception as e:
+            print(f"Icon tidak ditemukan: {e}")
         
         # Center window
         edit_window.update_idletasks()
@@ -4443,6 +4492,18 @@ class ContainerWindow:
             summary_window.configure(bg='#ecf0f1')
             summary_window.transient(self.window)
             summary_window.grab_set()
+            
+            try:
+                # Load dan resize image
+                icon_image = Image.open("assets/logo.jpg")
+                icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+                icon_photo = ImageTk.PhotoImage(icon_image)
+            
+                # Set sebagai window icon
+                summary_window.iconphoto(False, icon_photo)
+                
+            except Exception as e:
+                print(f"Icon tidak ditemukan: {e}")
             
             # Center window
             summary_window.update_idletasks()
