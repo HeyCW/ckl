@@ -124,8 +124,6 @@ class PrintHandler:
                 ("Ref JOA", safe_get('ref_joa'))
             ]
 
-            print(container_info)
-
             info_start_row = current_row
             
             for i, (label, value) in enumerate(container_info):
@@ -298,9 +296,9 @@ class PrintHandler:
         
             current_row += 3  # Space before profit calculation
         
-            # ===== PROFIT CALCULATION SECTION - ALIGNED WITH MAIN TABLE =====
+            # ===== PROFIT CALCULATION SECTION - HANYA JIKA ADA DATA =====
             
-            # Get cost data from database or use default values
+            # Get cost data from database
             try:
                 costs_surabaya = self._get_container_costs(container_id, 'Surabaya')
                 costs_destinasi = self._get_container_costs(container_id, container.get('destination', 'Samarinda'))
@@ -309,143 +307,165 @@ class PrintHandler:
                 costs_surabaya = None
                 costs_destinasi = None
 
-            # If no data in database, use default template
-            if not costs_surabaya:
-                costs_surabaya = {
-                    "THC Surabaya": 5942656,
-                    "Frezh": 600000,
-                    "Bl. LCL": 5400000,
-                    "Seal": 100000,
-                    "Bl. Cleaning Container": 100000,
-                    "Bl. Ops Stuffing Dalam": 160000,
-                    "Bl. Antol Barang": 75000,
-                    "Bl. Oper Depo": 225000,
-                    "Bl. Admin": 187500,
-                    "TPT1 25": 10000,
-                    "TPT1 21": 20000,
-                    "Pajak": 213313
-                }
-
-            if not costs_destinasi:
-                costs_destinasi = {
-                    "Trucking Samarinda Port-SMA": 1674990,
-                    "THC SMD": 4212219,
-                    "Dooring Barang Ringan": 270000,
-                    "Baseh Ijin & depo Samarinda": 225000,
-                    "Bl. Lab Empty": 159000,
-                    "Bl. Ops Samarinda": 135000,
-                    "Bl. Sewa JPL & Adm": 55000,
-                    "Bl. Forklift Samarinda": 350000,
-                    "Bl. Lolo": 220000,
-                    "Rekolasi Samarinda": 940000
-                }
-            
-            # Calculate totals
-            total_biaya_surabaya = sum(val[0] for val in costs_surabaya.values())
-            total_biaya_samarinda = sum(val[0] for val in costs_destinasi.values())
-            total_biaya = total_biaya_surabaya + total_biaya_samarinda
-            profit_lcl = total_nilai - total_biaya
-            
-            # BIAYA SURABAYA SECTION - ALIGNED WITH MAIN TABLE
-            ws.merge_cells(f'A{current_row}:L{current_row}')
-            ws[f'A{current_row}'] = "Biaya Surabaya"
-            ws[f'A{current_row}'].font = profit_header_font
-            ws[f'A{current_row}'].alignment = left_align
-            ws[f'A{current_row}'].fill = profit_header_fill
-            ws[f'A{current_row}'].border = thin_border
-            
-            # Value column header - aligned with Price column (column M)
-            ws[f'M{current_row}'] = "Cost (Rp)"
-            ws[f'M{current_row}'].font = profit_header_font
-            ws[f'M{current_row}'].alignment = right_align
-            ws[f'M{current_row}'].fill = profit_header_fill
-            ws[f'M{current_row}'].border = thin_border
-            current_row += 1
-            
-            # Biaya Surabaya items
-            for cost_name, cost_value in costs_surabaya.items():
-                ws[f'A{current_row}'] = cost_name
-                ws[f'A{current_row}'].font = profit_font
-                ws[f'A{current_row}'].alignment = left_align
+            # HANYA TAMPILKAN PROFIT CALCULATION JIKA ADA DATA COST
+            if costs_surabaya or costs_destinasi:
+                # Jika salah satu kosong, buat dictionary kosong
+                if not costs_surabaya:
+                    costs_surabaya = {}
+                if not costs_destinasi:
+                    costs_destinasi = {}
                 
-                ws[f'B{current_row}'] = cost_value[1]
-                ws[f'B{current_row}'].font = profit_font
-                ws[f'B{current_row}'].alignment = left_align
-
-                ws[f'M{current_row}'] = cost_value[0]
-                ws[f'M{current_row}'].font = profit_font
-                ws[f'M{current_row}'].alignment = right_align
-                ws[f'M{current_row}'].number_format = '#,##0'
-                current_row += 1
-            
-            # Total Biaya Surabaya
-            ws[f'A{current_row}'] = ""
-            ws[f'M{current_row}'] = total_biaya_surabaya
-            ws[f'M{current_row}'].font = Font(name='Arial', size=8, bold=True)
-            ws[f'M{current_row}'].alignment = right_align
-            ws[f'M{current_row}'].number_format = '#,##0'
-            ws[f'M{current_row}'].border = thin_border
-            current_row += 2
-            
-            # BIAYA SAMARINDA SECTION - ALIGNED WITH MAIN TABLE
-            ws.merge_cells(f'A{current_row}:L{current_row}')
-            ws[f'A{current_row}'] = f"Biaya {container_info[2][1]}"
-            ws[f'A{current_row}'].font = profit_header_font
-            ws[f'A{current_row}'].alignment = left_align
-            ws[f'A{current_row}'].fill = profit_header_fill
-            ws[f'A{current_row}'].border = thin_border
-
-            # Value column header - aligned with Price column (column M)
-            ws[f'M{current_row}'] = "Cost (Rp)"
-            ws[f'M{current_row}'].font = profit_header_font
-            ws[f'M{current_row}'].alignment = right_align
-            ws[f'M{current_row}'].fill = profit_header_fill
-            ws[f'M{current_row}'].border = thin_border
-            current_row += 1
-            
-            # Biaya Samarinda items
-            for cost_name, cost_value in costs_destinasi.items():
-                ws[f'A{current_row}'] = cost_name
-                ws[f'A{current_row}'].font = profit_font
-                ws[f'A{current_row}'].alignment = left_align
+                # Calculate totals - hanya dari data yang ada
+                def safe_sum_costs(costs_dict):
+                    if not costs_dict:
+                        return 0
+                    total = 0
+                    for value in costs_dict.values():
+                        try:
+                            if isinstance(value, (tuple, list)):
+                                total += float(value[0]) if len(value) > 0 else 0
+                            else:
+                                total += float(value) if value else 0
+                        except (ValueError, TypeError):
+                            continue
+                    return total
                 
-                ws[f'B{current_row}'] = cost_value[1]
-                ws[f'B{current_row}'].font = profit_font
-                ws[f'B{current_row}'].alignment = left_align
+                total_biaya_surabaya = safe_sum_costs(costs_surabaya)
+                total_biaya_samarinda = safe_sum_costs(costs_destinasi)
+                total_biaya = total_biaya_surabaya + total_biaya_samarinda
+                profit_lcl = total_nilai - total_biaya
+                
+                # BIAYA SURABAYA SECTION - HANYA JIKA ADA DATA
+                if costs_surabaya:
+                    ws.merge_cells(f'A{current_row}:L{current_row}')
+                    ws[f'A{current_row}'] = "Biaya Surabaya"
+                    ws[f'A{current_row}'].font = profit_header_font
+                    ws[f'A{current_row}'].alignment = left_align
+                    ws[f'A{current_row}'].fill = profit_header_fill
+                    ws[f'A{current_row}'].border = thin_border
+                    
+                    ws[f'M{current_row}'] = "Cost (Rp)"
+                    ws[f'M{current_row}'].font = profit_header_font
+                    ws[f'M{current_row}'].alignment = right_align
+                    ws[f'M{current_row}'].fill = profit_header_fill
+                    ws[f'M{current_row}'].border = thin_border
+                    current_row += 1
+                    
+                    # Biaya Surabaya items
+                    for cost_name, cost_value in costs_surabaya.items():
+                        ws[f'A{current_row}'] = cost_name
+                        ws[f'A{current_row}'].font = profit_font
+                        ws[f'A{current_row}'].alignment = left_align
+                        
+                        # Safe handling untuk cost_value
+                        try:
+                            if isinstance(cost_value, (tuple, list)) and len(cost_value) >= 2:
+                                cost_desc = str(cost_value[1])
+                                cost_amount = float(cost_value[0])
+                            else:
+                                cost_desc = ""
+                                cost_amount = float(cost_value) if cost_value else 0
+                        except (ValueError, TypeError):
+                            cost_desc = ""
+                            cost_amount = 0
 
-                ws[f'M{current_row}'] = cost_value[0]
-                ws[f'M{current_row}'].font = profit_font
-                ws[f'M{current_row}'].alignment = right_align
-                ws[f'M{current_row}'].number_format = '#,##0'
-                current_row += 1
+                        ws[f'B{current_row}'] = cost_desc
+                        ws[f'B{current_row}'].font = profit_font
+                        ws[f'B{current_row}'].alignment = left_align
+
+                        ws[f'M{current_row}'] = cost_amount
+                        ws[f'M{current_row}'].font = profit_font
+                        ws[f'M{current_row}'].alignment = right_align
+                        ws[f'M{current_row}'].number_format = '#,##0'
+                        current_row += 1
+                    
+                    # Total Biaya Surabaya
+                    ws[f'M{current_row}'] = total_biaya_surabaya
+                    ws[f'M{current_row}'].font = Font(name='Arial', size=8, bold=True)
+                    ws[f'M{current_row}'].alignment = right_align
+                    ws[f'M{current_row}'].number_format = '#,##0'
+                    ws[f'M{current_row}'].border = thin_border
+                    current_row += 2
+                
+                # BIAYA DESTINASI SECTION - HANYA JIKA ADA DATA
+                if costs_destinasi:
+                    destination_name = container.get('destination', 'Destinasi')
+                    ws.merge_cells(f'A{current_row}:L{current_row}')
+                    ws[f'A{current_row}'] = f"Biaya {destination_name}"
+                    ws[f'A{current_row}'].font = profit_header_font
+                    ws[f'A{current_row}'].alignment = left_align
+                    ws[f'A{current_row}'].fill = profit_header_fill
+                    ws[f'A{current_row}'].border = thin_border
+
+                    ws[f'M{current_row}'] = "Cost (Rp)"
+                    ws[f'M{current_row}'].font = profit_header_font
+                    ws[f'M{current_row}'].alignment = right_align
+                    ws[f'M{current_row}'].fill = profit_header_fill
+                    ws[f'M{current_row}'].border = thin_border
+                    current_row += 1
+                    
+                    # Biaya Destinasi items
+                    for cost_name, cost_value in costs_destinasi.items():
+                        ws[f'A{current_row}'] = cost_name
+                        ws[f'A{current_row}'].font = profit_font
+                        ws[f'A{current_row}'].alignment = left_align
+                        
+                        try:
+                            if isinstance(cost_value, (tuple, list)) and len(cost_value) >= 2:
+                                cost_desc = str(cost_value[1])
+                                cost_amount = float(cost_value[0])
+                            else:
+                                cost_desc = ""
+                                cost_amount = float(cost_value) if cost_value else 0
+                        except (ValueError, TypeError):
+                            cost_desc = ""
+                            cost_amount = 0
+
+                        ws[f'B{current_row}'] = cost_desc
+                        ws[f'B{current_row}'].font = profit_font
+                        ws[f'B{current_row}'].alignment = left_align
+
+                        ws[f'M{current_row}'] = cost_amount
+                        ws[f'M{current_row}'].font = profit_font
+                        ws[f'M{current_row}'].alignment = right_align
+                        ws[f'M{current_row}'].number_format = '#,##0'
+                        current_row += 1
+                    
+                    # Total Biaya Destinasi
+                    ws[f'M{current_row}'] = total_biaya_samarinda
+                    ws[f'M{current_row}'].font = Font(name='Arial', size=8, bold=True)
+                    ws[f'M{current_row}'].alignment = right_align
+                    ws[f'M{current_row}'].number_format = '#,##0'
+                    ws[f'M{current_row}'].border = thin_border
+                    current_row += 2
+                
+                # PROFIT CALCULATION - HANYA JIKA ADA BIAYA
+                if costs_surabaya or costs_destinasi:
+                    ws.merge_cells(f'A{current_row}:L{current_row}')
+                    ws[f'A{current_row}'] = "PROFIT LCL"
+                    ws[f'A{current_row}'].font = Font(name='Arial', size=10, bold=True)
+                    ws[f'A{current_row}'].alignment = left_align
+                    ws[f'A{current_row}'].fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
+                    ws[f'A{current_row}'].border = thin_border
+                    
+                    ws[f'M{current_row}'] = profit_lcl
+                    ws[f'M{current_row}'].font = Font(name='Arial', size=10, bold=True)
+                    ws[f'M{current_row}'].alignment = right_align
+                    ws[f'M{current_row}'].number_format = '#,##0'
+                    ws[f'M{current_row}'].fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')
+                    ws[f'M{current_row}'].border = thin_border
+                    current_row += 2
+            else:
+                # Jika tidak ada data cost sama sekali, skip profit section
+                pass
+
+            # Summary - update untuk mencakup status cost
+            if costs_surabaya or costs_destinasi:
+                summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Total Cost: Rp {total_biaya:,.0f} | Profit: Rp {profit_lcl:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            else:
+                summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             
-            # Total Biaya Samarinda
-            ws[f'A{current_row}'] = ""
-            ws[f'M{current_row}'] = total_biaya_samarinda
-            ws[f'M{current_row}'].font = Font(name='Arial', size=8, bold=True)
-            ws[f'M{current_row}'].alignment = right_align
-            ws[f'M{current_row}'].number_format = '#,##0'
-            ws[f'M{current_row}'].border = thin_border
-            current_row += 2
-            
-            # PROFIT CALCULATION - ALIGNED WITH MAIN TABLE
-            ws.merge_cells(f'A{current_row}:L{current_row}')
-            ws[f'A{current_row}'] = "PROFIT LCL"
-            ws[f'A{current_row}'].font = Font(name='Arial', size=10, bold=True)
-            ws[f'A{current_row}'].alignment = left_align
-            ws[f'A{current_row}'].fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')  # Light green
-            ws[f'A{current_row}'].border = thin_border
-            
-            ws[f'M{current_row}'] = profit_lcl
-            ws[f'M{current_row}'].font = Font(name='Arial', size=10, bold=True)
-            ws[f'M{current_row}'].alignment = right_align
-            ws[f'M{current_row}'].number_format = '#,##0'
-            ws[f'M{current_row}'].fill = PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid')  # Light green
-            ws[f'M{current_row}'].border = thin_border
-            current_row += 2
-        
-            # Summary - COMPACT
-            ws[f'A{current_row}'] = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Total Cost: Rp {total_biaya:,.0f} | Profit: Rp {profit_lcl:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            ws[f'A{current_row}'] = summary_text
             ws[f'A{current_row}'].font = small_font
         
             # AUTO-ADJUST Column widths
@@ -486,7 +506,9 @@ class PrintHandler:
         
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat Excel invoice: {str(e)}")
-
+            print(f"Full error: {traceback.format_exc()}")
+            
+        
     def _get_container_costs(self, container_id, location):
         """Get container costs from database by location (SURABAYA or SAMARINDA)"""
         try:

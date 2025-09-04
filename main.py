@@ -21,7 +21,7 @@ def main():
         root.geometry("1x1")  # Minimal size initially
         root.withdraw()  # Hide initially
         
-        try:
+        try:    
             # Load dan resize image
             icon_image = Image.open("assets/logo.jpg")
             icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
