@@ -1072,7 +1072,6 @@ class BarangWindow:
                         dimensi,
                         barang.get('m3_barang', '-'),
                         barang.get('ton_barang', '-'),
-                        barang.get('col_barang', '-'),  # Tambahkan col_barang jika ada
                         harga_m3_pp,
                         harga_m3_pd,
                         harga_m3_dd,
@@ -3504,7 +3503,6 @@ class BarangWindow:
                     dimensi,
                     barang.get('m3_barang', '-'),
                     barang.get('ton_barang', '-'),
-                    barang.get('col_barang', '-'),
                     harga_m3_pp,
                     harga_m3_pd,
                     harga_m3_dd,
