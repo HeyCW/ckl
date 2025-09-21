@@ -1267,39 +1267,39 @@ class BarangWindow:
         tk.Label(form_frame, text="Dimensi Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w')
         dim_frame = tk.Frame(form_frame, bg='#ecf0f1')
         dim_frame.pack(fill='x', pady=(5, 10))
-        
+
         tk.Label(dim_frame, text="Panjang (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        panjang_var = tk.StringVar(value=str(barang_data.get('panjang_barang', '') or ''))
+        panjang_var = tk.StringVar(value=str(barang_data.get('panjang_barang', '') or '') or '-')
         panjang_entry = tk.Entry(dim_frame, textvariable=panjang_var, font=('Arial', 10), width=10)
         panjang_entry.pack(side='left', padx=(5, 20))
-        
+
         tk.Label(dim_frame, text="Lebar (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        lebar_var = tk.StringVar(value=str(barang_data.get('lebar_barang', '') or ''))
+        lebar_var = tk.StringVar(value=str(barang_data.get('lebar_barang', '') or '') or '-')
         lebar_entry = tk.Entry(dim_frame, textvariable=lebar_var, font=('Arial', 10), width=10)
         lebar_entry.pack(side='left', padx=(5, 20))
-        
+
         tk.Label(dim_frame, text="Tinggi (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        tinggi_var = tk.StringVar(value=str(barang_data.get('tinggi_barang', '') or ''))
+        tinggi_var = tk.StringVar(value=str(barang_data.get('tinggi_barang', '') or '') or '-')
         tinggi_entry = tk.Entry(dim_frame, textvariable=tinggi_var, font=('Arial', 10), width=10)
         tinggi_entry.pack(side='left', padx=5)
-        
+
         # Other fields
         tk.Label(form_frame, text="Spesifikasi Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 0))
         other_frame = tk.Frame(form_frame, bg='#ecf0f1')
         other_frame.pack(fill='x', pady=(5, 10))
-        
+
         tk.Label(other_frame, text="Volume (m³):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        volume_var = tk.StringVar(value=str(barang_data.get('m3_barang', '') or ''))
+        volume_var = tk.StringVar(value=str(barang_data.get('m3_barang', '') or '') or '-')
         volume_entry = tk.Entry(other_frame, textvariable=volume_var, font=('Arial', 10), width=10)
         volume_entry.pack(side='left', padx=(5, 20))
-        
+
         tk.Label(other_frame, text="Berat (ton):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        berat_var = tk.StringVar(value=str(barang_data.get('ton_barang', '') or ''))
+        berat_var = tk.StringVar(value=str(barang_data.get('ton_barang', '') or '') or '-')
         berat_entry = tk.Entry(other_frame, textvariable=berat_var, font=('Arial', 10), width=10)
         berat_entry.pack(side='left', padx=(5, 20))
-        
+
         tk.Label(other_frame, text="Colli:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        colli_var = tk.StringVar(value=str(barang_data.get('col_barang', '') or ''))
+        colli_var = tk.StringVar(value=str(barang_data.get('col_barang', '') or '') or '-')
         colli_entry = tk.Entry(other_frame, textvariable=colli_var, font=('Arial', 10), width=10)
         colli_entry.pack(side='left', padx=5)
         
@@ -1314,79 +1314,79 @@ class BarangWindow:
         harga_m3_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
         harga_m3_pp_frame.pack(fill='x', pady=2)
         tk.Label(harga_m3_pp_frame, text="Harga/m³ (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_m3_pp_var = tk.StringVar(value=str(barang_data.get('m3_pp', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_m3_pp_var = tk.StringVar(value=str(barang_data.get('m3_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_m3_pp_entry = tk.Entry(harga_m3_pp_frame, textvariable=harga_m3_pp_var, font=('Arial', 10), width=20)
         harga_m3_pp_entry.pack(side='left', padx=(5, 0))
-        
+
         # Harga Ton PP
         harga_ton_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
         harga_ton_pp_frame.pack(fill='x', pady=2)
         tk.Label(harga_ton_pp_frame, text="Harga/ton (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_ton_pp_var = tk.StringVar(value=str(barang_data.get('ton_pp', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_ton_pp_var = tk.StringVar(value=str(barang_data.get('ton_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_ton_pp_entry = tk.Entry(harga_ton_pp_frame, textvariable=harga_ton_pp_var, font=('Arial', 10), width=20)
         harga_ton_pp_entry.pack(side='left', padx=(5, 0))
-        
+
         # Harga Col PP
         harga_col_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
         harga_col_pp_frame.pack(fill='x', pady=2)
         tk.Label(harga_col_pp_frame, text="Harga/colli (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_col_pp_var = tk.StringVar(value=str(barang_data.get('col_pp', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_col_pp_var = tk.StringVar(value=str(barang_data.get('col_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_col_pp_entry = tk.Entry(harga_col_pp_frame, textvariable=harga_col_pp_var, font=('Arial', 10), width=20)
         harga_col_pp_entry.pack(side='left', padx=(5, 0))
         
         # PD Prices
         tk.Label(form_frame, text="Harga Pickup to Door (PD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
-        
+
         pd_frame = tk.Frame(form_frame, bg='#ecf0f1')
         pd_frame.pack(fill='x', pady=(0, 10))
-        
+
         # Similar structure for PD prices
         harga_m3_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
         harga_m3_pd_frame.pack(fill='x', pady=2)
         tk.Label(harga_m3_pd_frame, text="Harga/m³ (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_m3_pd_var = tk.StringVar(value=str(barang_data.get('m3_pd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_m3_pd_var = tk.StringVar(value=str(barang_data.get('m3_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_m3_pd_entry = tk.Entry(harga_m3_pd_frame, textvariable=harga_m3_pd_var, font=('Arial', 10), width=20)
         harga_m3_pd_entry.pack(side='left', padx=(5, 0))
-        
+
         harga_ton_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
         harga_ton_pd_frame.pack(fill='x', pady=2)
         tk.Label(harga_ton_pd_frame, text="Harga/ton (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_ton_pd_var = tk.StringVar(value=str(barang_data.get('ton_pd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_ton_pd_var = tk.StringVar(value=str(barang_data.get('ton_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_ton_pd_entry = tk.Entry(harga_ton_pd_frame, textvariable=harga_ton_pd_var, font=('Arial', 10), width=20)
         harga_ton_pd_entry.pack(side='left', padx=(5, 0))
-        
+
         harga_col_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
         harga_col_pd_frame.pack(fill='x', pady=2)
         tk.Label(harga_col_pd_frame, text="Harga/colli (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_col_pd_var = tk.StringVar(value=str(barang_data.get('col_pd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_col_pd_var = tk.StringVar(value=str(barang_data.get('col_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_col_pd_entry = tk.Entry(harga_col_pd_frame, textvariable=harga_col_pd_var, font=('Arial', 10), width=20)
         harga_col_pd_entry.pack(side='left', padx=(5, 0))
-        
+
         # DD Prices
         tk.Label(form_frame, text="Harga Door to Door (DD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
-        
+
         dd_frame = tk.Frame(form_frame, bg='#ecf0f1')
         dd_frame.pack(fill='x', pady=(0, 10))
-        
+
         # Similar structure for DD prices
         harga_m3_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
         harga_m3_dd_frame.pack(fill='x', pady=2)
         tk.Label(harga_m3_dd_frame, text="Harga/m³ (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_m3_dd_var = tk.StringVar(value=str(barang_data.get('m3_dd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_m3_dd_var = tk.StringVar(value=str(barang_data.get('m3_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_m3_dd_entry = tk.Entry(harga_m3_dd_frame, textvariable=harga_m3_dd_var, font=('Arial', 10), width=20)
         harga_m3_dd_entry.pack(side='left', padx=(5, 0))
-        
+
         harga_ton_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
         harga_ton_dd_frame.pack(fill='x', pady=2)
         tk.Label(harga_ton_dd_frame, text="Harga/ton (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_ton_dd_var = tk.StringVar(value=str(barang_data.get('ton_dd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_ton_dd_var = tk.StringVar(value=str(barang_data.get('ton_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_ton_dd_entry = tk.Entry(harga_ton_dd_frame, textvariable=harga_ton_dd_var, font=('Arial', 10), width=20)
         harga_ton_dd_entry.pack(side='left', padx=(5, 0))
-        
+
         harga_col_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
         harga_col_dd_frame.pack(fill='x', pady=2)
         tk.Label(harga_col_dd_frame, text="Harga/colli (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_col_dd_var = tk.StringVar(value=str(barang_data.get('col_dd', '') or '').replace('Rp ', '').replace(',', ''))
+        harga_col_dd_var = tk.StringVar(value=str(barang_data.get('col_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_col_dd_entry = tk.Entry(harga_col_dd_frame, textvariable=harga_col_dd_var, font=('Arial', 10), width=20)
         harga_col_dd_entry.pack(side='left', padx=(5, 0))
         
@@ -1413,40 +1413,64 @@ class BarangWindow:
             # 3. Validasi format angka untuk dimensi (jika diisi)
             try:
                 if panjang_var.get().strip():
-                    val = float(panjang_var.get())
-                    if val <= 0:
-                        raise ValueError("Panjang harus lebih besar dari 0")
-                
+                    value = panjang_var.get().strip()
+                    if value == '-':
+                        pass  # Skip validasi untuk nilai '-'
+                    else:
+                        val = float(value)
+                        if val <= 0:
+                            raise ValueError("Panjang harus lebih besar dari 0")
+            
                 if lebar_var.get().strip():
-                    val = float(lebar_var.get())
-                    if val <= 0:
-                        raise ValueError("Lebar harus lebih besar dari 0")
-                
+                    value = lebar_var.get().strip()
+                    if value == '-':
+                        pass  # Skip validasi untuk nilai '-'
+                    else:
+                        val = float(value)
+                        if val <= 0:
+                            raise ValueError("Lebar harus lebih besar dari 0")
+            
                 if tinggi_var.get().strip():
-                    val = float(tinggi_var.get())
-                    if val <= 0:
-                        raise ValueError("Tinggi harus lebih besar dari 0")
+                    value = tinggi_var.get().strip()
+                    if value == '-':
+                        pass  # Skip validasi untuk nilai '-'
+                    else:
+                        val = float(value)
+                        if val <= 0:
+                            raise ValueError("Tinggi harus lebih besar dari 0")
                         
             except ValueError as e:
                 messagebox.showwarning("Format Tidak Valid", f"Dimensi tidak valid: {str(e)}")
                 return False
-            
+
             # 4. Validasi volume, berat, colli (jika diisi)
             try:
                 if volume_var.get().strip():
-                    val = float(volume_var.get())
-                    if val <= 0:
-                        raise ValueError("Volume harus lebih besar dari 0")
-                
+                    value = volume_var.get().strip()
+                    if value == '-':
+                        pass  # Skip validasi untuk nilai '-'
+                    else:
+                        val = float(value)
+                        if val <= 0:
+                            raise ValueError("Volume harus lebih besar dari 0")
+            
                 if berat_var.get().strip():
-                    val = float(berat_var.get())
-                    if val <= 0:
-                        raise ValueError("Berat harus lebih besar dari 0")
-                
+                    value = berat_var.get().strip()
+                    if value == '-':
+                        pass  # Skip validasi untuk nilai '-'
+                    else:
+                        val = float(value)
+                        if val <= 0:
+                            raise ValueError("Berat harus lebih besar dari 0")
+            
                 if colli_var.get().strip():
-                    val = int(float(colli_var.get()))
-                    if val <= 0:
-                        raise ValueError("Colli harus lebih besar dari 0")
+                    value = colli_var.get().strip()
+                    if value == '-':
+                        pass  # Skip validasi untuk nilai '-'
+                    else:
+                        val = int(float(value))
+                        if val <= 0:
+                            raise ValueError("Colli harus lebih besar dari 0")
                         
             except ValueError as e:
                 messagebox.showwarning("Format Tidak Valid", f"Volume/Berat/Colli tidak valid: {str(e)}")
@@ -1504,28 +1528,33 @@ class BarangWindow:
             
             pengirim_id = self.db.get_customer_id_by_name(pengirim_var.get().strip())
             penerima_id = self.db.get_customer_id_by_name(penerima_var.get().strip())
-
+            
+            def process_value(value):
+                """Convert '-' to None, otherwise return stripped value or None if empty"""
+                stripped = value.strip() if value else ''
+                if stripped == '-' or stripped == '':
+                    return None
+                return stripped
+            
             updated_barang = {
                 'barang_id': barang_data['barang_id'],
                 'pengirim': pengirim_id,
                 'penerima': penerima_id,
                 'nama_barang': nama_barang_var.get().strip(),
-                'panjang_barang': panjang_var.get().strip() or None,
-                'lebar_barang': lebar_var.get().strip() or None,
-                'tinggi_barang': tinggi_var.get().strip() or None,
-                'volume_barang': volume_var.get().strip() or None,
-                'berat_barang': berat_var.get().strip() or None,
-                'colli_barang': colli_var.get().strip() or None,
-                'harga_m3_pp': harga_m3_pp_var.get().strip() or None,
-                'harga_ton_pp': harga_ton_pp_var.get().strip() or None,
-                'harga_col_pp': harga_col_pp_var.get().strip() or None,
-                'harga_m3_pd': harga_m3_pd_var.get().strip() or None,
-                'harga_ton_pd': harga_ton_pd_var.get().strip() or None,
-                'harga_col_pd': harga_col_pd_var.get().strip() or None,
-                'harga_m3_dd': harga_m3_dd_var.get().strip() or None,
-                'harga_ton_dd': harga_ton_dd_var.get().strip() or None,
-                'harga_col_dd': harga_col_dd_var.get().strip() or None,
-                'updated_at': datetime.datetime.now()
+                'panjang_barang': process_value(panjang_var.get()),
+                'lebar_barang': process_value(lebar_var.get()),
+                'tinggi_barang': process_value(tinggi_var.get()),
+                'm3_barang': process_value(volume_var.get()),
+                'ton_barang': process_value(berat_var.get()),
+                'm3_pp': process_value(harga_m3_pp_var.get()),
+                'ton_pp': process_value(harga_ton_pp_var.get()),
+                'col_pp': process_value(harga_col_pp_var.get()),
+                'm3_pd': process_value(harga_m3_pd_var.get()),
+                'ton_pd': process_value(harga_ton_pd_var.get()),
+                'col_pd': process_value(harga_col_pd_var.get()),
+                'm3_dd': process_value(harga_m3_dd_var.get()),
+                'ton_dd': process_value(harga_ton_dd_var.get()),
+                'col_dd': process_value(harga_col_dd_var.get()),
             }
             self.save_changes(updated_barang)
             update_window.destroy()
@@ -3451,17 +3480,17 @@ class BarangWindow:
                 dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
                 
                 # Format currency
-                harga_m3_pp = f"Rp {barang.get('m3_pp', 0):,.0f}" if barang.get('m3_pp') else '-'
-                harga_m3_pd = f"Rp {barang.get('m3_pd', 0):,.0f}" if barang.get('m3_pd') else '-'
-                harga_m3_dd = f"Rp {barang.get('m3_dd', 0):,.0f}" if barang.get('m3_dd') else '-'
+                harga_m3_pp = f"Rp {barang.get('m3_pp', 0):,.0f}" if barang.get('m3_pp') and barang.get('m3_pp') != '-' else '-'
+                harga_m3_pd = f"Rp {barang.get('m3_pd', 0):,.0f}" if barang.get('m3_pd') and barang.get('m3_pd') != '-' else '-'
+                harga_m3_dd = f"Rp {barang.get('m3_dd', 0):,.0f}" if barang.get('m3_dd') and barang.get('m3_dd') != '-' else '-'
 
-                harga_ton_pp = f"Rp {barang.get('ton_pp', 0):,.0f}" if barang.get('ton_pp') else '-'
-                harga_ton_pd = f"Rp {barang.get('ton_pd', 0):,.0f}" if barang.get('ton_pd') else '-'
-                harga_ton_dd = f"Rp {barang.get('ton_dd', 0):,.0f}" if barang.get('ton_dd') else '-'
+                harga_ton_pp = f"Rp {barang.get('ton_pp', 0):,.0f}" if barang.get('ton_pp') and barang.get('ton_pp') != '-' else '-'
+                harga_ton_pd = f"Rp {barang.get('ton_pd', 0):,.0f}" if barang.get('ton_pd') and barang.get('ton_pd') != '-' else '-'
+                harga_ton_dd = f"Rp {barang.get('ton_dd', 0):,.0f}" if barang.get('ton_dd') and barang.get('ton_dd') != '-' else '-'
 
-                harga_col_pp = f"Rp {barang.get('col_pp', 0):,.0f}" if barang.get('col_pp') else '-'
-                harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') else '-'
-                harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') else '-'
+                harga_col_pp = f"Rp {barang.get('col_pp', 0):,.0f}" if barang.get('col_pp') and barang.get('col_pp') != '-' else '-'
+                harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') and barang.get('col_pd') != '-' else '-'
+                harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') and barang.get('col_dd') != '-' else '-'
 
                 # Format date
                 created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'

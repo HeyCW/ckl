@@ -736,7 +736,7 @@ class BarangDatabase(SQLiteDatabase):
                         col_pp = ?, col_pd = ?, col_dd = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE barang_id = ?
                 ''', (
-                    barang_data.get('pengirim'), barang_data.get('penerima'),
+                    barang_data.get('pengirim'), barang_data.get('penerima'), barang_data.get('nama_barang'),
                     barang_data.get('panjang_barang'), barang_data.get('lebar_barang'), barang_data.get('tinggi_barang'),
                     barang_data.get('m3_barang'), barang_data.get('ton_barang'),
                     barang_data.get('m3_pp'), barang_data.get('m3_pd'), barang_data.get('m3_dd'),
