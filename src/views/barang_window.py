@@ -1480,12 +1480,18 @@ class BarangWindow:
                 ]:
                     value = price_var.get().strip()
                     if value:
-                        val = float(value)
-                        if val <= 0:
-                            raise ValueError(f"{name} harus lebih besar dari 0")
-                            
+                        if value == '-':
+                            continue  # Skip validasi untuk nilai '-'
+                    
+                        try:
+                            val = float(value)
+                            if val <= 0:
+                                raise ValueError(f"{name} harus lebih besar dari 0")
+                        except ValueError:
+                            raise ValueError(f"Format {name} tidak valid: '{value}' (gunakan angka atau '-')")
+                                    
             except ValueError as e:
-                messagebox.showwarning("Format Harga Tidak Valid", str(e))
+                messagebox.showwarning("Format Error", str(e))
                 return False
             
             return True
@@ -2699,7 +2705,7 @@ class BarangWindow:
             for field in pricing_fields:
                 if field in column_mapping:
                     value = row.get(column_mapping[field])
-                    if pd.notna(value) and str(value).strip() != '' and str(value).upper() != 'NAN':
+                    if pd.notna(value) and str(value).strip() != '' and str(value).upper() != '-':
                         try:
                             clean_value = str(value).replace(',', '').replace(' ', '').replace('Rp', '')
                             test_price = float(clean_value)
@@ -3077,6 +3083,9 @@ class BarangWindow:
             try:
                 if value_type == 'float':
                     # Handle comma separated numbers (Indonesian format)
+                    if str(value).strip() == "-":
+                        return default_value
+                    
                     if isinstance(value, str):
                         value = value.replace(',', '').replace(' ', '')
                     return float(str(value).strip()) if str(value).strip() else default_value
@@ -3247,6 +3256,10 @@ class BarangWindow:
             def get_numeric_value(entry_widget, field_name):
                 try:
                     value = entry_widget.get().strip()
+                    
+                    if value == "-":
+                        return None
+                    
                     if not value:
                         return None
                     return float(value)
