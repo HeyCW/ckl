@@ -397,13 +397,51 @@ class ContainerWindow:
         tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:", 
                 font=('Arial', 12, 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 5))
 
-        # Row 1: Deskripsi biaya
+        # Row 1: Deskripsi biaya dengan dropdown
         desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         desc_row.pack(fill='x', pady=2)
         tk.Label(desc_row, text="Title:").pack(side='left')
         self.delivery_desc_var = tk.StringVar()
-        self.delivery_desc_entry = tk.Entry(desc_row, textvariable=self.delivery_desc_var, width=40)
-        self.delivery_desc_entry.pack(side='left', padx=(5, 20))
+
+        # Buat Combobox untuk Title dengan opsi predefined + custom
+        self.delivery_desc_combo = ttk.Combobox(desc_row, 
+                                            textvariable=self.delivery_desc_var, 
+                                            width=37,
+                                            state="normal")  # Allow typing custom values
+
+        # Daftar title yang sering digunakan
+        common_titles = [
+            "THC Surabaya",
+            "Freigth",
+            "Bi. LSS",
+            "Seal",
+            "Bi. Cleaning Container",
+            "Bi. Ops Stuffing Dalam",
+            "Bi. Ambil Barang"
+            "Bi. Oper Depo",
+            "Bi. Kirim Dokumen",
+            "Doe Fee",
+            "Platform Fee",
+            "Bi. Asuransi",
+            "PPH 25",
+            "PPH 21",
+            "Pajak",
+            "Trucking Samarinda ke SMA",
+            "THC SMD",
+            "Dooring Barang Ringan",
+            "Bi. Dooring Barang Berat",
+            "Buruh Harian di depo Samarinda",
+            "Bi. Lolo Empty",
+            "Bi. Ops Samarinda",
+            "Bi. Sewa JPT & Adm",
+            "Bi. Forklip Samarinda",
+            "Bi. Lolo",
+            "Rekolasi Samarinda"
+        ]
+
+        # Set values ke combobox
+        self.delivery_desc_combo['values'] = common_titles
+        self.delivery_desc_combo.pack(side='left', padx=(5, 20))
 
         cost_desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         cost_desc_row.pack(fill='x', pady=2)
@@ -761,7 +799,6 @@ class ContainerWindow:
             # Clear form dan reset placeholder
             self.delivery_desc_var.set('')
             self.cost_description_var.set('')
-            self.delivery_desc_entry.delete(0, tk.END)
             self.delivery_cost_var.set('0')
             self.delivery_destination_combo.set('Surabaya')
             

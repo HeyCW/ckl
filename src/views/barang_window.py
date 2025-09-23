@@ -1650,7 +1650,7 @@ class BarangWindow:
             messagebox.showerror("Error", f"Gagal menghapus barang:\n{str(e)}")
     
     def export_barang(self):
-        """Export barang data to Excel"""
+        """Export barang data to Excel - FIXED for pengirim-penerima system"""
         try:
             if not self.original_barang_data:
                 messagebox.showwarning("Peringatan", "Tidak ada data barang untuk diekspor!")
@@ -1668,23 +1668,36 @@ class BarangWindow:
             if not filename:
                 return
             
-            # Prepare data for export
+            # Prepare data for export - UPDATED structure
             export_data = []
             for barang in self.original_barang_data:
+                # Format dimensions
+                dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
+                
                 export_data.append({
-                    'ID': barang['barang_id'],
-                    'Customer': barang['nama_customer'],
-                    'Nama Barang': barang['nama_barang'],
+                    'ID': barang.get('barang_id', ''),
+                    'Pengirim': barang.get('sender_name', ''),  # Updated field name
+                    'Penerima': barang.get('receiver_name', ''), # Updated field name
+                    'Nama Barang': barang.get('nama_barang', ''),
+                    'Dimensi (P×L×T cm)': dimensi,
                     'Panjang (cm)': barang.get('panjang_barang', ''),
                     'Lebar (cm)': barang.get('lebar_barang', ''),
                     'Tinggi (cm)': barang.get('tinggi_barang', ''),
                     'Volume (m³)': barang.get('m3_barang', ''),
                     'Berat (ton)': barang.get('ton_barang', ''),
-                    'Colli': barang.get('col_barang', ''),
-                    'Harga/M3 (Rp)': barang.get('harga_m3', ''),
-                    'Harga/Ton (Rp)': barang.get('harga_ton', ''),
-                    'Harga/Col (Rp)': barang.get('harga_col', ''),
-                    'Tanggal Dibuat': barang.get('created_at', '')
+                    
+                    # All pricing fields
+                    'Harga M³ PP (Rp)': barang.get('m3_pp', ''),
+                    'Harga M³ PD (Rp)': barang.get('m3_pd', ''),
+                    'Harga M³ DD (Rp)': barang.get('m3_dd', ''),
+                    'Harga Ton PP (Rp)': barang.get('ton_pp', ''),
+                    'Harga Ton PD (Rp)': barang.get('ton_pd', ''),
+                    'Harga Ton DD (Rp)': barang.get('ton_dd', ''),
+                    'Harga Colli PP (Rp)': barang.get('col_pp', ''),
+                    'Harga Colli PD (Rp)': barang.get('col_pd', ''),
+                    'Harga Colli DD (Rp)': barang.get('col_dd', ''),
+                    
+                    'Tanggal Dibuat': barang.get('created_at', '')[:19] if barang.get('created_at') else ''
                 })
             
             # Create DataFrame and export
@@ -1694,43 +1707,52 @@ class BarangWindow:
                 df.to_excel(writer, index=False, sheet_name='Data Barang')
                 
                 # Format the Excel file
-                workbook = writer.book
-                worksheet = writer.sheets['Data Barang']
-                
-                # Style headers
-                from openpyxl.styles import Font, PatternFill, Alignment
-                
-                header_font = Font(bold=True, color="FFFFFF")
-                header_fill = PatternFill(start_color="27AE60", end_color="27AE60", fill_type="solid")
-                
-                for col_num, column_title in enumerate(df.columns, 1):
-                    cell = worksheet.cell(row=1, column=col_num)
-                    cell.font = header_font
-                    cell.fill = header_fill
-                    cell.alignment = Alignment(horizontal="center")
-                
-                # Auto-adjust column widths
-                for column in worksheet.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 2, 50)
-                    worksheet.column_dimensions[column_letter].width = adjusted_width
+                try:
+                    workbook = writer.book
+                    worksheet = writer.sheets['Data Barang']
+                    
+                    # Style headers
+                    from openpyxl.styles import Font, PatternFill, Alignment
+                    
+                    header_font = Font(bold=True, color="FFFFFF")
+                    header_fill = PatternFill(start_color="27AE60", end_color="27AE60", fill_type="solid")
+                    
+                    for col_num, column_title in enumerate(df.columns, 1):
+                        cell = worksheet.cell(row=1, column=col_num)
+                        cell.font = header_font
+                        cell.fill = header_fill
+                        cell.alignment = Alignment(horizontal="center")
+                    
+                    # Auto-adjust column widths
+                    for column in worksheet.columns:
+                        max_length = 0
+                        column_letter = column[0].column_letter
+                        for cell in column:
+                            try:
+                                if len(str(cell.value)) > max_length:
+                                    max_length = len(str(cell.value))
+                            except:
+                                pass
+                        adjusted_width = min(max_length + 2, 50)
+                        worksheet.column_dimensions[column_letter].width = adjusted_width
+                        
+                except Exception as styling_error:
+                    print(f"Warning: Could not apply Excel styling: {styling_error}")
+                    # File will still be created without styling
             
             messagebox.showinfo(
                 "Export Berhasil",
                 f"Data barang berhasil diekspor ke:\n{filename}\n\n" +
-                f"📊 Total: {len(export_data)} barang"
+                f"📊 Total: {len(export_data)} barang\n" +
+                f"📋 Kolom: Pengirim, Penerima, Nama Barang, Dimensi, Harga lengkap"
             )
             
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal export data:\n{str(e)}")
-
+            error_msg = f"Gagal export data: {str(e)}"
+            print(f"Export error: {error_msg}")
+            messagebox.showerror("Error", error_msg)
+        
+        
     def show_error_details(self, errors, customer_not_found_list, success_count, total_count):
         """Show detailed error modal with proper horizontal scrolling"""
         error_window = tk.Toplevel(self.window)

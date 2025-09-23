@@ -43,7 +43,7 @@ class PrintHandler:
             # Create new workbook
             wb = openpyxl.Workbook()
             ws = wb.active
-            ws.title = "Invoice Container"
+            ws.title = "Invoice Packing List"
         
             # SET PAGE LAYOUT FOR A4 PRINT
             ws.page_setup.paperSize = ws.PAPERSIZE_A4
@@ -80,8 +80,8 @@ class PrintHandler:
                 bottom=Side(style='thin')
             )
         
-            header_fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
-            profit_header_fill = PatternFill(start_color='FFE6CC', end_color='FFE6CC', fill_type='solid')
+            # header_fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
+            # profit_header_fill = PatternFill(start_color='FFE6CC', end_color='FFE6CC', fill_type='solid')
         
             # Safe way to get container values
             def safe_get(key, default='-'):
@@ -150,7 +150,7 @@ class PrintHandler:
                 cell.font = table_header_font
                 cell.alignment = center_align
                 cell.border = thin_border
-                cell.fill = header_fill
+                # cell.fill = header_fill
                 ws.row_dimensions[current_row].height = 8
         
             current_row += 1
@@ -272,7 +272,7 @@ class PrintHandler:
             for col in range(1, 14):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = thin_border
-                cell.fill = header_fill
+                # cell.fill = header_fill
                 cell.font = table_header_font
             
                 if col == 1:
@@ -341,13 +341,13 @@ class PrintHandler:
                     ws[f'A{current_row}'] = "Biaya Surabaya"
                     ws[f'A{current_row}'].font = profit_header_font
                     ws[f'A{current_row}'].alignment = left_align
-                    ws[f'A{current_row}'].fill = profit_header_fill
+                    # ws[f'A{current_row}'].fill = profit_header_fill
                     ws[f'A{current_row}'].border = thin_border
                     
                     ws[f'M{current_row}'] = "Cost (Rp)"
                     ws[f'M{current_row}'].font = profit_header_font
                     ws[f'M{current_row}'].alignment = right_align
-                    ws[f'M{current_row}'].fill = profit_header_fill
+                    # ws[f'M{current_row}'].fill = profit_header_fill
                     ws[f'M{current_row}'].border = thin_border
                     current_row += 1
                     
@@ -394,13 +394,13 @@ class PrintHandler:
                     ws[f'A{current_row}'] = f"Biaya {destination_name}"
                     ws[f'A{current_row}'].font = profit_header_font
                     ws[f'A{current_row}'].alignment = left_align
-                    ws[f'A{current_row}'].fill = profit_header_fill
+                    # ws[f'A{current_row}'].fill = profit_header_fill
                     ws[f'A{current_row}'].border = thin_border
 
                     ws[f'M{current_row}'] = "Cost (Rp)"
                     ws[f'M{current_row}'].font = profit_header_font
                     ws[f'M{current_row}'].alignment = right_align
-                    ws[f'M{current_row}'].fill = profit_header_fill
+                    # ws[f'M{current_row}'].fill = profit_header_fill
                     ws[f'M{current_row}'].border = thin_border
                     current_row += 1
                     
@@ -460,13 +460,13 @@ class PrintHandler:
                 pass
 
             # Summary - update untuk mencakup status cost
-            if costs_surabaya or costs_destinasi:
-                summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Total Cost: Rp {total_biaya:,.0f} | Profit: Rp {profit_lcl:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            else:
-                summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            # if costs_surabaya or costs_destinasi:
+            #     summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Total Cost: Rp {total_biaya:,.0f} | Profit: Rp {profit_lcl:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            # else:
+            #     summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             
-            ws[f'A{current_row}'] = summary_text
-            ws[f'A{current_row}'].font = small_font
+            # ws[f'A{current_row}'] = summary_text
+            # ws[f'A{current_row}'].font = small_font
         
             # AUTO-ADJUST Column widths
             estimated_widths = [
@@ -787,7 +787,7 @@ class PrintHandler:
                 bottom=Side(style='thin')
             )
         
-            header_fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
+            # header_fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
         
             # Safe way to get container values
             def safe_get(key, default='-'):
@@ -861,7 +861,7 @@ class PrintHandler:
                 cell.font = table_header_font
                 cell.alignment = center_align
                 cell.border = thin_border
-                cell.fill = header_fill
+                # cell.fill = header_fill
                 ws.row_dimensions[current_row].height = 12
         
             current_row += 1
@@ -955,7 +955,7 @@ class PrintHandler:
             for col in range(1, 12):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = thin_border
-                cell.fill = header_fill
+                # cell.fill = header_fill
                 cell.font = table_header_font
             
                 if col == 1:
