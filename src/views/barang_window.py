@@ -299,6 +299,29 @@ class BarangWindow:
         )
         note_label.pack(anchor='w', pady=(5, 0))
         
+        self.tax_var = tk.IntVar()
+        
+        # Frame untuk checkbox agar rapi
+        tax_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        tax_frame.pack(fill='x', pady=(15, 0)) # Beri sedikit jarak atas
+
+        # Checkbox untuk pajak
+        tax_check = tk.Checkbutton(
+            tax_frame,
+            text="Kena Pajak",
+            font=('Arial', 11, 'bold'),
+            variable=self.tax_var,
+            onvalue=1,        # Nilai saat dicentang
+            offvalue=0,       # Nilai saat tidak dicentang
+            bg='#ecf0f1',
+            fg='#2c3e50',
+            activebackground='#ecf0f1',
+            activeforeground='#2c3e50',
+            selectcolor='#bdc3c7', # Warna kotak centang
+            anchor='w'
+        )
+        tax_check.pack(side='left')
+        
         # Buttons
         btn_frame = tk.Frame(form_frame, bg='#ecf0f1')
         btn_frame.pack(fill='x', pady=20)
@@ -436,7 +459,7 @@ class BarangWindow:
         
         # Updated columns
         columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 
-                'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD')
+                'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD', 'Pajak')
         
         # ✅ GUNAKAN TREEVIEW BIASA (sesuai kode asli Anda)
         self.preview_tree = ttk.Treeview(tree_container, 
@@ -462,7 +485,8 @@ class BarangWindow:
             'TON_DD': 'Ton D→D',
             'COLLI_PP': 'Colli P→P',
             'COLLI_PD': 'Colli P→D',
-            'COLLI_DD': 'Colli D→D'
+            'COLLI_DD': 'Colli D→D',
+            'Pajak': 'Pajak'
         }
         
         for col_id, header_text in headers.items():
@@ -486,7 +510,8 @@ class BarangWindow:
             'TON_DD': 100,
             'COLLI_PP': 100,
             'COLLI_PD': 100,
-            'COLLI_DD': 100
+            'COLLI_DD': 100,
+            'Pajak': 70
         }
         
         for col_id, width in column_widths.items():
@@ -847,7 +872,7 @@ class BarangWindow:
         columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat', 
                'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 
                'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 
-               'Harga/Col_DD', 'Created')
+               'Harga/Col_DD', 'Pajak', 'Created')
         
         self.tree = PaginatedTreeView(
             parent=tree_container,
@@ -874,6 +899,7 @@ class BarangWindow:
         self.tree.heading('Harga/Col_PP', text='Harga/Col_PP (Rp)')
         self.tree.heading('Harga/Col_PD', text='Harga/Col_PD (Rp)')
         self.tree.heading('Harga/Col_DD', text='Harga/Col_DD (Rp)')
+        self.tree.heading('Pajak', text='Pajak')
         self.tree.heading('Created', text='Tanggal Dibuat')
         
         self.tree.column('ID', width=40)
@@ -892,6 +918,7 @@ class BarangWindow:
         self.tree.column('Harga/Col_PP', width=100)
         self.tree.column('Harga/Col_PD', width=100)
         self.tree.column('Harga/Col_DD', width=100)
+        self.tree.column('Pajak', width=100)
         self.tree.column('Created', width=120)
         
         # Bind double-click to edit
@@ -1081,6 +1108,7 @@ class BarangWindow:
                         harga_col_pp,
                         harga_col_pd,
                         harga_col_dd,
+                        barang.get('pajak', '0'),
                         created_date
                     )
                     
@@ -1389,6 +1417,38 @@ class BarangWindow:
         harga_col_dd_entry = tk.Entry(harga_col_dd_frame, textvariable=harga_col_dd_var, font=('Arial', 10), width=20)
         harga_col_dd_entry.pack(side='left', padx=(5, 0))
         
+        # Pajak checkbox - tambahkan setelah harga_col_dd_entry
+        tk.Label(form_frame, text="Pajak:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(20, 5))
+
+        # Frame untuk checkbox pajak
+        pajak_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        pajak_frame.pack(fill='x', pady=(0, 10))
+
+        # Checkbox untuk pajak - ambil nilai dari barang_data
+        pajak_var = tk.IntVar()
+        # Set nilai berdasarkan data yang ada
+        current_pajak = barang_data.get('pajak', 0)
+        if current_pajak == 1 or current_pajak == '1' or str(current_pajak).lower() == 'true':
+            pajak_var.set(1)
+        else:
+            pajak_var.set(0)
+
+        pajak_check = tk.Checkbutton(
+            pajak_frame,
+            text="Kena Pajak",
+            font=('Arial', 11, 'bold'),
+            variable=pajak_var,
+            onvalue=1,        
+            offvalue=0,       
+            bg='#ecf0f1',
+            fg='#2c3e50',
+            activebackground='#ecf0f1',
+            activeforeground='#2c3e50',
+            selectcolor='#bdc3c7',
+            anchor='w'
+        )
+        pajak_check.pack(side='left')
+        
         def validate_update_form():
             """Validate update form data"""
             
@@ -1554,6 +1614,7 @@ class BarangWindow:
                 'm3_dd': process_value(harga_m3_dd_var.get()),
                 'ton_dd': process_value(harga_ton_dd_var.get()),
                 'col_dd': process_value(harga_col_dd_var.get()),
+                'pajak': pajak_var.get()
             }
             self.save_changes(updated_barang)
             update_window.destroy()
@@ -2129,7 +2190,8 @@ class BarangWindow:
                 'harga_m3': ['harga/m3', 'harga per m3', 'harga_m3', 'price_m3'],
                 'harga_ton': ['harga/ton', 'harga per ton', 'harga_ton', 'price_ton'],
                 'harga_coll': ['harga/col', 'harga per coll', 'harga_coll', 'price_coll', 'harga/colli'],
-                'harga': ['harga', 'price']  # Generic price field as fallback
+                'harga': ['harga', 'price'],  # Generic price field as fallback
+                'pajak': ['pajak', 'tax', 'ppn']  # Tax field
             }
             
             # ✅ IMPROVED: Enhanced column finding algorithm
@@ -2236,6 +2298,7 @@ class BarangWindow:
                 harga_col_pp = get_field_value('harga_col_pp')
                 harga_col_pd = get_field_value('harga_col_pd')
                 harga_col_dd = get_field_value('harga_col_dd')
+                pajak = get_field_value('pajak', '0')
                 
                 # Fallback to legacy pricing if new fields not found
                 if not any([harga_m3_pp, harga_m3_pd, harga_m3_dd]):
@@ -2286,7 +2349,6 @@ class BarangWindow:
                                 return value
                         return ''
                     
-                    # ✅ UPDATED: Insert with all new columns (matching treeview structure)
                     self.preview_tree.insert('', tk.END, values=(
                         display_pengirim,           # Pengirim
                         display_penerima,           # Penerima  
@@ -2304,7 +2366,8 @@ class BarangWindow:
                         format_currency(harga_ton_dd),  # TON_DD
                         format_currency(harga_col_pp),  # COLLI_PP
                         format_currency(harga_col_pd),  # COLLI_PD
-                        format_currency(harga_col_dd)   # COLLI_DD
+                        format_currency(harga_col_dd),   # COLLI_DD
+                        pajak
                     ))
                     preview_count += 1
             
@@ -2383,7 +2446,8 @@ class BarangWindow:
                 'TON_DD': [750000, 700000, 850000],
                 'COLLI_PP': [25000, 30000, 35000],
                 'COLLI_PD': [35000, 40000, 45000],
-                'COLLI_DD': [50000, 55000, 60000]
+                'COLLI_DD': [50000, 55000, 60000],
+                'Pajak': [1, 0, 1]
             }
             
             # Create DataFrame
@@ -3164,6 +3228,7 @@ class BarangWindow:
             'col_pp': get_safe_value('harga_col_pp', 'float'),
             'col_pd': get_safe_value('harga_col_pd', 'float'),
             'col_dd': get_safe_value('harga_col_dd', 'float'),
+            'pajak': get_safe_value('pajak', 'float', 0.0),
         }
 
     def show_enhanced_error_details(self, validation_errors, customer_not_found, success_count, total_count):
@@ -3338,6 +3403,8 @@ class BarangWindow:
             harga_col_pd = get_numeric_value(self.harga_colli_pd_entry, "Harga Colli PD") if hasattr(self, 'harga_colli_pd_entry') else None
             harga_col_dd = get_numeric_value(self.harga_colli_dd_entry, "Harga Colli DD") if hasattr(self, 'harga_colli_dd_entry') else None
             
+            kena_pajak = self.tax_var.get()
+            
             # Create barang in database using the new pengirim-penerima system
             barang_id = self.db.create_barang(
                 pengirim=pengirim_id,
@@ -3357,7 +3424,8 @@ class BarangWindow:
                 ton_dd=harga_ton_dd,
                 col_pp=harga_col_pp,
                 col_pd=harga_col_pd,
-                col_dd=harga_col_dd
+                col_dd=harga_col_dd,
+                pajak=kena_pajak
             )
             
             # Generate pricing summary for success message
@@ -3534,6 +3602,7 @@ class BarangWindow:
                     harga_col_pp,
                     harga_col_pd,
                     harga_col_dd,
+                    barang.get('pajak', 0),
                     created_date
                 )
                 

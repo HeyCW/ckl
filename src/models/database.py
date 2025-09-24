@@ -248,6 +248,7 @@ class SQLiteDatabase:
             col_pp INTEGER,
             col_pd INTEGER,
             col_dd INTEGER,
+            pajak bool,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -683,7 +684,7 @@ class BarangDatabase(SQLiteDatabase):
                  panjang_barang=None, lebar_barang=None, tinggi_barang=None, m3_barang=None, ton_barang=None, 
                  m3_pp=None, m3_pd=None, m3_dd=None,
                  ton_pp=None, ton_pd=None, ton_dd=None,
-                 col_pp=None, col_pd=None, col_dd=None):
+                 col_pp=None, col_pd=None, col_dd=None, pajak=None):
         """Create new barang with error handling"""
         if not pengirim or not penerima or not nama_barang:
             raise ValueError("Pengirim, Penerima, and Nama Barang are required")
@@ -693,10 +694,10 @@ class BarangDatabase(SQLiteDatabase):
                 INSERT INTO barang (pengirim, penerima, nama_barang, 
                                 panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang,
                                 m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd,
-                                col_pp, col_pd, col_dd)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                col_pp, col_pd, col_dd, pajak)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (pengirim, penerima, nama_barang, panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang,
-                m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd, col_pp, col_pd, col_dd))
+                m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd, col_pp, col_pd, col_dd, pajak))
         
             logger.info(f"Barang created successfully: {nama_barang}")
             return barang_id
@@ -733,7 +734,7 @@ class BarangDatabase(SQLiteDatabase):
                     SET pengirim = ?, penerima = ?, nama_barang = ?,
                         panjang_barang = ?, lebar_barang = ?, tinggi_barang = ?, m3_barang = ?, ton_barang = ?, 
                         m3_pp = ?, m3_pd = ?, m3_dd = ?, ton_pp = ?, ton_pd = ?, ton_dd = ?,
-                        col_pp = ?, col_pd = ?, col_dd = ?, updated_at = CURRENT_TIMESTAMP
+                        col_pp = ?, col_pd = ?, col_dd = ?, pajak = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE barang_id = ?
                 ''', (
                     barang_data.get('pengirim'), barang_data.get('penerima'), barang_data.get('nama_barang'),
@@ -742,7 +743,7 @@ class BarangDatabase(SQLiteDatabase):
                     barang_data.get('m3_pp'), barang_data.get('m3_pd'), barang_data.get('m3_dd'),
                     barang_data.get('ton_pp'), barang_data.get('ton_pd'), barang_data.get('ton_dd'),
                     barang_data.get('col_pp'), barang_data.get('col_pd'), barang_data.get('col_dd'),
-                    barang_data['barang_id']
+                    barang_data.get('pajak'),barang_data['barang_id']
                 ))
             
                 # Cek berapa row yang terpengaruh

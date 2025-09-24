@@ -323,33 +323,33 @@ class ContainerWindow:
         self.print_handler.show_sender_receiver_selection_dialog_pdf(container_id)
     
     def create_container_barang_tab(self, parent):
-        """Create container-barang management tab with pricing and sender/receiver selection"""
-        # Container selection frame
+        """Create container-barang management tab with pricing, sender/receiver selection, and tax management."""
+
+        # === Frame Seleksi (atas) ===
         selection_frame = tk.Frame(parent, bg='#ecf0f1')
         selection_frame.pack(fill='x', padx=20, pady=20)
-        
-        tk.Label(selection_frame, text="📦 Kelola Barang dalam Container", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 10))
-        
-        # Container selection
-        container_select_frame = tk.Frame(selection_frame, bg='#ecf0f1')
-        container_select_frame.pack(fill='x', pady=10)
-        
-        # Search and Add frame (jadi grid 2 kolom)
-        search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
-        search_add_frame.pack(fill='x', pady=15)
+        tk.Label(selection_frame, text="📦 Kelola Barang dalam Container",
+                font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 10))
 
-        # === KIRI ===
+        # container_select_frame (tetap jika butuh)
+        container_select_frame = tk.Frame(selection_frame, bg='#ecf0f1')
+        container_select_frame.pack(fill='x', pady=5)
+
+        # === area search + delivery + tax (grid 3 kolom di baris atas) ===
+        search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
+        search_add_frame.pack(fill='x', pady=10)
+
+        # LEFT: kontrol pemilihan container/pengirim/penerima/colli
         left_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
         left_frame.grid(row=0, column=0, sticky='nw', padx=(0, 5))
 
         # Container selection
         container_select_frame = tk.Frame(left_frame, bg='#ecf0f1')
         container_select_frame.pack(fill='x', pady=5)
-
         tk.Label(container_select_frame, text="Pilih Container:").pack(side='left')
         self.selected_container_var = tk.StringVar()
-        self.container_combo = ttk.Combobox(container_select_frame, 
-                                            textvariable=self.selected_container_var, 
+        self.container_combo = ttk.Combobox(container_select_frame,
+                                            textvariable=self.selected_container_var,
                                             width=40, state='readonly')
         self.container_combo.pack(side='left', padx=(5, 20))
         self.load_container_combo()
@@ -358,11 +358,10 @@ class ContainerWindow:
         # Sender selection
         sender_frame = tk.Frame(left_frame, bg='#ecf0f1')
         sender_frame.pack(fill='x', pady=5)
-
         tk.Label(sender_frame, text="📤 Pilih Pengirim:").pack(side='left')
         self.sender_search_var = tk.StringVar()
-        self.sender_search_combo = ttk.Combobox(sender_frame, 
-                                                textvariable=self.sender_search_var, 
+        self.sender_search_combo = ttk.Combobox(sender_frame,
+                                                textvariable=self.sender_search_var,
                                                 width=25)
         self.sender_search_combo.pack(side='left', padx=(5, 20))
         self.sender_search_var.trace('w', self.on_sender_receiver_select)
@@ -371,10 +370,9 @@ class ContainerWindow:
         # Receiver selection
         receiver_frame = tk.Frame(left_frame, bg='#ecf0f1')
         receiver_frame.pack(fill='x', pady=5)
-
         tk.Label(receiver_frame, text="📥 Pilih Penerima:").pack(side='left')
         self.receiver_search_var = tk.StringVar()
-        self.receiver_search_combo = ttk.Combobox(receiver_frame, 
+        self.receiver_search_combo = ttk.Combobox(receiver_frame,
                                                 textvariable=self.receiver_search_var,
                                                 width=25)
         self.receiver_search_combo.pack(side='left', padx=(5, 20))
@@ -384,62 +382,36 @@ class ContainerWindow:
         # Colli input
         colli_frame = tk.Frame(left_frame, bg='#ecf0f1')
         colli_frame.pack(fill='x', pady=5)
-
         tk.Label(colli_frame, text="📦 Jumlah Colli:").pack(side='left')
         self.colli_var = tk.StringVar(value="1")
         self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, width=8)
         self.colli_entry.pack(side='left', padx=(5, 10))
 
-        # === KANAN ===
+        # MIDDLE: Biaya pengantaran (tetap di tengah-kanan atas)
         delivery_cost_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        delivery_cost_frame.grid(row=0, column=1, sticky='ne', padx=10)
+        delivery_cost_frame.grid(row=0, column=1, sticky='n', padx=10)
 
-        tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:", 
+        tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:",
                 font=('Arial', 12, 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 5))
 
-        # Row 1: Deskripsi biaya dengan dropdown
+        # Title + description + cost + lokasi (sama seperti yang sudah kamu punya)
         desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         desc_row.pack(fill='x', pady=2)
         tk.Label(desc_row, text="Title:").pack(side='left')
         self.delivery_desc_var = tk.StringVar()
-
-        # Buat Combobox untuk Title dengan opsi predefined + custom
-        self.delivery_desc_combo = ttk.Combobox(desc_row, 
-                                            textvariable=self.delivery_desc_var, 
-                                            width=37,
-                                            state="normal")  # Allow typing custom values
-
-        # Daftar title yang sering digunakan
+        self.delivery_desc_combo = ttk.Combobox(desc_row,
+                                                textvariable=self.delivery_desc_var,
+                                                width=37,
+                                                state="normal")
         common_titles = [
-            "THC Surabaya",
-            "Freigth",
-            "Bi. LSS",
-            "Seal",
-            "Bi. Cleaning Container",
-            "Bi. Ops Stuffing Dalam",
-            "Bi. Ambil Barang"
-            "Bi. Oper Depo",
-            "Bi. Kirim Dokumen",
-            "Doe Fee",
-            "Platform Fee",
-            "Bi. Asuransi",
-            "PPH 25",
-            "PPH 21",
-            "Pajak",
-            "Trucking Samarinda ke SMA",
-            "THC SMD",
-            "Dooring Barang Ringan",
-            "Bi. Dooring Barang Berat",
-            "Buruh Harian di depo Samarinda",
-            "Bi. Lolo Empty",
-            "Bi. Ops Samarinda",
-            "Bi. Sewa JPT & Adm",
-            "Bi. Forklip Samarinda",
-            "Bi. Lolo",
-            "Rekolasi Samarinda"
+            "THC Surabaya", "Freigth", "Bi. LSS", "Seal", "Bi. Cleaning Container",
+            "Bi. Ops Stuffing Dalam", "Bi. Ambil Barang", "Bi. Oper Depo",
+            "Bi. Kirim Dokumen", "Doe Fee", "Platform Fee", "Bi. Asuransi",
+            "PPH 25", "PPH 21", "Pajak", "Trucking Samarinda ke SMA",
+            "THC SMD", "Dooring Barang Ringan", "Bi. Dooring Barang Berat",
+            "Buruh Harian di depo Samarinda", "Bi. Lolo Empty", "Bi. Ops Samarinda",
+            "Bi. Sewa JPT & Adm", "Bi. Forklip Samarinda", "Bi. Lolo", "Rekolasi Samarinda"
         ]
-
-        # Set values ke combobox
         self.delivery_desc_combo['values'] = common_titles
         self.delivery_desc_combo.pack(side='left', padx=(5, 20))
 
@@ -450,154 +422,120 @@ class ContainerWindow:
         self.cost_description_entry = tk.Entry(cost_desc_row, textvariable=self.cost_description_var, width=40)
         self.cost_description_entry.pack(side='left', padx=(5, 20))
 
-        # Row 2: Biaya
         cost_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         cost_row.pack(fill='x', pady=2)
         tk.Label(cost_row, text="Biaya (Rp):").pack(side='left')
         self.delivery_cost_var = tk.StringVar(value="0")
         self.delivery_cost_entry = tk.Entry(cost_row, textvariable=self.delivery_cost_var, width=15)
         self.delivery_cost_entry.pack(side='left', padx=(5, 10))
-
         add_delivery_btn = tk.Button(cost_row, text="➕ Tambah Biaya", bg='#e67e22', fg='white',
                                     padx=15, pady=5, command=self.add_delivery_cost)
         add_delivery_btn.pack(side='left', padx=(10, 0))
 
-        # Row 3: Lokasi
         destination_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         destination_row.pack(fill='x', pady=2)
         tk.Label(destination_row, text="Lokasi:").pack(side='left')
-
         self.delivery_destination_var = tk.StringVar()
-        self.delivery_destination_combo = ttk.Combobox(destination_row, 
+        self.delivery_destination_combo = ttk.Combobox(destination_row,
                                                     textvariable=self.delivery_destination_var,
                                                     width=37, state="readonly")
         self.delivery_destination_combo.pack(side='left', padx=(5, 20))
-        
-        self.original_pengirim_values = []
-        
-        self.load_customers()
-        self.load_pengirim()
-        
-        # Actions frame
+
+        # RIGHT-TOP: Ringkasan/Pra-tabel Pajak (di kanan atas seperti yang diinginkan)
+        tax_overview_frame = tk.Frame(search_add_frame, bg='#ecf0f1', relief='flat')
+        tax_overview_frame.grid(row=0, column=2, sticky='ne', padx=(10, 0))
+
+        tk.Label(tax_overview_frame, text="🧾 Daftar Pajak (Ringkasan)",
+                font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
+
+        tax_tree_container = tk.Frame(tax_overview_frame, bg='#ecf0f1')
+        tax_tree_container.pack(fill='both', expand=False)
+
+        tax_columns = ('Jenis_Tax', 'Penerima', 'Jumlah', 'Tanggal')
+
+        # Gunakan PaginatedTreeView untuk ringkasan pajak juga (tinggi kecil agar muat di kanan-atas)
+        self.tax_summary_tree = PaginatedTreeView(
+            parent=tax_tree_container,
+            columns=tax_columns,
+            show='headings',
+            height=6,            # ringkasan: sedikit baris
+            items_per_page=5
+        )
+        self.tax_summary_tree.heading('Jenis_Tax', text='Jenis Pajak')
+        self.tax_summary_tree.heading('Penerima', text='Penerima')
+        self.tax_summary_tree.heading('Jumlah', text='Jumlah (Rp)')
+        self.tax_summary_tree.heading('Tanggal', text='Tanggal')
+        self.tax_summary_tree.column('Jenis_Tax', width=120)
+        self.tax_summary_tree.column('Penerima', width=120)
+        self.tax_summary_tree.column('Jumlah', width=90)
+        self.tax_summary_tree.column('Tanggal', width=80)
+        self.tax_summary_tree.pack(fill='both', expand=True)
+
+
+        # === Actions frame (tombol-tombol utama) tetap di bawah selection area ===
         actions_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         actions_frame.pack(fill='x', pady=10)
-        
-        # Add barang to container with pricing
-        add_barang_btn = tk.Button(
-            actions_frame,
-            text="💰 Tambah Barang + Harga ke Container",
-            font=('Arial', 8, 'bold'),
-            bg='#27ae60',
-            fg='white',
-            padx=10,
-            pady=5,
-            command=self.add_selected_barang_to_container
-        )
+
+        add_barang_btn = tk.Button(actions_frame, text="💰 Tambah Barang + Harga ke Container",
+                                font=('Arial', 8, 'bold'), bg='#27ae60', fg='white',
+                                padx=10, pady=5, command=self.add_selected_barang_to_container)
         add_barang_btn.pack(side='left', padx=(0, 10))
-        
-        # Remove barang from container
-        remove_barang_btn = tk.Button(
-            actions_frame,
-            text="➖ Hapus Barang dari Container",
-            font=('Arial', 8, 'bold'),
-            bg='#e74c3c',
-            fg='white',
-            padx=10,
-            pady=5,
-            command=self.remove_barang_from_container
-        )
+
+        remove_barang_btn = tk.Button(actions_frame, text="➖ Hapus Barang dari Container",
+                                    font=('Arial', 8, 'bold'), bg='#e74c3c', fg='white',
+                                    padx=10, pady=5, command=self.remove_barang_from_container)
         remove_barang_btn.pack(side='left', padx=(0, 10))
-        
-        edit_colli_btn = tk.Button(
-            actions_frame,
-            text="🔢 Edit Colli",
-            font=('Arial', 8, 'bold'),
-            bg='#16a085',
-            fg='white',
-            padx=10,
-            pady=5,
-            command=self.edit_barang_colli_in_container
-        )
+
+        edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli",
+                                font=('Arial', 8, 'bold'), bg='#16a085', fg='white',
+                                padx=10, pady=5, command=self.edit_barang_colli_in_container)
         edit_colli_btn.pack(side='left', padx=(0, 10))
-        
-        # Edit price button
-        edit_price_btn = tk.Button(
-            actions_frame,
-            text="✏️ Edit Harga",
-            font=('Arial', 8, 'bold'),
-            bg='#f39c12',
-            fg='white',
-            padx=10,
-            pady=5,
-            command=self.edit_barang_price_in_container
-        )
+
+        edit_price_btn = tk.Button(actions_frame, text="✏️ Edit Harga",
+                                font=('Arial', 8, 'bold'), bg='#f39c12', fg='white',
+                                padx=10, pady=5, command=self.edit_barang_price_in_container)
         edit_price_btn.pack(side='left', padx=(0, 10))
-        
-        # === TAMBAHAN: Tombol kelola biaya pengantaran ===
-        manage_delivery_btn = tk.Button(
-            actions_frame,
-            text="🚚 Kelola Biaya Pengantaran",
-            font=('Arial', 8, 'bold'),
-            bg='#e67e22',
-            fg='white',
-            padx=10,
-            pady=5,
-            command=self.manage_delivery_costs
-        )
+
+        manage_delivery_btn = tk.Button(actions_frame, text="🚚 Kelola Biaya Pengantaran",
+                                        font=('Arial', 8, 'bold'), bg='#e67e22', fg='white',
+                                        padx=10, pady=5, command=self.manage_delivery_costs)
         manage_delivery_btn.pack(side='left', padx=(0, 10))
-        
-        # View container summary
-        summary_btn = tk.Button(
-            actions_frame,
-            text="📊 Lihat Summary Container",
-            font=('Arial', 8, 'bold'),
-            bg='#9b59b6',
-            fg='white',
-            padx=10,
-            pady=5,
-            command=self.view_container_summary
-        )
+
+        summary_btn = tk.Button(actions_frame, text="📊 Lihat Summary Container",
+                                font=('Arial', 8, 'bold'), bg='#9b59b6', fg='white',
+                                padx=10, pady=5, command=self.view_container_summary)
         summary_btn.pack(side='left', padx=(0, 10))
-        
-        # Clear selection button
-        clear_selection_btn = tk.Button(
-            actions_frame,
-            text="🗑️ Bersihkan Pilihan",
-            font=('Arial', 8, 'bold'),
-            bg='#95a5a6',
-            fg='white',
-            padx=10,
-            pady=5,
-            command=self.clear_selection
-        )
+
+        clear_selection_btn = tk.Button(actions_frame, text="🗑️ Bersihkan Pilihan",
+                                        font=('Arial', 8, 'bold'), bg='#95a5a6', fg='white',
+                                        padx=10, pady=5, command=self.clear_selection)
         clear_selection_btn.pack(side='left', padx=(0, 10))
-        
-        # Content frame with two sections
+
+        # Muat data pelanggan/pengirim (sisa code)
+        self.original_pengirim_values = []
+        self.load_customers()
+        self.load_pengirim()
+
+        # === Content frame bawah: hanya dua panel (left=available, middle=container) ===
         content_frame = tk.Frame(parent, bg='#ecf0f1')
         content_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
-        
+
+        content_frame.grid_rowconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(1, weight=2)
+
         # Left side - Available barang
         left_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
-        left_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
-        
+        left_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 3))
+
         tk.Label(left_frame, text="📋 Barang Tersedia", font=('Arial', 12, 'bold'), bg='#ffffff').pack(pady=10)
-        
-        # Available barang tree
         available_tree_container = tk.Frame(left_frame)
         available_tree_container.pack(fill='both', expand=True, padx=10, pady=(0, 10))
-        
+
         columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat')
-
-        # Buat PaginatedTreeView
-        self.available_tree = PaginatedTreeView(
-            parent=available_tree_container,
-            columns=columns,
-            show='headings',
-            height=12,
-            items_per_page=15  # Jumlah item per halaman
-        )
-
-        # Configure headings
+        self.available_tree = PaginatedTreeView(parent=available_tree_container,
+                                                columns=columns, show='headings',
+                                                height=12, items_per_page=15)
         self.available_tree.heading('ID', text='ID')
         self.available_tree.heading('Pengirim', text='Pengirim')
         self.available_tree.heading('Penerima', text='Penerima')
@@ -605,77 +543,41 @@ class ContainerWindow:
         self.available_tree.heading('Dimensi', text='P×L×T (cm)')
         self.available_tree.heading('Volume', text='Volume (m³)')
         self.available_tree.heading('Berat', text='Berat (ton)')
-
-        # Configure columns
-        self.available_tree.column('ID', width=40)
-        self.available_tree.column('Pengirim', width=90)
-        self.available_tree.column('Penerima', width=90)
-        self.available_tree.column('Nama', width=130)
-        self.available_tree.column('Dimensi', width=80)
-        self.available_tree.column('Volume', width=70)
-        self.available_tree.column('Berat', width=70)
-
-        # Pack PaginatedTreeView (sudah include scrollbar dan pagination controls)
         self.available_tree.pack(fill='both', expand=True)
-        
+
         self.load_available_barang()
-    
-        # Right side - Barang in selected container (WITH PRICING)
-        right_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
-        right_frame.pack(side='right', fill='both', expand=True, padx=(10, 0))
 
+        # Middle - Barang dalam Container
+        middle_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
+        middle_frame.grid(row=0, column=1, sticky='nsew', padx=(3, 0))
 
-        self.container_label = tk.Label(right_frame, text="📦 Barang dalam Container", font=('Arial', 12, 'bold'), bg='#ffffff')
+        self.container_label = tk.Label(middle_frame, text="📦 Barang dalam Container",
+                                        font=('Arial', 12, 'bold'), bg='#ffffff')
         self.container_label.pack(pady=10)
 
-        # Container barang tree WITH PRICING COLUMNS - MENGGUNAKAN PaginatedTreeView
-        container_tree_frame = tk.Frame(right_frame)
-        container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))  # Tambah padding untuk pagination
+        container_tree_frame = tk.Frame(middle_frame)
+        container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
 
-        # Define columns
-        container_columns = ('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door','Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal')
-
-        # Create PaginatedTreeView instead of regular TreeView
-        self.container_barang_tree = PaginatedTreeView(
-            parent=container_tree_frame,
-            columns=container_columns,
-            show='headings',
-            height=10, 
-            items_per_page=20
-        )
-
-        # Configure headings
-        self.container_barang_tree.heading('Pengirim', text='Pengirim')
-        self.container_barang_tree.heading('Penerima', text='Penerima')
-        self.container_barang_tree.heading('Nama', text='Nama Barang')
-        self.container_barang_tree.heading('Satuan', text='Satuan')
-        self.container_barang_tree.heading('Door', text='Door Type')
-        self.container_barang_tree.heading('Dimensi', text='P×L×T (cm)')
-        self.container_barang_tree.heading('Volume', text='Volume (m³)')
-        self.container_barang_tree.heading('Berat', text='Berat (ton)')
-        self.container_barang_tree.heading('Colli', text='Colli')
-        self.container_barang_tree.heading('Harga_Unit', text='Harga/Unit')
-        self.container_barang_tree.heading('Total_Harga', text='Total Harga')
-        self.container_barang_tree.heading('Tanggal', text='Ditambahkan')
-
-        # Configure columns
-        self.container_barang_tree.column('Pengirim', width=70)
-        self.container_barang_tree.column('Penerima', width=70)
-        self.container_barang_tree.column('Nama', width=90)
-        self.container_barang_tree.column('Satuan', width=60)
-        self.container_barang_tree.column('Door', width=80)
-        self.container_barang_tree.column('Dimensi', width=65)
-        self.container_barang_tree.column('Volume', width=45)
-        self.container_barang_tree.column('Berat', width=45)
-        self.container_barang_tree.column('Colli', width=40)
-        self.container_barang_tree.column('Harga_Unit', width=75)
-        self.container_barang_tree.column('Total_Harga', width=85)
-        self.container_barang_tree.column('Tanggal', width=65)
-
-        # Pack PaginatedTreeView
+        container_columns = ('Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door', 'Dimensi',
+                            'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal')
+        self.container_barang_tree = PaginatedTreeView(parent=container_tree_frame,
+                                                    columns=container_columns, show='headings',
+                                                    height=10, items_per_page=20)
+        for col, text in zip(container_columns,
+                            ['Pengirim','Penerima','Nama Barang','Satuan','Door Type',
+                            'P×L×T (cm)','Volume (m³)','Berat (ton)','Colli',
+                            'Harga/Unit','Total Harga','Ditambahkan']):
+            self.container_barang_tree.heading(col, text=text)
         self.container_barang_tree.pack(fill='both', expand=True)
 
-        
+        # (Opsional) muat data container barang jika ada method
+        if hasattr(self, 'load_container_barang'):
+            try:
+                self.load_container_barang()
+            except Exception:
+                pass
+
+        # Selesai - sekarang ringkasan pajak ada di kanan-atas, bukan di bawah kanan.
 
     def load_destinations(self, event=None):
         try:
@@ -857,20 +759,18 @@ class ContainerWindow:
                 font=('Arial', 12, 'bold'), bg='#ffffff').pack(anchor='w', pady=(0, 10))
         
         # Treeview dengan kolom lokasi
-        columns = ('ID', 'Deskripsi', 'Lokasi', 'Biaya', 'Tanggal')
+        columns = ('ID', 'Deskripsi', 'Lokasi', 'Biaya')
         delivery_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=12)
         
         delivery_tree.heading('ID', text='ID')
         delivery_tree.heading('Deskripsi', text='Deskripsi')
         delivery_tree.heading('Lokasi', text='Lokasi')
         delivery_tree.heading('Biaya', text='Biaya (Rp)')
-        delivery_tree.heading('Tanggal', text='Tanggal Dibuat')
         
         delivery_tree.column('ID', width=50)
         delivery_tree.column('Deskripsi', width=250)
-        delivery_tree.column('Lokasi', width=120)  # Kolom lokasi baru
+        delivery_tree.column('Lokasi', width=120)
         delivery_tree.column('Biaya', width=120)
-        delivery_tree.column('Tanggal', width=150)
         
         # Scrollbar
         scrollbar = ttk.Scrollbar(tree_frame, orient='vertical', command=delivery_tree.yview)
