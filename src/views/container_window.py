@@ -1755,7 +1755,7 @@ class ContainerWindow:
         return barang_details
 
     def _populate_pricing_table(self, tree, selected_items, barang_details, colli_amount, pricing_data_store):
-        """Populate the pricing table with data"""
+        """Populate the pricing table with data including tax rows"""
         for item in selected_items:
             barang_detail = barang_details.get(item['id'], {})
             
@@ -1773,7 +1773,9 @@ class ContainerWindow:
                 'harga_colli_dd': barang_detail.get('col_dd', 0) or 0,
                 # Base measurements
                 'm3_barang': barang_detail.get('m3_barang', 0) or 0,
-                'ton_barang': barang_detail.get('ton_barang', 0) or 0
+                'ton_barang': barang_detail.get('ton_barang', 0) or 0,
+                # Tax info
+                'has_tax': barang_detail.get('pajak', 0) == 1
             }
             
             # Store data for calculations
@@ -1782,10 +1784,11 @@ class ContainerWindow:
                 'pricing_info': pricing_info,
                 'current_method': 'Manual',
                 'current_price': 0,
-                'colli_amount': colli_amount
+                'colli_amount': colli_amount,
+                'has_tax': pricing_info['has_tax']
             }
             
-            # Insert into tree
+            # Insert main barang row into tree
             tree.insert('', tk.END, iid=item['id'], values=(
                 item['name'],
                 item.get('sender', ''),
@@ -1793,12 +1796,118 @@ class ContainerWindow:
                 'Manual',
                 '0',
                 '0'
-            ), tags=('row',))
+            ), tags=('barang_row',))
+            
+            # If barang has tax (pajak = 1), add PPN and PPH rows
+            if pricing_info['has_tax']:
+                # Add PPN row (1.1%)
+                ppn_id = f"ppn_{item['id']}"
+                tree.insert('', tk.END, iid=ppn_id, values=(
+                    f"  └── PPN 1.1% - {item['name']}",
+                    item.get('sender', ''),
+                    item.get('receiver', ''),
+                    'PPN 1.1%',
+                    '0',
+                    '0'
+                ), tags=('tax_row', 'ppn_row'))
+                
+                # Store PPN data
+                pricing_data_store[ppn_id] = {
+                    'item': item,
+                    'parent_id': item['id'],
+                    'tax_type': 'ppn',
+                    'tax_rate': 0.011,
+                    'current_price': 0,
+                    'is_tax_row': True
+                }
+                
+                # Add PPH row (2%)
+                pph_id = f"pph_{item['id']}"
+                tree.insert('', tk.END, iid=pph_id, values=(
+                    f"  └── PPH 23 2% - {item['name']}",
+                    item.get('sender', ''),
+                    item.get('receiver', ''),
+                    'PPH 23 2%',
+                    '0',
+                    '0'
+                ), tags=('tax_row', 'pph_row'))
+                
+                # Store PPH data
+                pricing_data_store[pph_id] = {
+                    'item': item,
+                    'parent_id': item['id'],
+                    'tax_type': 'pph',
+                    'tax_rate': 0.02,
+                    'current_price': 0,
+                    'is_tax_row': True
+                }
         
         # Configure row styling
-        tree.tag_configure('row', background='#f8f9fa')
-        tree.tag_configure('selected', background='#e3f2fd')
+        tree.tag_configure('barang_row', background='#f8f9fa')
+        tree.tag_configure('tax_row', background='#fff3cd', foreground='#856404')  # Light yellow for tax
+        tree.tag_configure('ppn_row', background='#d1ecf1', foreground='#0c5460')  # Light blue for PPN
+        tree.tag_configure('pph_row', background='#f8d7da', foreground='#721c24') 
+    
+    def _calculate_tax_amounts(self, parent_id, parent_total, pricing_data_store, tree):
+        """Calculate and update tax amounts for PPN and PPH rows"""
+        ppn_id = f"ppn_{parent_id}"
+        pph_id = f"pph_{parent_id}"
+        
+        # Calculate PPN (1.1%)
+        if ppn_id in pricing_data_store:
+            ppn_amount = parent_total * 0.011
+            pricing_data_store[ppn_id]['current_price'] = ppn_amount
+            
+            # Update PPN row in tree
+            if tree.exists(ppn_id):
+                tree.set(ppn_id, 'harga_unit', f"{ppn_amount:,.0f}")
+                tree.set(ppn_id, 'total_harga', f"Rp {ppn_amount:,.0f}")
+        
+        # Calculate PPH (2%)
+        if pph_id in pricing_data_store:
+            pph_amount = parent_total * 0.02
+            pricing_data_store[pph_id]['current_price'] = pph_amount
+            
+            # Update PPH row in tree
+            if tree.exists(pph_id):
+                tree.set(pph_id, 'harga_unit', f"{pph_amount:,.0f}")
+                tree.set(pph_id, 'total_harga', f"Rp {pph_amount:,.0f}")
 
+    def _calculate_total_price_with_tax(self, item_id, pricing_data_store, colli_amount, tree=None):
+        """Calculate total price for an item with combination methods and update tax if needed"""
+        data = pricing_data_store[item_id]
+        method = data['current_method']
+        price = data['current_price']
+        pricing_info = data['pricing_info']
+        
+        print(f"Calculating total for item {item_id} with method {method}, price {price}, colli {colli_amount}")
+        print("Pricing Info:", pricing_info)
+
+        # Parse combination methods
+        total = 0
+        if method.startswith('Harga/m3_'):
+            # m3-based combinations: price × m3_barang × colli
+            total = price * pricing_info['m3_barang'] * colli_amount
+        elif method.startswith('Harga/ton_'):
+            # ton-based combinations: price × ton_barang × colli  
+            total = price * pricing_info['ton_barang'] * colli_amount
+        elif method.startswith('Harga/colli_'):
+            # colli-based combinations: price × colli
+            total = price * colli_amount
+        elif method == 'Manual':
+            # Manual: price × colli
+            total = price * colli_amount
+        else:
+            total = 0
+        
+        # Update tax rows if this barang has tax and tree is provided
+        if tree and data.get('has_tax', False):
+            self._calculate_tax_amounts(item_id, total, pricing_data_store, tree)
+        
+        return total
+    
+    
+    
     def _setup_table_editing(self, tree, pricing_data_store, colli_amount):
         """Setup double-click editing for table cells"""
         def on_double_click(event):
@@ -2083,10 +2192,14 @@ class ContainerWindow:
         btn.pack(pady=5)
 
     def _auto_fill_all(self, tree, pricing_data_store, method):
-        """Auto fill all items with selected pricing method"""
+        """Auto fill all items with selected pricing method and update tax calculations"""
         updated_count = 0
         try:
             for item_id in pricing_data_store.keys():
+                # Skip tax rows
+                if pricing_data_store[item_id].get('is_tax_row', False):
+                    continue
+                    
                 if tree.exists(item_id):
                     pricing_data_store[item_id]['current_method'] = method
                     
@@ -2100,27 +2213,30 @@ class ContainerWindow:
 
                     # Calculate total
                     colli_amount = pricing_data_store[item_id]['colli_amount']
-                    total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+                    total = self._calculate_total_price_with_tax(item_id, pricing_data_store, colli_amount, tree)
                     tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
                     
                     updated_count += 1
             
             print(f"Auto fill completed: {updated_count} items updated with method {method}")
-            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!")
+            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.")
             
         except Exception as e:
             print(f"Error in _auto_fill_all: {str(e)}")
             messagebox.showerror("Error", f"Gagal menerapkan auto fill: {str(e)}")
 
-    def _quick_fill_manual(self, tree, pricing_data_store, amount):
-        """Quick fill all items with manual amount - FIXED"""
+        
+    def _quick_fill_manual_with_tax(self, tree, pricing_data_store, amount):
+        """Quick fill all items with manual amount and update tax calculations"""
         updated_count = 0
         try:
             print(f"Starting quick fill manual with amount: {amount}")
-            print(f"Items in pricing_data_store: {list(pricing_data_store.keys())}")
             
             for item_id in pricing_data_store.keys():
-                # Pastikan item_id ada di tree
+                # Skip tax rows
+                if pricing_data_store[item_id].get('is_tax_row', False):
+                    continue
+                    
                 if tree.exists(item_id):
                     # Update data store
                     pricing_data_store[item_id]['current_method'] = 'Manual'
@@ -2130,31 +2246,30 @@ class ContainerWindow:
                     tree.set(item_id, 'auto_pricing', 'Manual')
                     tree.set(item_id, 'harga_unit', f"{amount:,.0f}")
                     
-                    # Calculate total
+                    # Calculate total with tax
                     colli_amount = pricing_data_store[item_id]['colli_amount']
-                    total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+                    total = self._calculate_total_price_with_tax(item_id, pricing_data_store, colli_amount, tree)
                     tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
                     
                     updated_count += 1
                     print(f"Updated item {item_id}: price={amount}, total={total}")
-                else:
-                    print(f"WARNING: Item {item_id} not found in tree")
             
             print(f"Manual fill completed: {updated_count} items updated")
             
             if updated_count > 0:
-                messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke {updated_count} barang!")
+                messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.")
             else:
                 messagebox.showwarning("Peringatan", "Tidak ada barang yang berhasil diupdate!")
             
         except Exception as e:
-            print(f"Error in _quick_fill_manual: {str(e)}")
+            print(f"Error in _quick_fill_manual_with_tax: {str(e)}")
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal mengisi harga manual: {str(e)}")
-
+        
+        
     def _create_pricing_actions(self, parent_frame, pricing_window, tree, pricing_data_store, selected_items, colli_amount, result):
-        """Create action buttons - FIXED: Pass pricing_window reference"""
+        """Create action buttons with tax support"""
         btn_frame = tk.Frame(parent_frame, bg='#ecf0f1')
         btn_frame.pack(fill='x', padx=25, pady=20)
         
@@ -2162,48 +2277,97 @@ class ContainerWindow:
         action_frame = tk.Frame(btn_frame, bg='#ecf0f1')
         action_frame.pack()
         
-        def confirm_pricing():
+        def confirm_pricing_with_tax():
             try:
                 pricing_data = {}
+                barang_data = {}
+                tax_data = {}
                 total_amount = 0
                 
                 for item_id, data in pricing_data_store.items():
                     if tree.exists(item_id):
-                        price = data['current_price']
-                        method = data['current_method']
-                        total = self._calculate_total_price(item_id, pricing_data_store, colli_amount)
+                        # Handle barang rows
+                        if not data.get('is_tax_row', False):
+                            price = data['current_price']
+                            method = data['current_method']
+                            total = self._calculate_total_price_with_tax(item_id, pricing_data_store, colli_amount, tree)
+                            
+                            barang_data[item_id] = {
+                                'harga_per_unit': price,
+                                'total_harga': total,
+                                'metode_pricing': method,
+                                'has_tax': data.get('has_tax', False)
+                            }
+                            total_amount += total
                         
-                        pricing_data[item_id] = {
-                            'harga_per_unit': price,
-                            'total_harga': total,
-                            'metode_pricing': method
-                        }
-                        total_amount += total
+                        # Handle tax rows
+                        else:
+                            parent_id = data['parent_id']
+                            tax_type = data['tax_type']
+                            tax_amount = data['current_price']
+                            
+                            if parent_id not in tax_data:
+                                tax_data[parent_id] = {}
+                            
+                            tax_data[parent_id][tax_type] = {
+                                'amount': tax_amount,
+                                'rate': data['tax_rate']
+                            }
+                            total_amount += tax_amount
                 
-                if not pricing_data:
+                if not barang_data:
                     messagebox.showwarning("Peringatan", "Tidak ada data pricing yang valid!")
                     return
                 
-                # Confirmation dialog
-                if self._confirm_pricing_dialog(selected_items, colli_amount, total_amount, pricing_data):
+                # Enhanced confirmation dialog with tax info
+                tax_count = len([data for data in barang_data.values() if data['has_tax']])
+                total_tax_amount = sum([sum([tax['amount'] for tax in taxes.values()]) for taxes in tax_data.values()])
+                
+                confirm_msg = f"Konfirmasi penambahan barang dengan harga dan pajak:\n\n"
+                confirm_msg += f"📊 RINGKASAN:\n"
+                confirm_msg += f"• Total {len(barang_data)} barang\n"
+                confirm_msg += f"• Barang dengan pajak: {tax_count}\n"
+                confirm_msg += f"• Colli per barang: {colli_amount}\n"
+                confirm_msg += f"• Total nilai barang: Rp {total_amount - total_tax_amount:,.0f}\n"
+                if total_tax_amount > 0:
+                    confirm_msg += f"• Total pajak: Rp {total_tax_amount:,.0f}\n"
+                confirm_msg += f"• GRAND TOTAL: Rp {total_amount:,.0f}\n\n"
+                confirm_msg += f"🚀 Lanjutkan proses?"
+                
+                if messagebox.askyesno("Konfirmasi Harga & Pajak", confirm_msg):
+                    # Combine barang and tax data
+                    pricing_data.update(barang_data)
+                    for parent_id, taxes in tax_data.items():
+                        pricing_data[f"ppn_{parent_id}"] = {
+                            'harga_per_unit': taxes.get('ppn', {}).get('amount', 0),
+                            'total_harga': taxes.get('ppn', {}).get('amount', 0),
+                            'metode_pricing': 'PPN 1.1%',
+                            'is_tax': True,
+                            'parent_id': parent_id
+                        }
+                        pricing_data[f"pph_{parent_id}"] = {
+                            'harga_per_unit': taxes.get('pph', {}).get('amount', 0),
+                            'total_harga': taxes.get('pph', {}).get('amount', 0),
+                            'metode_pricing': 'PPH 23 2%',
+                            'is_tax': True,
+                            'parent_id': parent_id
+                        }
+                    
                     result['confirmed'] = True
                     result['pricing_data'] = pricing_data
-                    print(f"Pricing confirmed with {len(pricing_data)} items, total: {total_amount}")
-                    # FIX: Use pricing_window instead of parent
+                    result['tax_data'] = tax_data
+                    print(f"Pricing confirmed with {len(barang_data)} barang items and {len(tax_data)} tax items, total: {total_amount}")
                     pricing_window.destroy()
                     
             except Exception as e:
-                print(f"Error in confirm_pricing: {str(e)}")
+                print(f"Error in confirm_pricing_with_tax: {str(e)}")
                 import traceback
                 traceback.print_exc()
                 messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
         
         def cancel_pricing():
             print("Pricing canceled by user")
-            # FIX: Use pricing_window instead of parent
             pricing_window.destroy()
-        
-        
         
         tk.Button(
             action_frame,
@@ -2215,7 +2379,7 @@ class ContainerWindow:
             pady=10,
             relief='flat',
             cursor='hand2',
-            command=confirm_pricing
+            command=confirm_pricing_with_tax
         ).pack(side='left', padx=(0, 15))
         
         tk.Button(
@@ -3836,7 +4000,7 @@ class ContainerWindow:
         self.load_container_barang(None)
     
     def add_selected_barang_to_container(self):
-        """Add selected barang from treeview to container with pricing"""
+        """Add selected barang from treeview to container with pricing and tax calculation"""
         # Validate container selection
         if not self.selected_container_var.get():
             messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
@@ -3912,17 +4076,24 @@ class ContainerWindow:
             if not pricing_result:
                 return  # User cancelled
             
-            # Add barang to container with pricing
+            # Add barang to container with pricing and tax calculation
             success_count = 0
             error_count = 0
+            tax_calculated_count = 0
             success_details = []
             error_details = []
+            total_tax_amount = 0
             
             for item in selected_items:
                 try:
                     barang_id = item['id']
-                    price_data = pricing_result['pricing_data'].get(barang_id, {'harga_per_unit': 0, 'total_harga': 0})
-                    print("price data: ", price_data)
+                    price_data = pricing_result['pricing_data'].get(barang_id, {
+                        'harga_per_unit': 0, 
+                        'total_harga': 0
+                    })
+                    
+                    print(f"Processing item {barang_id}: {price_data}")
+                    
                     # Add barang to container with pricing
                     success = self.db.assign_barang_to_container_with_pricing(
                         barang_id, 
@@ -3938,6 +4109,42 @@ class ContainerWindow:
                         success_count += 1
                         success_details.append(f"✅ {item['name']} (ID: {barang_id})")
                         print(f"✅ Added barang {barang_id} ({item['name']}) to container {container_id} with price {price_data['harga_per_unit']}")
+                        
+                        # NEW: Check if barang has tax (pajak = 1) and calculate tax
+                        try:
+                            barang_data = self.db.execute_one(
+                                "SELECT pajak, penerima FROM barang WHERE barang_id = ?", 
+                                (barang_id,)
+                            )
+                            
+                            if barang_data and barang_data[0] == 1:  # pajak = 1
+                                penerima_id = barang_data[1]
+                                
+                                # Get receiver name
+                                receiver_data = self.db.get_customer_by_id(penerima_id)
+                                receiver_name = receiver_data.get('nama_customer', 'Unknown') if receiver_data else 'Unknown'
+                                
+                                # Calculate tax amounts
+                                total_nilai = price_data['total_harga']
+                                ppn_amount = total_nilai * 0.011  # PPN 1.1%
+                                pph23_amount = total_nilai * 0.02  # PPH 23 2%
+                                total_tax = ppn_amount + pph23_amount
+                                
+                                # Save tax to database
+                                tax_success = self.db.save_tax_data(container_id, barang_id, receiver_name, total_nilai)
+                                
+                                if tax_success:
+                                    tax_calculated_count += 1
+                                    total_tax_amount += total_tax
+                                    print(f"✅ Tax calculated for barang {barang_id}: PPN={ppn_amount:.2f}, PPH23={pph23_amount:.2f}, Total={total_tax:.2f}")
+                                else:
+                                    print(f"⚠️ Failed to save tax for barang {barang_id}")
+                                    
+                        except Exception as tax_error:
+                            print(f"⚠️ Error calculating tax for barang {barang_id}: {tax_error}")
+                            # Don't fail the whole process if tax calculation fails
+                            continue
+                        
                     else:
                         error_count += 1
                         error_details.append(f"❌ {item['name']} (ID: {barang_id}) - Database operation failed")
@@ -3947,12 +4154,19 @@ class ContainerWindow:
                     error_details.append(f"❌ {item['name']} (ID: {item['id']}) - {str(e)}")
                     print(f"❌ Error adding barang {item['id']} ({item['name']}): {e}")
             
-            # Show detailed result message
+            # Enhanced result message with tax information
             result_msg = ""
             if success_count > 0:
                 result_msg += f"🎉 Berhasil menambahkan {success_count} barang ke container!\n"
-                result_msg += f"Setiap barang ditambahkan dengan {colli_amount} colli.\n\n"
-                result_msg += "Detail berhasil:\n" + "\n".join(success_details[:5])  # Show max 5 items
+                result_msg += f"Setiap barang ditambahkan dengan {colli_amount} colli.\n"
+                
+                if tax_calculated_count > 0:
+                    result_msg += f"\n💰 PAJAK DIHITUNG:\n"
+                    result_msg += f"• Barang dengan pajak: {tax_calculated_count}\n"
+                    result_msg += f"• Total pajak: Rp {total_tax_amount:,.0f}\n"
+                    result_msg += f"• PPN 1.1% + PPH 23 2% telah disimpan ke database\n"
+                
+                result_msg += f"\nDetail berhasil:\n" + "\n".join(success_details[:5])  # Show max 5 items
                 if len(success_details) > 5:
                     result_msg += f"\n... dan {len(success_details) - 5} barang lainnya"
             
@@ -3972,9 +4186,6 @@ class ContainerWindow:
             
             # Clear selections and refresh displays only if there were successful additions
             if success_count > 0:
-                # Clear selections
-                # self.clear_selection()
-                
                 # Refresh displays based on current sender/receiver filter
                 sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
                 receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
@@ -3984,6 +4195,7 @@ class ContainerWindow:
                     
                 # Refresh container barang list
                 self.load_container_barang(container_id)
+                
                 
                 # Refresh other lists
                 self.load_containers()  # Refresh container list to update item count
@@ -3996,8 +4208,9 @@ class ContainerWindow:
             import traceback
             error_detail = traceback.format_exc()
             print(f"💥 Error in add_selected_barang_to_container: {error_detail}")
-            messagebox.showerror("Error", f"Gagal menambah barang ke container: {str(e)}") 
-                
+            messagebox.showerror("Error", f"Gagal menambah barang ke container: {str(e)}")
+        
+                 
     def center_window(self):
         """Center window on parent"""
         self.window.update_idletasks()

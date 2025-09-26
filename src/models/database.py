@@ -132,6 +132,7 @@ class SQLiteDatabase:
             self.create_customers_table()
             self.create_containers_table()
             self.create_barang_table()
+            self.create_tax_table()
             self.create_detail_container_table()
             self.create_delivery_costs_table()
             self.create_pengirim_table()
@@ -248,7 +249,7 @@ class SQLiteDatabase:
             col_pp INTEGER,
             col_pd INTEGER,
             col_dd INTEGER,
-            pajak bool,
+            pajak INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -259,6 +260,74 @@ class SQLiteDatabase:
         except Exception as e:
             logger.error(f"Failed to create barang table: {e}")
             raise
+        
+        
+    def create_tax_table(self):
+        """Create tax management table for tracking tax calculations"""
+        query = '''
+        CREATE TABLE IF NOT EXISTS barang_tax (
+            tax_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            container_id INTEGER NOT NULL,
+            barang_id INTEGER NOT NULL,
+            penerima TEXT NOT NULL,
+            total_nilai_barang REAL NOT NULL,
+            ppn_rate REAL DEFAULT 0.011,  -- PPN 1.1%
+            pph23_rate REAL DEFAULT 0.02,  -- PPH 23 2%
+            ppn_amount REAL NOT NULL,
+            pph23_amount REAL NOT NULL,
+            total_tax REAL NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (container_id) REFERENCES containers (container_id),
+            FOREIGN KEY (barang_id) REFERENCES barang (barang_id)
+        )
+        '''
+        try:
+            self.execute(query)
+            logger.info("Tax table created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create tax table: {e}")
+            raise
+        
+    
+    def save_tax_data(self, container_id, barang_id, penerima, total_nilai):
+        """Save tax calculation to database"""
+        try:
+            # Tax rates
+            PPN_RATE = 0.011  # 1.1%
+            PPH23_RATE = 0.02  # 2%
+            
+            # Calculate tax amounts
+            ppn_amount = total_nilai * PPN_RATE
+            pph23_amount = total_nilai * PPH23_RATE
+            total_tax = ppn_amount + pph23_amount
+            
+            # Store tax calculation
+            self.execute("""
+                INSERT INTO barang_tax 
+                (container_id, barang_id, penerima, total_nilai_barang, ppn_rate, pph23_rate, ppn_amount, pph23_amount, total_tax)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                container_id, barang_id, penerima, total_nilai,
+                PPN_RATE, PPH23_RATE, ppn_amount, pph23_amount, total_tax
+            ))
+            
+            print(f"Tax saved for barang {barang_id}: PPN={ppn_amount:.2f}, PPH23={pph23_amount:.2f}, Total={total_tax:.2f}")
+            return True
+            
+        except Exception as e:
+            print(f"Failed to save tax for barang {barang_id}: {e}")
+            return False
+        
+    
+    def get_tax(self):
+        """Get all tax records"""
+        try:
+            return self.execute("SELECT * FROM barang_tax ORDER BY created_at DESC")
+        except Exception as e:
+            print(f"Failed to retrieve tax records: {e}")
+            return []
+        
+    
     
     def create_detail_container_table(self):
         """Create detail container table with pricing columns and sender/receiver info"""
@@ -285,6 +354,7 @@ class SQLiteDatabase:
         except Exception as e:
             print(f"❌ Failed to create detail container table: {e}")
             raise
+        
         
     def create_delivery_costs_table(self):
         """Buat tabel untuk biaya pengantaran jika belum ada"""
