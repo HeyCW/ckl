@@ -16,7 +16,7 @@ def main():
         print("🪟 Creating root window...")
         root = tk.Tk()
         
-        # Configure root window (initially hidden)
+        # Configure root winprint("")dow (initially hidden)
         root.title("Aplikasi Data Shipping")
         root.geometry("1x1")  # Minimal size initially
         root.withdraw()  # Hide initially

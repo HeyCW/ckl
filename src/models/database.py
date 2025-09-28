@@ -289,45 +289,60 @@ class SQLiteDatabase:
             raise
         
     
-    def save_tax_data(self, container_id, barang_id, penerima, total_nilai):
-        """Save tax calculation to database"""
+    def save_tax_data_with_return_id(self, container_id, barang_id, penerima, total_nilai):
+        """Save tax data and return the tax_id"""
         try:
-            # Tax rates
-            PPN_RATE = 0.011  # 1.1%
-            PPH23_RATE = 0.02  # 2%
-            
             # Calculate tax amounts
-            ppn_amount = total_nilai * PPN_RATE
-            pph23_amount = total_nilai * PPH23_RATE
+            ppn_rate = 0.011  # 1.1%
+            pph23_rate = 0.02  # 2%
+            ppn_amount = total_nilai * ppn_rate
+            pph23_amount = total_nilai * pph23_rate
             total_tax = ppn_amount + pph23_amount
             
-            # Store tax calculation
-            self.execute("""
-                INSERT INTO barang_tax 
-                (container_id, barang_id, penerima, total_nilai_barang, ppn_rate, pph23_rate, ppn_amount, pph23_amount, total_tax)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
+            # Insert tax record using the existing method pattern
+            query = """
+            INSERT INTO barang_tax 
+            (container_id, barang_id, penerima, total_nilai_barang, ppn_rate, pph23_rate, 
+            ppn_amount, pph23_amount, total_tax, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """
+            
+            # Use execute_insert which returns lastrowid
+            tax_id = self.execute_insert(query, (
                 container_id, barang_id, penerima, total_nilai,
-                PPN_RATE, PPH23_RATE, ppn_amount, pph23_amount, total_tax
+                ppn_rate, pph23_rate, ppn_amount, pph23_amount, total_tax
             ))
             
-            print(f"Tax saved for barang {barang_id}: PPN={ppn_amount:.2f}, PPH23={pph23_amount:.2f}, Total={total_tax:.2f}")
-            return True
+            print(f"Tax record created with ID {tax_id} for barang {barang_id}")
+            return tax_id
             
         except Exception as e:
-            print(f"Failed to save tax for barang {barang_id}: {e}")
-            return False
-        
+            print(f"Error saving tax data with return ID: {e}")
+            return None   
     
-    def get_tax(self):
-        """Get all tax records"""
+    def get_tax_summary(self, container_id):
+        """Get aggregated tax summary by container_id and penerima"""
         try:
-            return self.execute("SELECT * FROM barang_tax ORDER BY created_at DESC")
+            query = """
+            SELECT 
+                penerima,
+                SUM(ppn_amount) as total_ppn,
+                SUM(pph23_amount) as total_pph23,
+                MAX(created_at) as latest_date,
+                COUNT(*) as record_count
+            FROM barang_tax
+            WHERE container_id = ?
+            GROUP BY container_id, penerima
+            ORDER BY latest_date DESC
+            """
+            
+            result = self.execute(query, (container_id,))
+            print(f"Aggregated tax summary result: {result}")  # Debug line
+            return result or []
+            
         except Exception as e:
-            print(f"Failed to retrieve tax records: {e}")
+            print(f"Failed to retrieve aggregated tax summary: {str(e)}")
             return []
-        
-    
     
     def create_detail_container_table(self):
         """Create detail container table with pricing columns and sender/receiver info"""
@@ -336,6 +351,7 @@ class SQLiteDatabase:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             barang_id INTEGER NOT NULL,
             container_id INTEGER NOT NULL,
+            tax_id INTEGER,
             satuan TEXT NOT NULL,
             door_type TEXT NOT NULL,
             colli_amount INTEGER NOT NULL DEFAULT 1,
@@ -345,7 +361,8 @@ class SQLiteDatabase:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             notes TEXT,
             FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
-            FOREIGN KEY (container_id) REFERENCES containers (container_id)
+            FOREIGN KEY (container_id) REFERENCES containers (container_id),
+            FOREIGN KEY (tax_id) REFERENCES barang_tax (id)
         )
         '''
         try:
@@ -900,28 +917,41 @@ class BarangDatabase(SQLiteDatabase):
             logger.error(f"Failed to get all barang: {e}")
             raise DatabaseError(f"Failed to retrieve barang: {e}")
     
-    def assign_barang_to_container(self, barang_id, container_id):
-        """Assign barang to container with error handling"""
-        if not barang_id or not container_id:
-            raise ValueError("Barang ID and Container ID are required")
-        
+    def assign_barang_to_container(self, barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga):
+        """Assign barang to container with pricing and tax handling"""
         try:
-            self.execute_insert('''
-                INSERT INTO detail_container (barang_id, container_id)
-                VALUES (?, ?)
-            ''', (barang_id, container_id))
+            # Check if barang has tax (pajak = 1)
+            barang_data = self.execute_one("SELECT pajak, penerima FROM barang WHERE barang_id = ?", (barang_id,))
             
-            logger.info(f"Barang {barang_id} assigned to container {container_id}")
-            return True
+            tax_id = None
+            if barang_data and barang_data[0] == 1:  # pajak = 1
+                penerima_id = barang_data[1]
+                
+                # Get receiver name
+                receiver_data = self.get_customer_by_id(penerima_id)
+                receiver_name = receiver_data.get('nama_customer', 'Unknown') if receiver_data else 'Unknown'
+                
+                # Create tax record and get tax_id
+                tax_id = self.save_tax_data_with_return_id(container_id, barang_id, receiver_name, total_harga)
             
-        except DatabaseError as e:
-            if "constraint" in str(e).lower():
-                logger.warning(f"Barang {barang_id} already assigned to container {container_id}")
-                raise ValueError("Barang already assigned to this container")
-            raise e
+            # Insert into detail_container with tax_id
+            query = """
+            INSERT INTO detail_container 
+            (barang_id, container_id, tax_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, assigned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """
+            
+            result = self.execute(query, (
+                barang_id, container_id, tax_id, satuan, door_type, 
+                colli_amount, harga_per_unit, total_harga
+            ))
+            
+            return result is not None
+            
         except Exception as e:
-            logger.error(f"Failed to assign barang {barang_id} to container {container_id}: {e}")
-            raise DatabaseError(f"Failed to assign barang to container: {e}")
+            print(f"Error assigning barang to container with tax: {e}")
+            return False
+    
     
     def get_barang_in_container(self, container_id):
         """Get all barang in a container with error handling"""
@@ -991,23 +1021,39 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
 
     # ================== PRICING FEATURES ==================
 
-    def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit=0, total_harga=0):
-        """Assign barang to container with pricing information"""
+    def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga):
+        """Assign barang to container with pricing and tax handling"""
         try:
-            from datetime import datetime
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            # Check if barang has tax (pajak = 1)
+            barang_data = self.execute_one("SELECT pajak, penerima FROM barang WHERE barang_id = ?", (barang_id,))
             
-            # Insert with pricing
-            self.execute("""
-                INSERT INTO detail_container 
-                (barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, assigned_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, current_time))
+            tax_id = None
+            if barang_data and barang_data[0] == 1:  # pajak = 1
+                penerima_id = barang_data[1]
+                
+                # Get receiver name
+                receiver_data = self.get_customer_by_id(penerima_id)
+                receiver_name = receiver_data.get('nama_customer', 'Unknown') if receiver_data else 'Unknown'
+                
+                # Create tax record and get tax_id
+                tax_id = self.save_tax_data_with_return_id(container_id, barang_id, receiver_name, total_harga)
             
-            logger.info(f"Barang {barang_id} assigned to container {container_id} with pricing")
-            return True
+            # Insert into detail_container with tax_id
+            query = """
+            INSERT INTO detail_container 
+            (barang_id, container_id, tax_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, assigned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """
+            
+            result = self.execute(query, (
+                barang_id, container_id, tax_id, satuan, door_type, 
+                colli_amount, harga_per_unit, total_harga
+            ))
+            
+            return result is not None
+            
         except Exception as e:
-            logger.error(f"Error assigning barang to container with pricing: {e}")
+            print(f"Error assigning barang to container with tax: {e}")
             return False
 
     def get_barang_in_container_with_colli_and_pricing(self, container_id):

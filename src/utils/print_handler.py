@@ -8,6 +8,17 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.page import PageMargins
 from src.widget.pdf_packing_list_generator import PDFPackingListGenerator
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch, cm
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.pdfgen import canvas
+from PIL import Image as PILImage, ImageTk
+import io
+import base64
+import traceback
 
 class PrintHandler:
     def __init__(self, db):
@@ -38,7 +49,7 @@ class PrintHandler:
             
    
     def _generate_excel_invoice_optimized(self, container, barang_list, container_id):
-        """Generate Excel invoice document optimized for A4 printing with profit calculation"""
+        """Generate Excel invoice document optimized for A4 printing with profit calculation and tax as separate rows"""
         try:
             # Create new workbook
             wb = openpyxl.Workbook()
@@ -68,6 +79,7 @@ class PrintHandler:
             table_header_font = Font(name='Arial', size=6, bold=True)
             profit_header_font = Font(name='Arial', size=8, bold=True)
             profit_font = Font(name='Arial', size=7)
+            tax_font = Font(name='Arial', size=6, italic=True)  # Special font for tax rows
         
             center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
             left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
@@ -79,9 +91,6 @@ class PrintHandler:
                 top=Side(style='thin'),
                 bottom=Side(style='thin')
             )
-        
-            # header_fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
-            # profit_header_fill = PatternFill(start_color='FFE6CC', end_color='FFE6CC', fill_type='solid')
         
             # Safe way to get container values
             def safe_get(key, default='-'):
@@ -142,7 +151,7 @@ class PrintHandler:
             
             current_row = info_start_row + 4 + 1
         
-            # Table headers
+            # Table headers - back to original without PPN/PPH columns
             headers = ['Tgl', 'Pengirim', 'Penerima', 'Nama Barang', 'Jenis Barang', 'Kubikasi', 'M3', 'Ton', 'Col', 'Satuan', 'Door', 'Unit Price', 'Price']
         
             for col, header in enumerate(headers, 1):
@@ -150,10 +159,135 @@ class PrintHandler:
                 cell.font = table_header_font
                 cell.alignment = center_align
                 cell.border = thin_border
-                # cell.fill = header_fill
                 ws.row_dimensions[current_row].height = 8
         
             current_row += 1
+        
+            # DEBUG: Print data info before processing
+            print("=" * 60)
+            print(f"DEBUG INVOICE - Container ID: {container_id}")
+            print(f"Total barang records: {len(barang_list)}")
+            print("=" * 60)
+            
+            # DEBUG: Show first few raw records
+            print("\n=== RAW DATA (first 5 records) ===")
+            for i, barang_row in enumerate(barang_list[:5]):
+                print(f"\nRecord {i+1}:")
+                barang_dict = dict(barang_row)
+                
+                # Show key fields
+                key_fields = ['assigned_at', 'sender_name', 'receiver_name', 'nama_barang']
+                for field in key_fields:
+                    value = barang_dict.get(field, 'NOT_FOUND')
+                    print(f"  {field}: '{value}' (type: {type(value).__name__})")
+
+            # Get tax information by receiver and container
+            print("\n=== GETTING TAX INFORMATION BY RECEIVER ===")
+            tax_summary = {}
+            try:
+                # Get all unique receivers first
+                receivers = set()
+                for barang_row in barang_list:
+                    barang = dict(barang_row)
+                    receiver = barang.get('receiver_name', '')
+                    if receiver:
+                        receivers.add(receiver)
+                
+                # Get aggregated tax info for each receiver in this container
+                for receiver in receivers:
+                    tax_query = """
+                        SELECT 
+                            bt.penerima,
+                            AVG(bt.ppn_rate) as avg_ppn_rate,
+                            AVG(bt.pph23_rate) as avg_pph_rate,
+                            SUM(bt.ppn_amount) as total_ppn_amount,
+                            SUM(bt.pph23_amount) as total_pph_amount,
+                            SUM(bt.total_nilai_barang) as total_nilai
+                        FROM barang_tax bt
+                        WHERE bt.container_id = ? AND bt.penerima = ?
+                        GROUP BY bt.penerima
+                    """
+                    result = self.db.execute(tax_query, (container_id, receiver))
+                    
+                    if result and len(result) > 0:
+                        row = result[0]
+                        # Use actual amounts from database, not calculated
+                        tax_summary[receiver] = {
+                            'ppn_rate': (row['avg_ppn_rate'] or 0) * 100,
+                            'pph_rate': (row['avg_pph_rate'] or 0) * 100,
+                            'ppn_amount': row['total_ppn_amount'] or 0,
+                            'pph_amount': row['total_pph_amount'] or 0,
+                            'has_tax': True
+                        }
+                        print(f"  {receiver}: PPN {tax_summary[receiver]['ppn_rate']:.1f}% = Rp {tax_summary[receiver]['ppn_amount']:,.0f}, PPH {tax_summary[receiver]['pph_rate']:.1f}% = Rp {tax_summary[receiver]['pph_amount']:,.0f}")
+                    else:
+                        tax_summary[receiver] = {
+                            'ppn_rate': 0,
+                            'pph_rate': 0,
+                            'ppn_amount': 0,
+                            'pph_amount': 0,
+                            'has_tax': False
+                        }
+                        print(f"  {receiver}: No tax records found")
+                        
+            except Exception as e:
+                print(f"Error getting tax info: {e}")
+                # Fallback: set all receivers to no tax
+                for barang_row in barang_list:
+                    barang = dict(barang_row)
+                    receiver = barang.get('receiver_name', '')
+                    if receiver and receiver not in tax_summary:
+                        tax_summary[receiver] = {'ppn_rate': 0, 'pph_rate': 0, 'ppn_amount': 0, 'pph_amount': 0, 'has_tax': False}
+            
+            # SORT DATA FIRST for proper grouping
+            def get_sort_key(barang_row):
+                try:
+                    barang = dict(barang_row)
+                    
+                    def safe_barang_get(key, default='-'):
+                        try:
+                            value = barang.get(key, default)
+                            return value if value not in [None, '', 'NULL', 'null'] else default
+                        except Exception:
+                            return default
+                    
+                    # Get date for sorting - use assigned_at if tanggal_barang not available
+                    tanggal_raw = safe_barang_get('assigned_at', datetime.now())
+                    if isinstance(tanggal_raw, str):
+                        try:
+                            tanggal = datetime.strptime(tanggal_raw, '%Y-%m-%d %H:%M:%S')
+                        except:
+                            try:
+                                tanggal = datetime.strptime(tanggal_raw, '%Y-%m-%d')
+                            except:
+                                tanggal = datetime.now()
+                    elif isinstance(tanggal_raw, datetime):
+                        tanggal = tanggal_raw
+                    else:
+                        tanggal = datetime.now()
+                    
+                    pengirim = str(safe_barang_get('sender_name', '')).strip()
+                    penerima = str(safe_barang_get('receiver_name', '')).strip()
+                    
+                    if not pengirim:
+                        pengirim = 'ZZZ_NO_SENDER'
+                    if not penerima:
+                        penerima = 'ZZZ_NO_RECEIVER'
+                    
+                    return (tanggal, pengirim, penerima)
+                    
+                except Exception as e:
+                    print(f"    ERROR in get_sort_key: {e}")
+                    return (datetime.now(), 'ZZZ_ERROR', 'ZZZ_ERROR')
+
+            print("\n=== SORTING DATA ===")
+            try:
+                barang_list = sorted(barang_list, key=get_sort_key)
+                print("Sorting completed successfully!")
+            except Exception as e:
+                print(f"SORTING FAILED: {e}")
+
+            print("=" * 60)
         
             # Table data with GROUPING
             total_m3 = 0
@@ -176,13 +310,16 @@ class PrintHandler:
                         except Exception:
                             return default
                 
-                    # Format date
-                    tanggal = safe_barang_get('tanggal_barang', datetime.now())
+                    # Format date - use assigned_at
+                    tanggal = safe_barang_get('assigned_at', datetime.now())
                     if isinstance(tanggal, str):
                         try:
-                            tanggal = datetime.strptime(tanggal, '%Y-%m-%d')
+                            tanggal = datetime.strptime(tanggal, '%Y-%m-%d %H:%M:%S')
                         except:
-                            tanggal = datetime.now()
+                            try:
+                                tanggal = datetime.strptime(tanggal, '%Y-%m-%d')
+                            except:
+                                tanggal = datetime.now()
                     formatted_date = tanggal.strftime('%d-%b') if isinstance(tanggal, datetime) else '-'
                     
                     pengirim = str(safe_barang_get('sender_name', '-'))
@@ -207,6 +344,13 @@ class PrintHandler:
                     unit_price = safe_barang_get('harga_per_unit', safe_barang_get('unit_price', 0))
                     total_harga = safe_barang_get('total_harga', 0)
                 
+                    # Format values
+                    m3_val = float(m3) if m3 not in [None, '', '-'] else 0
+                    ton_val = float(ton) if ton not in [None, '', '-'] else 0
+                    colli_val = int(colli) if colli not in [None, '', '-'] else 0
+                    unit_price_val = float(unit_price) if unit_price not in [None, '', '-'] else 0
+                    harga_val = float(total_harga) if total_harga not in [None, '', '-'] else 0
+                    
                     # Add to totals
                     try:
                         total_m3 += float(m3) if m3 not in [None, '', '-'] else 0
@@ -215,13 +359,6 @@ class PrintHandler:
                         total_nilai += float(total_harga) if total_harga not in [None, '', '-'] else 0
                     except (ValueError, TypeError):
                         pass
-                
-                    # Format values
-                    m3_val = float(m3) if m3 not in [None, '', '-'] else 0
-                    ton_val = float(ton) if ton not in [None, '', '-'] else 0
-                    colli_val = int(colli) if colli not in [None, '', '-'] else 0
-                    unit_price_val = float(unit_price) if unit_price not in [None, '', '-'] else 0
-                    harga_val = float(total_harga) if total_harga not in [None, '', '-'] else 0
                     
                     # GROUPING LOGIC
                     display_date = formatted_date
@@ -239,7 +376,7 @@ class PrintHandler:
                         previous_pengirim = pengirim
                         previous_penerima = penerima
                 
-                    # Fill row data
+                    # Fill row data - back to original format
                     row_data = [
                         display_date, display_pengirim, display_penerima, nama_barang,
                         jenis_barang, kubikasi, m3_val, ton_val, colli_val, satuan,
@@ -268,11 +405,56 @@ class PrintHandler:
                     print(f"Error processing barang {i}: {e}")
                     continue
         
+            # ADD TAX ROWS FOR EACH RECEIVER WITH TAX
+            total_ppn_all = 0
+            total_pph_all = 0
+            
+            for receiver, tax_data in tax_summary.items():
+                if tax_data['has_tax'] and (tax_data['ppn_amount'] > 0 or tax_data['pph_amount'] > 0):
+                    # Add PPN row
+                    if tax_data['ppn_amount'] > 0:
+                        ppn_row_data = ['', '', receiver, f"PPN {tax_data['ppn_rate']:.1f}%", '', '', '', '', '', '', '', '', tax_data['ppn_amount']]
+                        
+                        for col, value in enumerate(ppn_row_data, 1):
+                            cell = ws.cell(row=current_row, column=col, value=value)
+                            cell.font = tax_font
+                            ws.row_dimensions[current_row].height = 8
+                            
+                            if col == 1:
+                                cell.alignment = center_align
+                            elif col == 13:
+                                cell.alignment = right_align
+                                cell.number_format = '#,##0'
+                            else:
+                                cell.alignment = left_align
+                        
+                        total_ppn_all += tax_data['ppn_amount']
+                        current_row += 1
+                    
+                    # Add PPH row
+                    if tax_data['pph_amount'] > 0:
+                        pph_row_data = ['', '', receiver, f"PPH {tax_data['pph_rate']:.1f}%", '', '', '', '', '', '', '', '', tax_data['pph_amount']]
+                        
+                        for col, value in enumerate(pph_row_data, 1):
+                            cell = ws.cell(row=current_row, column=col, value=value)
+                            cell.font = tax_font
+                            ws.row_dimensions[current_row].height = 8
+                            
+                            if col == 1:
+                                cell.alignment = center_align
+                            elif col == 13:
+                                cell.alignment = right_align
+                                cell.number_format = '#,##0'
+                            else:
+                                cell.alignment = left_align
+                        
+                        total_pph_all += tax_data['pph_amount']
+                        current_row += 1
+        
             # Total row
             for col in range(1, 14):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = thin_border
-                # cell.fill = header_fill
                 cell.font = table_header_font
             
                 if col == 1:
@@ -290,7 +472,7 @@ class PrintHandler:
                     cell.value = total_colli
                     cell.alignment = right_align
                 elif col == 13:
-                    cell.value = total_nilai
+                    cell.value = total_nilai + total_ppn_all + total_pph_all  # Include tax in total
                     cell.number_format = '#,##0'
                     cell.alignment = right_align
         
@@ -333,7 +515,7 @@ class PrintHandler:
                 total_biaya_surabaya = safe_sum_costs(costs_surabaya)
                 total_biaya_samarinda = safe_sum_costs(costs_destinasi)
                 total_biaya = total_biaya_surabaya + total_biaya_samarinda
-                profit_lcl = total_nilai - total_biaya
+                profit_lcl = (total_nilai + total_ppn_all + total_pph_all) - total_biaya  # Include tax in profit calculation
                 
                 # BIAYA SURABAYA SECTION - HANYA JIKA ADA DATA
                 if costs_surabaya:
@@ -341,13 +523,11 @@ class PrintHandler:
                     ws[f'A{current_row}'] = "Biaya Surabaya"
                     ws[f'A{current_row}'].font = profit_header_font
                     ws[f'A{current_row}'].alignment = left_align
-                    # ws[f'A{current_row}'].fill = profit_header_fill
                     ws[f'A{current_row}'].border = thin_border
                     
                     ws[f'M{current_row}'] = "Cost (Rp)"
                     ws[f'M{current_row}'].font = profit_header_font
                     ws[f'M{current_row}'].alignment = right_align
-                    # ws[f'M{current_row}'].fill = profit_header_fill
                     ws[f'M{current_row}'].border = thin_border
                     current_row += 1
                     
@@ -394,13 +574,11 @@ class PrintHandler:
                     ws[f'A{current_row}'] = f"Biaya {destination_name}"
                     ws[f'A{current_row}'].font = profit_header_font
                     ws[f'A{current_row}'].alignment = left_align
-                    # ws[f'A{current_row}'].fill = profit_header_fill
                     ws[f'A{current_row}'].border = thin_border
 
                     ws[f'M{current_row}'] = "Cost (Rp)"
                     ws[f'M{current_row}'].font = profit_header_font
                     ws[f'M{current_row}'].alignment = right_align
-                    # ws[f'M{current_row}'].fill = profit_header_fill
                     ws[f'M{current_row}'].border = thin_border
                     current_row += 1
                     
@@ -458,17 +636,8 @@ class PrintHandler:
             else:
                 # Jika tidak ada data cost sama sekali, skip profit section
                 pass
-
-            # Summary - update untuk mencakup status cost
-            # if costs_surabaya or costs_destinasi:
-            #     summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Total Cost: Rp {total_biaya:,.0f} | Profit: Rp {profit_lcl:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            # else:
-            #     summary_text = f"Total Items: {len(barang_list)} | Total Revenue: Rp {total_nilai:,.0f} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-            
-            # ws[f'A{current_row}'] = summary_text
-            # ws[f'A{current_row}'].font = small_font
         
-            # AUTO-ADJUST Column widths
+            # AUTO-ADJUST Column widths - back to original
             estimated_widths = [
                 8,   # Tgl
                 20,  # Pengirim
@@ -494,21 +663,20 @@ class PrintHandler:
             ws.print_area = f'A1:M{last_row}'
         
             # Add page breaks if needed
-            if len(barang_list) > 40:  # Reduced because of profit section
-                header_rows = current_row - len(barang_list) - 1
-                for i in range(40, len(barang_list), 40):
+            if len(barang_list) > 35:  # Reduced because of tax rows
+                header_rows = current_row - len(barang_list) - len([r for r in tax_summary.values() if r['has_tax']]) * 2 - 1
+                for i in range(35, len(barang_list), 35):
                     break_row = header_rows + i
                     ws.row_breaks.append(break_row)
         
             # Save file
-            filename = f"Invoice_Container_{container_id}_with_Profit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            self._save_excel_file(wb, filename, "INVOICE CONTAINER WITH PROFIT CALCULATION")
+            filename = f"Invoice_Container_{container_id}_with_Tax_Rows_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            self._save_excel_file(wb, filename, "INVOICE CONTAINER WITH TAX ROWS")
         
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat Excel invoice: {str(e)}")
-            print(f"Full error: {traceback.format_exc()}")
-            
-        
+            print(f"Full error: {traceback.format_exc()}") 
+         
     def _get_container_costs(self, container_id, location):
         """Get container costs from database by location (SURABAYA or SAMARINDA)"""
         try:
@@ -723,7 +891,7 @@ class PrintHandler:
             messagebox.showerror("Error", f"Gagal menampilkan dialog pemilihan: {str(e)}")
 
     def _generate_excel_packing_list_optimized(self, container, barang_list, container_id, filter_criteria=None):
-        """Generate Excel packing list document optimized for A4 printing"""
+        """Generate Excel packing list document optimized for A4 printing with grouping logic"""
         try:
             # Filter barang if criteria provided
             if filter_criteria:
@@ -786,8 +954,6 @@ class PrintHandler:
                 top=Side(style='thin'),
                 bottom=Side(style='thin')
             )
-        
-            # header_fill = PatternFill(start_color='E6E6FA', end_color='E6E6FA', fill_type='solid')
         
             # Safe way to get container values
             def safe_get(key, default='-'):
@@ -853,23 +1019,138 @@ class PrintHandler:
             
             current_row = info_start_row + 4 + 1
         
-            # Table headers - simplified for packing list
-            headers = ['No', 'Tanggal', 'Nama Barang', 'Jenis Barang', 'Dimensi (cm)', 'M3', 'Ton', 'Colli', 'Satuan', 'Keterangan', 'Door']
+            # Table headers - with pengirim and penerima columns
+            headers = ['No', 'Tanggal', 'Pengirim', 'Penerima', 'Nama Barang', 'Jenis Barang', 'Dimensi (cm)', 'M3', 'Ton', 'Colli', 'Satuan', 'Door']
         
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=current_row, column=col, value=header)
                 cell.font = table_header_font
                 cell.alignment = center_align
                 cell.border = thin_border
-                # cell.fill = header_fill
                 ws.row_dimensions[current_row].height = 12
         
             current_row += 1
         
-            # Table data
+            # DEBUG: Print data info before processing
+            print("=" * 60)
+            print(f"DEBUG PACKING LIST - Container ID: {container_id}")
+            print(f"Total barang records: {len(barang_list)}")
+            print("=" * 60)
+            
+            # DEBUG: Show first few raw records
+            print("\n=== RAW DATA (first 5 records) ===")
+            for i, barang_row in enumerate(barang_list[:5]):
+                print(f"\nRecord {i+1}:")
+                if hasattr(barang_row, 'keys'):
+                    print(f"  Type: sqlite3.Row, Keys: {list(barang_row.keys())}")
+                    barang_dict = {key: barang_row[key] for key in barang_row.keys()}
+                else:
+                    print(f"  Type: dict")
+                    barang_dict = dict(barang_row)
+                
+                # Show key fields
+                key_fields = ['tanggal_barang', 'sender_name', 'receiver_name', 'nama_barang']
+                for field in key_fields:
+                    value = barang_dict.get(field, 'NOT_FOUND')
+                    print(f"  {field}: '{value}' (type: {type(value).__name__})")
+            
+            # SORT DATA FIRST for proper grouping
+            def get_sort_key(barang_row):
+                try:
+                    # Handle both dict and sqlite3.Row objects
+                    if hasattr(barang_row, 'keys'):
+                        barang = {key: barang_row[key] for key in barang_row.keys()}
+                    else:
+                        barang = dict(barang_row)
+                    
+                    def safe_barang_get(key, default='-'):
+                        try:
+                            value = barang.get(key, default)
+                            return value if value not in [None, '', 'NULL', 'null'] else default
+                        except Exception:
+                            return default
+                    
+                    # Get date for sorting
+                    tanggal_raw = safe_barang_get('tanggal_barang', datetime.now())
+                    print(f"    Sort key debug - Raw tanggal: '{tanggal_raw}' (type: {type(tanggal_raw).__name__})")
+                    
+                    if isinstance(tanggal_raw, str):
+                        try:
+                            tanggal = datetime.strptime(tanggal_raw, '%Y-%m-%d')
+                            print(f"    Parsed date: {tanggal}")
+                        except:
+                            try:
+                                tanggal = datetime.strptime(tanggal_raw, '%Y-%m-%d %H:%M:%S')
+                                print(f"    Parsed date with time: {tanggal}")
+                            except:
+                                tanggal = datetime.now()
+                                print(f"    Failed to parse, using now: {tanggal}")
+                    elif isinstance(tanggal_raw, datetime):
+                        tanggal = tanggal_raw
+                        print(f"    Already datetime: {tanggal}")
+                    else:
+                        tanggal = datetime.now()
+                        print(f"    Unknown type, using now: {tanggal}")
+                    
+                    pengirim = str(safe_barang_get('sender_name', '')).strip()
+                    penerima = str(safe_barang_get('receiver_name', '')).strip()
+                    
+                    if not pengirim:
+                        pengirim = 'ZZZ_NO_SENDER'
+                    if not penerima:
+                        penerima = 'ZZZ_NO_RECEIVER'
+                    
+                    print(f"    Pengirim: '{pengirim}', Penerima: '{penerima}'")
+                    sort_key = (tanggal, pengirim, penerima)
+                    print(f"    Final sort key: {sort_key}")
+                    
+                    return sort_key
+                    
+                except Exception as e:
+                    print(f"    ERROR in get_sort_key: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return (datetime.now(), 'ZZZ_ERROR', 'ZZZ_ERROR')
+            
+            print("\n=== BEFORE SORTING ===")
+            for i, barang_row in enumerate(barang_list[:5]):
+                barang = dict(barang_row) if not hasattr(barang_row, 'keys') else {key: barang_row[key] for key in barang_row.keys()}
+                tanggal = barang.get('tanggal_barang', 'None')
+                pengirim = barang.get('sender_name', 'None')
+                penerima = barang.get('receiver_name', 'None')
+                nama_barang = barang.get('nama_barang', 'None')
+                print(f"{i+1}. {tanggal} | {pengirim} | {penerima} | {nama_barang}")
+            
+            # Sort the data
+            print("\n=== SORTING DATA ===")
+            try:
+                barang_list = sorted(barang_list, key=get_sort_key)
+                print("Sorting completed successfully!")
+            except Exception as e:
+                print(f"SORTING FAILED: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            print("\n=== AFTER SORTING ===")
+            for i, barang_row in enumerate(barang_list[:10]):
+                barang = dict(barang_row) if not hasattr(barang_row, 'keys') else {key: barang_row[key] for key in barang_row.keys()}
+                tanggal = barang.get('tanggal_barang', 'None')
+                pengirim = barang.get('sender_name', 'None')
+                penerima = barang.get('receiver_name', 'None')
+                nama_barang = barang.get('nama_barang', 'None')
+                print(f"{i+1:2d}. {tanggal} | {pengirim} | {penerima} | {nama_barang}")
+            
+            print("=" * 60)
+            
+            # Table data WITH GROUPING LOGIC
             total_m3 = 0
             total_ton = 0
             total_colli = 0
+            
+            # Variables for grouping
+            previous_date = None
+            previous_pengirim = None
+            previous_penerima = None
         
             for i, barang_row in enumerate(barang_list, 1):
                 # Handle both dict and sqlite3.Row objects
@@ -895,6 +1176,10 @@ class PrintHandler:
                             tanggal = datetime.now()
                     formatted_date = tanggal.strftime('%d-%b-%Y') if isinstance(tanggal, datetime) else '-'
                     
+                    # Get pengirim and penerima
+                    pengirim = str(safe_barang_get('sender_name', '-'))
+                    penerima = str(safe_barang_get('receiver_name', '-'))
+                    
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
                     jenis_barang = str(safe_barang_get('jenis_barang', '-'))
                     
@@ -908,7 +1193,6 @@ class PrintHandler:
                     ton = safe_barang_get('ton_barang', 0)
                     colli = safe_barang_get('colli_amount', 0)
                     satuan = str(safe_barang_get('satuan', safe_barang_get('unit', 'pcs')))
-                    keterangan = str(safe_barang_get('keterangan', safe_barang_get('notes', '-')))
                     door = str(safe_barang_get('door_type', safe_barang_get('alamat_tujuan', '-')))
                 
                     # Add to totals
@@ -924,10 +1208,26 @@ class PrintHandler:
                     ton_val = float(ton) if ton not in [None, '', '-'] else 0
                     colli_val = int(colli) if colli not in [None, '', '-'] else 0
                     
+                    # GROUPING LOGIC - same as invoice
+                    display_date = formatted_date
+                    display_pengirim = pengirim
+                    display_penerima = penerima
+                    
+                    if (formatted_date == previous_date and 
+                        pengirim == previous_pengirim and 
+                        penerima == previous_penerima):
+                        display_date = ""
+                        display_pengirim = ""
+                        display_penerima = ""
+                    else:
+                        previous_date = formatted_date
+                        previous_pengirim = pengirim
+                        previous_penerima = penerima
+                    
                     # Fill row data
                     row_data = [
-                        i, formatted_date, nama_barang, jenis_barang,
-                        dimensi, m3_val, ton_val, colli_val, satuan, keterangan, door
+                        i, display_date, display_pengirim, display_penerima, nama_barang, jenis_barang,
+                        dimensi, m3_val, ton_val, colli_val, satuan, door
                     ]
                 
                     for col, value in enumerate(row_data, 1):
@@ -938,9 +1238,9 @@ class PrintHandler:
                     
                         if col == 1:  # No
                             cell.alignment = center_align
-                        elif col in [6, 7, 8]:  # M3, Ton, Colli
+                        elif col in [8, 9, 10]:  # M3, Ton, Colli
                             cell.alignment = right_align
-                            if col in [6, 7]:
+                            if col in [8, 9]:
                                 cell.number_format = '0.00'
                         else:
                             cell.alignment = left_align
@@ -952,24 +1252,23 @@ class PrintHandler:
                     continue
         
             # Total row
-            for col in range(1, 12):
+            for col in range(1, 13):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = thin_border
-                # cell.fill = header_fill
                 cell.font = table_header_font
             
                 if col == 1:
                     cell.value = "TOTAL"
                     cell.alignment = center_align
-                elif col == 6:
+                elif col == 8:
                     cell.value = total_m3
                     cell.number_format = '0.00'
                     cell.alignment = right_align
-                elif col == 7:
+                elif col == 9:
                     cell.value = total_ton
                     cell.number_format = '0.00'
                     cell.alignment = right_align
-                elif col == 8:
+                elif col == 10:
                     cell.value = total_colli
                     cell.alignment = right_align
         
@@ -987,6 +1286,8 @@ class PrintHandler:
             estimated_widths = [
                 5,   # No
                 12,  # Tanggal
+                20,  # Pengirim
+                20,  # Penerima
                 25,  # Nama Barang
                 15,  # Jenis Barang
                 15,  # Dimensi
@@ -994,7 +1295,6 @@ class PrintHandler:
                 8,   # Ton
                 6,   # Colli
                 8,   # Satuan
-                20,  # Keterangan
                 15   # Door
             ]
             
@@ -1004,7 +1304,7 @@ class PrintHandler:
         
             # Set print area
             last_row = current_row
-            ws.print_area = f'A1:K{last_row}'
+            ws.print_area = f'A1:L{last_row}'
         
             # Save file
             filter_suffix = ""
@@ -1018,6 +1318,7 @@ class PrintHandler:
         
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat Excel packing list: {str(e)}")
+            print(f"Full error: {traceback.format_exc()}")
             
     def print_customer_packing_list_pdf(self, container_id, filter_criteria=None):
         """Generate PDF packing list with signature support"""
@@ -1217,3 +1518,212 @@ class PrintHandler:
             print(f"[ERROR] Error in combination selection: {e}")
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
             messagebox.showerror("Error", f"Error: {str(e)}")            
+            
+    # Tambahkan method ini ke class PrintHandler
+
+    def print_container_invoice_pdf(self, container_id):
+        """Generate and export container invoice to PDF with receiver selection"""
+        try:
+            # Get container details
+            container = self.db.get_container_by_id(container_id)
+            if not container:
+                messagebox.showerror("Error", "Container tidak ditemukan!")
+                return
+        
+            # Get barang in container with pricing
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+        
+            if not container_barang:
+                messagebox.showwarning("Peringatan", "Container kosong, tidak ada yang akan diprint!")
+                return
+        
+            # Show receiver selection dialog
+            self.show_receiver_selection_dialog_for_invoice_pdf(container_id)
+        
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal membuat invoice PDF: {str(e)}")
+
+    def show_receiver_selection_dialog_for_invoice_pdf(self, container_id):
+        """Show dialog to select receiver for invoice PDF"""
+        try:
+            # Get all receiver combinations in the container
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+            
+            if not container_barang:
+                messagebox.showwarning("Peringatan", "Container kosong!")
+                return
+            
+            # Get unique sender-receiver combinations
+            combinations = set()
+            for barang in container_barang:
+                if hasattr(barang, 'keys'):
+                    sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else '-'
+                    receiver = barang['receiver_name'] if 'receiver_name' in barang.keys() and barang['receiver_name'] else '-'
+                else:
+                    sender = barang.get('sender_name', '-')
+                    receiver = barang.get('receiver_name', '-')
+                combinations.add((sender, receiver))
+            
+            combinations = sorted(list(combinations))
+            print(f"[DEBUG] Found {len(combinations)} combinations for invoice PDF")
+            
+            if not combinations:
+                messagebox.showwarning("Peringatan", "Tidak ada data pengirim-penerima!")
+                return
+            
+            # If only one combination, use it directly
+            if len(combinations) == 1:
+                sender, receiver = combinations[0]
+                filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
+                self.pdf_generator.generate_pdf_invoice_with_tax(container_id, filter_criteria)
+                return
+            
+            # Create selection dialog
+            dialog = tk.Toplevel()
+            dialog.title("Pilih Penerima untuk Invoice PDF")
+            dialog.geometry("600x500")
+            dialog.resizable(False, False)
+            dialog.grab_set()
+            dialog.transient()
+            
+            # Center dialog
+            dialog.geometry("+%d+%d" % (dialog.winfo_screenwidth()//2 - 300, 
+                                        dialog.winfo_screenheight()//2 - 250))
+            
+            # Variables for dialog
+            selected_combinations = []
+            dialog_result = {"cancelled": True}
+            
+            # Main frame
+            main_frame = ttk.Frame(dialog)
+            main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+            
+            # Title
+            title_label = ttk.Label(main_frame, 
+                                    text=f"Pilih Penerima untuk Invoice PDF",
+                                    font=('Arial', 12, 'bold'))
+            title_label.pack(pady=(0, 15))
+            
+            # Instructions
+            instruction_label = ttk.Label(main_frame,
+                                        text="Pilih kombinasi yang ingin dibuat Invoice PDF-nya:",
+                                        font=('Arial', 10))
+            instruction_label.pack(pady=(0, 10))
+            
+            # Scrollable frame for checkboxes
+            scroll_frame = ttk.Frame(main_frame)
+            scroll_frame.pack(fill='both', expand=True, pady=(0, 15))
+            
+            canvas = tk.Canvas(scroll_frame, height=250)
+            scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Checkboxes for each combination
+            checkbox_vars = []
+            for i, (sender, receiver) in enumerate(combinations):
+                var = tk.BooleanVar()
+                checkbox_vars.append(var)
+                
+                # Create checkbox with formatted text
+                cb_text = f"{sender} → {receiver}"
+                checkbox = ttk.Checkbutton(scrollable_frame, 
+                                            text=cb_text,
+                                            variable=var)
+                checkbox.pack(anchor='w', pady=3, padx=15)
+            
+            # Select/Deselect All buttons
+            select_frame = ttk.Frame(main_frame)
+            select_frame.pack(fill='x', pady=(0, 15))
+            
+            def select_all():
+                for var in checkbox_vars:
+                    var.set(True)
+            
+            def deselect_all():
+                for var in checkbox_vars:
+                    var.set(False)
+            
+            ttk.Button(select_frame, text="Pilih Semua", 
+                        command=select_all).pack(side='left', padx=(0, 10))
+            ttk.Button(select_frame, text="Hapus Semua", 
+                        command=deselect_all).pack(side='left')
+            
+            # Info label
+            info_label = ttk.Label(main_frame,
+                                    text="Tip: Pilih beberapa kombinasi untuk membuat Invoice PDF terpisah",
+                                    font=('Arial', 8),
+                                    foreground='blue')
+            info_label.pack(pady=(10, 0))
+            
+            # Button frame
+            button_frame = ttk.Frame(main_frame)
+            button_frame.pack(fill='x', pady=(20, 0))
+            
+            def on_create_invoice_pdf():
+                # Validate selection
+                selected_count = sum(var.get() for var in checkbox_vars)
+                if selected_count == 0:
+                    messagebox.showwarning("Peringatan", "Pilih minimal satu kombinasi!")
+                    return
+                
+                # Get selected combinations
+                selected_combinations.clear()
+                for i, var in enumerate(checkbox_vars):
+                    if var.get():
+                        selected_combinations.append(combinations[i])
+                
+                dialog_result["cancelled"] = False
+                dialog.destroy()
+            
+            def on_cancel():
+                dialog_result["cancelled"] = True
+                dialog.destroy()
+            
+            ttk.Button(button_frame, text="Buat Invoice PDF", 
+                        command=on_create_invoice_pdf).pack(side='left', padx=(0, 10))
+            ttk.Button(button_frame, text="Batal", 
+                        command=on_cancel).pack(side='right')
+            
+            # Bind keyboard shortcuts
+            dialog.bind("<Return>", lambda e: on_create_invoice_pdf())
+            dialog.bind("<Escape>", lambda e: on_cancel())
+            
+            print("[DEBUG] Invoice PDF dialog created, waiting for user input...")
+            
+            # Wait for dialog to close
+            dialog.wait_window()
+            
+            # Process selection
+            if not dialog_result["cancelled"] and selected_combinations:
+                print(f"[DEBUG] User selected {len(selected_combinations)} combinations for invoice PDF")
+                
+                # Create Invoice PDF for each selected combination
+                for sender, receiver in selected_combinations:
+                    filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
+                    print(f"[DEBUG] Creating Invoice PDF for: {sender} -> {receiver}")
+                    self.pdf_generator.generate_pdf_invoice_with_tax(container_id, filter_criteria)
+                
+                # Show summary
+                messagebox.showinfo("Selesai", 
+                                    f"Berhasil membuat {len(selected_combinations)} file Invoice PDF!")
+            else:
+                print("[DEBUG] User cancelled or no selection made")
+                
+        except Exception as e:
+            print(f"[ERROR] Error in invoice PDF selection: {e}")
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            messagebox.showerror("Error", f"Error: {str(e)}")
+
+
+    
