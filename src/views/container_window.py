@@ -6,6 +6,7 @@ from src.utils.print_handler import PrintHandler
 from datetime import datetime
 import sqlite3
 from PIL import Image, ImageTk
+from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
 
@@ -422,6 +423,21 @@ class ContainerWindow:
         self.colli_var = tk.StringVar(value="1")
         self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, width=8)
         self.colli_entry.pack(side='left', padx=(5, 10))
+        
+        tanggal_frame = tk.Frame(left_frame, bg='#ecf0f1')
+        tanggal_frame.pack(fill='x', pady=5)
+        tk.Label(tanggal_frame, text="📅 Tanggal:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.tanggal_entry = DateEntry(
+            tanggal_frame,
+            width=12,
+            font=('Arial', 10),
+            background='#e67e22',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='yyyy-mm-dd',  # Format DATE untuk database
+            state='readonly'  # Cegah input manual, harus lewat calendar
+        )
+        self.tanggal_entry.pack(side='left', padx=(5, 10))
 
         # MIDDLE: Biaya pengantaran (tetap di tengah-kanan atas)
         delivery_cost_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
@@ -480,6 +496,8 @@ class ContainerWindow:
         # RIGHT-TOP: Ringkasan/Pra-tabel Pajak (di kanan atas seperti yang diinginkan)
         tax_overview_frame = tk.Frame(search_add_frame, bg='#ecf0f1', relief='flat')
         tax_overview_frame.grid(row=0, column=2, sticky='ne', padx=(10, 0))
+        
+        tax_overview_frame.grid_columnconfigure(0, minsize=1000)
 
         tk.Label(tax_overview_frame, text="🧾 Daftar Pajak (Ringkasan)",
                 font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
@@ -522,7 +540,7 @@ class ContainerWindow:
                                     padx=10, pady=5, command=self.remove_barang_from_container)
         remove_barang_btn.pack(side='left', padx=(0, 10))
 
-        edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli",
+        edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli & Tanggal",
                                 font=('Arial', 8, 'bold'), bg='#16a085', fg='white',
                                 padx=10, pady=5, command=self.edit_barang_colli_in_container)
         edit_colli_btn.pack(side='left', padx=(0, 10))
@@ -571,7 +589,7 @@ class ContainerWindow:
         columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat')
         self.available_tree = PaginatedTreeView(parent=available_tree_container,
                                                 columns=columns, show='headings',
-                                                height=12, items_per_page=15)
+                                                height=8, items_per_page=15)
         self.available_tree.heading('ID', text='ID')
         self.available_tree.heading('Pengirim', text='Pengirim')
         self.available_tree.heading('Penerima', text='Penerima')
@@ -598,7 +616,7 @@ class ContainerWindow:
                             'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal')
         self.container_barang_tree = PaginatedTreeView(parent=container_tree_frame,
                                                     columns=container_columns, show='headings',
-                                                    height=10, items_per_page=20)
+                                                    height=8, items_per_page=20)
         for col, text in zip(container_columns,
                             ['Pengirim','Penerima','Nama Barang','Satuan','Door Type',
                             'P×L×T (cm)','Volume (m³)','Berat (ton)','Colli',
@@ -846,8 +864,8 @@ class ContainerWindow:
         
         # Treeview dengan kolom lokasi
         columns = ('ID', 'Deskripsi', 'Lokasi', 'Biaya')
-        delivery_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=12)
-        
+        delivery_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=8)
+
         delivery_tree.heading('ID', text='ID')
         delivery_tree.heading('Deskripsi', text='Deskripsi')
         delivery_tree.heading('Lokasi', text='Lokasi')
@@ -3588,9 +3606,9 @@ class ContainerWindow:
             messagebox.showerror("Error", f"Gagal mengedit colli: {str(e)}")
 
     def show_edit_colli_dialog(self, selected_items, container_id):
-        """Show dialog to edit colli amounts with tax recalculation"""
+        """Show dialog to edit colli amounts and dates with tax recalculation"""
         edit_window = tk.Toplevel(self.window)
-        edit_window.title("🔢 Edit Jumlah Colli")
+        edit_window.title("🔢 Edit Jumlah Colli & Tanggal")
         edit_window.geometry("600x500")
         edit_window.configure(bg='#ecf0f1')
         edit_window.transient(self.window)
@@ -3617,7 +3635,7 @@ class ContainerWindow:
         # Header
         header = tk.Label(
             edit_window,
-            text="🔢 EDIT JUMLAH COLLI",
+            text="🔢 EDIT JUMLAH COLLI & TANGGAL",
             font=('Arial', 16, 'bold'),
             bg='#16a085',
             fg='white',
@@ -3630,7 +3648,7 @@ class ContainerWindow:
         info_frame.pack(fill='x', padx=20, pady=10)
         
         tk.Label(info_frame, 
-                text=f"📝 Mengedit colli untuk {len(selected_items)} barang | 💡 Harga total dan pajak akan dihitung ulang",
+                text=f"📝 Mengedit colli dan tanggal untuk {len(selected_items)} barang | 💡 Harga total dan pajak akan dihitung ulang",
                 font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50').pack()
         
         # Main frame with scrollbar for multiple items
@@ -3653,8 +3671,8 @@ class ContainerWindow:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # Store colli entries
-        colli_entries = {}
+        # Store colli and date entries
+        edit_entries = {}
         
         # Create form for each item
         for i, item in enumerate(selected_items):
@@ -3689,9 +3707,56 @@ class ContainerWindow:
                                 font=('Arial', 10), width=10)
             colli_entry.pack(side='left', padx=5)
             
-            colli_entries[item['id']] = {
-                'var': colli_var,
-                'entry': colli_entry,
+            # Date input - NEW
+            date_frame = tk.Frame(item_frame, bg='#ffffff')
+            date_frame.pack(fill='x', padx=10, pady=5)
+            
+            tk.Label(date_frame, text="📅 Tanggal:", 
+                    font=('Arial', 10, 'bold'), bg='#ffffff').pack(side='left')
+            
+            # Get current date from database
+            try:
+                current_date_data = self.db.execute_one("""
+                    SELECT tanggal FROM detail_container 
+                    WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
+                """, (item['id'], container_id, item['assigned_at']))
+                
+                current_date = current_date_data[0] if current_date_data and current_date_data[0] else datetime.now().strftime('%Y-%m-%d')
+            except Exception as date_error:
+                print(f"Error getting current date: {date_error}")
+                current_date = datetime.now().strftime('%Y-%m-%d')
+            
+            # Use DateEntry widget for date selection
+            date_entry = DateEntry(
+                date_frame,
+                width=12,
+                font=('Arial', 10),
+                background='#16a085',
+                foreground='white',
+                borderwidth=2,
+                date_pattern='yyyy-mm-dd',
+                state='readonly'
+            )
+            
+            # Set current date
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(current_date, '%Y-%m-%d')
+                date_entry.set_date(date_obj)
+            except Exception as parse_error:
+                print(f"Error parsing date {current_date}: {parse_error}")
+            
+            date_entry.pack(side='left', padx=(5, 10))
+            
+            current_date_label = tk.Label(date_frame, 
+                                        text=f"(Saat ini: {current_date})", 
+                                        font=('Arial', 9), bg='#ffffff', fg='#7f8c8d')
+            current_date_label.pack(side='left')
+            
+            edit_entries[item['id']] = {
+                'colli_var': colli_var,
+                'colli_entry': colli_entry,
+                'date_entry': date_entry,
                 'item': item
             }
         
@@ -3699,27 +3764,43 @@ class ContainerWindow:
         btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
         btn_frame.pack(fill='x', padx=20, pady=15)
         
-        def save_colli_changes():
-            """Save colli changes and recalculate tax if applicable"""
+        def save_colli_and_date_changes():
+            """Save colli and date changes and recalculate tax if applicable"""
             try:
                 success_count = 0
                 error_count = 0
                 tax_updated_count = 0
                 changes_made = []
                 
-                for barang_id, colli_data in colli_entries.items():
+                for barang_id, entry_data in edit_entries.items():
                     try:
-                        new_colli = int(colli_data['var'].get())
-                        old_colli = int(colli_data['item']['current_colli'])
+                        new_colli = int(entry_data['colli_var'].get())
+                        old_colli = int(entry_data['item']['current_colli'])
+                        new_date = entry_data['date_entry'].get_date().strftime('%Y-%m-%d')
                         
                         if new_colli <= 0:
                             messagebox.showwarning("Peringatan", 
-                                                f"Colli untuk '{colli_data['item']['name']}' harus lebih dari 0!")
+                                                f"Colli untuk '{entry_data['item']['name']}' harus lebih dari 0!")
                             continue
                         
-                        if new_colli != old_colli:
+                        # Check if there are any changes
+                        colli_changed = new_colli != old_colli
+                        
+                        # Get old date for comparison
+                        try:
+                            old_date_data = self.db.execute_one("""
+                                SELECT tanggal FROM detail_container 
+                                WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
+                            """, (barang_id, container_id, entry_data['item']['assigned_at']))
+                            
+                            old_date = old_date_data[0] if old_date_data and old_date_data[0] else None
+                            date_changed = new_date != old_date
+                        except:
+                            date_changed = True
+                        
+                        if colli_changed or date_changed:
                             # Calculate new total price
-                            harga_unit = float(str(colli_data['item']['harga_unit']).replace(',', ''))
+                            harga_unit = float(str(entry_data['item']['harga_unit']).replace(',', ''))
                             
                             # Get barang data to determine pricing method
                             barang_data = self.db.execute_one("""
@@ -3736,11 +3817,6 @@ class ContainerWindow:
                                 except (KeyError, TypeError):
                                     satuan = 'manual'
                                 
-                                try:
-                                    door_type = barang_data['door_type'] if barang_data['door_type'] else 'manual'
-                                except (KeyError, TypeError):
-                                    door_type = 'manual'
-                                    
                                 try:
                                     m3_barang = float(barang_data['m3_barang']) if barang_data['m3_barang'] else 0.0
                                 except (KeyError, TypeError, ValueError):
@@ -3762,15 +3838,15 @@ class ContainerWindow:
                                 # Fallback: simple multiplication
                                 new_total = harga_unit * new_colli
                             
-                            # Update database
+                            # Update database with new colli, total, and date
                             self.db.execute("""
                                 UPDATE detail_container 
-                                SET colli_amount = ?, total_harga = ?
+                                SET colli_amount = ?, total_harga = ?, tanggal = ?
                                 WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
-                            """, (new_colli, new_total, barang_id, container_id, 
-                                colli_data['item']['assigned_at']))
+                            """, (new_colli, new_total, new_date, barang_id, container_id, 
+                                entry_data['item']['assigned_at']))
                             
-                            # Check if this barang has tax (pajak = 1) and recalculate
+                            # Check if this barang has tax and recalculate
                             tax_recalculated = False
                             try:
                                 barang_tax_data = self.db.execute_one(
@@ -3789,7 +3865,7 @@ class ContainerWindow:
                                     ppn_amount = new_total * 0.011  # PPN 1.1%
                                     pph23_amount = new_total * 0.02  # PPH 23 2%
                                     
-                                    # Check if tax record exists for this container and barang
+                                    # Check if tax record exists
                                     existing_tax = self.db.execute_one("""
                                         SELECT tax_id FROM barang_tax 
                                         WHERE container_id = ? AND barang_id = ?
@@ -3821,20 +3897,24 @@ class ContainerWindow:
                                             UPDATE detail_container 
                                             SET tax_id = ?
                                             WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
-                                        """, (tax_id, barang_id, container_id, colli_data['item']['assigned_at']))
+                                        """, (tax_id, barang_id, container_id, entry_data['item']['assigned_at']))
                                     
                                     tax_recalculated = True
                                     tax_updated_count += 1
                                     
                             except Exception as tax_error:
                                 print(f"⚠️ Error recalculating tax for barang {barang_id}: {tax_error}")
-                                # Don't fail the whole operation if tax calculation fails
                                 pass
                             
+                            change_desc = []
+                            if colli_changed:
+                                change_desc.append(f"Colli: {old_colli} → {new_colli}")
+                            if date_changed:
+                                change_desc.append(f"Tanggal: {old_date} → {new_date}")
+                            
                             changes_made.append({
-                                'name': colli_data['item']['name'],
-                                'old_colli': old_colli,
-                                'new_colli': new_colli,
+                                'name': entry_data['item']['name'],
+                                'changes': ", ".join(change_desc),
                                 'old_total': harga_unit * old_colli,
                                 'new_total': new_total,
                                 'tax_recalculated': tax_recalculated
@@ -3844,12 +3924,12 @@ class ContainerWindow:
                     except ValueError:
                         error_count += 1
                         messagebox.showwarning("Peringatan", 
-                                            f"Format colli tidak valid untuk '{colli_data['item']['name']}'!")
+                                            f"Format colli tidak valid untuk '{entry_data['item']['name']}'!")
                     except Exception as e:
                         error_count += 1
-                        print(f"Error updating colli for barang {barang_id}: {e}")
+                        print(f"Error updating colli/date for barang {barang_id}: {e}")
                 
-                # Show enhanced results with tax information
+                # Show enhanced results
                 if success_count > 0:
                     result_msg = f"✅ Berhasil mengupdate {success_count} barang!\n"
                     
@@ -3857,9 +3937,9 @@ class ContainerWindow:
                         result_msg += f"🧾 Pajak diperbarui untuk {tax_updated_count} barang dengan pajak.\n"
                     
                     result_msg += "\nDetail perubahan:\n"
-                    for change in changes_made[:5]:  # Show max 5 changes
+                    for change in changes_made[:5]:
                         result_msg += f"• {change['name'][:25]}...\n"
-                        result_msg += f"  Colli: {change['old_colli']} → {change['new_colli']}\n"
+                        result_msg += f"  {change['changes']}\n"
                         result_msg += f"  Total: Rp {change['old_total']:,.0f} → Rp {change['new_total']:,.0f}\n"
                         if change['tax_recalculated']:
                             result_msg += f"  📊 Pajak dihitung ulang\n"
@@ -3879,32 +3959,32 @@ class ContainerWindow:
                     
                     edit_window.destroy()
                 else:
-                    messagebox.showinfo("Info", "Tidak ada perubahan colli yang disimpan.")
+                    messagebox.showinfo("Info", "Tidak ada perubahan yang disimpan.")
                     
                 if error_count > 0:
                     messagebox.showwarning("Peringatan", f"{error_count} barang gagal diupdate.")
                     
             except Exception as e:
-                print(f"Error in save_colli_changes: {e}")
+                print(f"Error in save_colli_and_date_changes: {e}")
                 import traceback
                 traceback.print_exc()
                 messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e)}")
         
-        # Create buttons with proper function reference
+        # Create buttons
         tk.Button(btn_frame, text="💾 Simpan Perubahan", 
                 font=('Arial', 12, 'bold'), bg='#27ae60', fg='white',
-                padx=25, pady=10, command=save_colli_changes).pack(side='left', padx=(0, 10))
+                padx=25, pady=10, command=save_colli_and_date_changes).pack(side='left', padx=(0, 10))
         
         tk.Button(btn_frame, text="❌ Batal", 
                 font=('Arial', 12, 'bold'), bg='#e74c3c', fg='white',
                 padx=25, pady=10, command=edit_window.destroy).pack(side='left')
         
         # Focus on first entry
-        if colli_entries:
-            first_entry = list(colli_entries.values())[0]['entry']
+        if edit_entries:
+            first_entry = list(edit_entries.values())[0]['colli_entry']
             first_entry.focus_set()
-            first_entry.select_range(0, tk.END)
-
+            first_entry.select_range(0, tk.END)  
+        
     # Helper method to refresh tax summary
     def refresh_tax_summary(self, container_id):
         """Refresh tax summary after tax-related operations"""
@@ -4525,16 +4605,6 @@ class ContainerWindow:
                 validation_error = False
                 error_message = ""
                 
-                # Check sender validation
-                if sender_selected and barang_sender != sender_selected:
-                    error_message += f"Pengirim '{barang_sender}' tidak sesuai dengan pilihan '{sender_selected}'. "
-                    validation_error = True
-                
-                # Check receiver validation
-                if receiver_selected and barang_receiver != receiver_selected:
-                    error_message += f"Penerima '{barang_receiver}' tidak sesuai dengan pilihan '{receiver_selected}'. "
-                    validation_error = True
-                
                 if validation_error:
                     messagebox.showwarning(
                         "Peringatan", 
@@ -4577,6 +4647,7 @@ class ContainerWindow:
                     
                     print(f"Processing item {barang_id}: {price_data}")
                     
+                    tanggal = self.tanggal_entry.get()
                     # Add barang to container with pricing
                     success = self.db.assign_barang_to_container_with_pricing(
                         barang_id, 
@@ -4585,7 +4656,8 @@ class ContainerWindow:
                         price_data['metode_pricing'].split('_')[1] if 'metode_pricing' in price_data else 'manual',
                         colli_amount,
                         price_data['harga_per_unit'],
-                        price_data['total_harga']
+                        price_data['total_harga'],
+                        tanggal  # Tambahkan parameter tanggal
                     )
                     
                     if success:

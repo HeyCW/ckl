@@ -507,6 +507,16 @@ class PDFPackingListGenerator:
                 spaceAfter=10
             )
             
+            # ADDED: Style for item text with proper wrapping
+            item_text_style = ParagraphStyle(
+                'ItemText',
+                parent=styles['Normal'],
+                fontSize=7,
+                leading=10,
+                alignment=TA_LEFT,
+                wordWrap='CJK'
+            )
+            
             # Handle logo
             logo_path = "assets/logo-cklogistik.png"
             header_data = []
@@ -651,43 +661,36 @@ class PDFPackingListGenerator:
                             return default
                     
                     # Get data
-                    pengirim = str(safe_barang_get('sender_name', '-'))
-                    # Auto line break for long company names
-                    if len(pengirim) > 15:
-                        # Split at word boundaries if possible
-                        words = pengirim.split()
-                        if len(words) > 1:
-                            mid = len(words) // 2
-                            pengirim = " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
-                        else:
-                            # If single word, break at character limit
-                            pengirim = pengirim[:15] + "\n" + pengirim[15:]
+                    pengirim_text = str(safe_barang_get('sender_name', '-'))
+                    # CHANGED: Use Paragraph for pengirim
+                    pengirim_para = Paragraph(pengirim_text, item_text_style)
                     
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
                     jenis_barang = str(safe_barang_get('jenis_barang', '-'))
                     
-                    combined_jenis = f"{nama_barang}"
+                    # CHANGED: Create Paragraph for proper text wrapping
+                    combined_text = f"{nama_barang}"
                     if jenis_barang != '-' and jenis_barang != nama_barang:
-                        combined_jenis += f"\n{jenis_barang}"
+                        combined_text += f"<br/>{jenis_barang}"
                     
-                    # Format dimensions with line break if too long - remove decimals
+                    combined_jenis = Paragraph(combined_text, item_text_style)
+                    
                     p = safe_barang_get('panjang_barang', '-')
                     l = safe_barang_get('lebar_barang', '-')
                     t = safe_barang_get('tinggi_barang', '-')
-                    
+
+
                     # Convert to integer if possible to remove decimals
                     try:
-                        p = str(int(float(p))) if p != '-' else '-'
-                        l = str(int(float(l))) if l != '-' else '-'
-                        t = str(int(float(t))) if t != '-' else '-'
+                        p = str(float(p)) if p != '-' else '-'
+                        l = str(float(l)) if l != '-' else '-'
+                        t = str(float(t)) if t != '-' else '-'
                     except (ValueError, TypeError):
                         pass
-                    
-                    kubikasi = f"{p}x{l}x{t}"
-                    
-                    # Break kubikasi if too long
-                    if len(kubikasi) > 12:
-                        kubikasi = f"{p}x{l}\nx{t}"
+
+                    # CHANGED: Use line break for kubikasi to prevent overflow
+                    kubikasi_text = f"{p}x{l}<br/>x{t}"
+                    kubikasi = Paragraph(kubikasi_text, item_text_style)
                     
                     m3 = safe_barang_get('m3_barang', 0)
                     ton = safe_barang_get('ton_barang', 0)
@@ -711,11 +714,12 @@ class PDFPackingListGenerator:
                     # Container number with suffix
                     container_with_suffix = f"{container_no}"
                     
+                    # CHANGED: Use Paragraph objects
                     table_data.append([
                         str(i), 
                         container_with_suffix,
-                        pengirim,
-                        combined_jenis,
+                        pengirim_para,      # Paragraph object
+                        combined_jenis,      # Paragraph object
                         kubikasi,
                         m3_val,
                         ton_val, 
@@ -727,17 +731,17 @@ class PDFPackingListGenerator:
                     print(f"[ERROR] Error processing item {i}: {e}")
                     continue
             
-            # Create table with proper column widths - matching invoice format
+            # CHANGED: Adjusted column widths for better spacing
             items_table = Table(table_data, colWidths=[
                 0.8*cm,  # No
                 1.6*cm,  # No. Container
-                3.2*cm,  # Pengirim 
-                3.2*cm,  # Jenis Barang 
-                2.0*cm,  # Kubikasi 
+                3.0*cm,  # Pengirim (reduced from 3.2)
+                3.5*cm,  # Jenis Barang (increased from 3.2 for better wrapping)
+                1.8*cm,  # Kubikasi (reduced from 2.0)
                 1.1*cm,  # M3
                 1.1*cm,  # Ton
                 1.1*cm,  # Col
-                2.4*cm   # Catatan (diperbesar)
+                2.4*cm   # Catatan
             ])
             
             # Table styling - matching invoice format
@@ -745,19 +749,19 @@ class PDFPackingListGenerator:
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),  # Smaller font for header to fit better
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),  # Center align multiline header
+                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('ALIGN', (0, 1), (1, -1), 'CENTER'),  # No and No. Container columns
-                ('ALIGN', (2, 1), (4, -1), 'LEFT'),    # Pengirim, Jenis Barang, Kubikasi (left align)
-                ('ALIGN', (5, 1), (7, -1), 'RIGHT'),   # M3, Ton, Col (right align numbers)
-                ('ALIGN', (8, 1), (8, -1), 'LEFT'),    # Catatan (left align)
-                ('VALIGN', (0, 1), (-1, -1), 'TOP'),   # Top align for multiline content
+                ('ALIGN', (0, 1), (1, -1), 'CENTER'),
+                ('ALIGN', (2, 1), (4, -1), 'LEFT'),
+                ('ALIGN', (5, 1), (7, -1), 'RIGHT'),
+                ('ALIGN', (8, 1), (8, -1), 'LEFT'),
+                ('VALIGN', (0, 1), (-1, -1), 'TOP'),
                 
                 # Borders
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
@@ -801,10 +805,10 @@ class PDFPackingListGenerator:
                     # Ask if user wants to open the file
                     if messagebox.askyesno("Buka File?", "Apakah Anda ingin membuka PDF sekarang?"):
                         try:
-                            if os.name == 'nt':  # Windows
+                            if os.name == 'nt':
                                 os.startfile(file_path)
-                            elif os.name == 'posix':  # macOS and Linux
-                                os.system(f'open "{file_path}"')  # macOS
+                            elif os.name == 'posix':
+                                os.system(f'open "{file_path}"')
                         except Exception as e:
                             messagebox.showwarning("Info", f"File berhasil disimpan, tapi gagal membuka otomatis.\nSilakan buka manual: {file_path}")
                 else:
@@ -819,7 +823,6 @@ class PDFPackingListGenerator:
             print(f"[ERROR] {error_msg}")
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
             messagebox.showerror("Error", f"Gagal membuat PDF: {str(e)}")
-    
     
     def _add_signature_box(self, story, signature_path=None):
         """Add signature box with optional signature image"""
@@ -1016,6 +1019,16 @@ class PDFPackingListGenerator:
                 spaceAfter=10
             )
             
+            # ADDED: Style for item text with proper wrapping
+            item_text_style = ParagraphStyle(
+                'ItemText',
+                parent=styles['Normal'],
+                fontSize=7,
+                leading=10,
+                alignment=TA_LEFT,
+                wordWrap='CJK'
+            )
+            
             # Handle logo
             logo_path = "assets/logo-cklogistik.png"
             header_data = []
@@ -1192,43 +1205,35 @@ class PDFPackingListGenerator:
                             return default
                     
                     # Get data
-                    pengirim = str(safe_barang_get('sender_name', '-'))
-                    # Auto line break for long company names
-                    if len(pengirim) > 15:
-                        # Split at word boundaries if possible
-                        words = pengirim.split()
-                        if len(words) > 1:
-                            mid = len(words) // 2
-                            pengirim = " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
-                        else:
-                            # If single word, break at character limit
-                            pengirim = pengirim[:15] + "\n" + pengirim[15:]
+                    pengirim_text = str(safe_barang_get('sender_name', '-'))
+                    # CHANGED: Use Paragraph for pengirim
+                    pengirim_para = Paragraph(pengirim_text, item_text_style)
                     
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
                     jenis_barang = str(safe_barang_get('jenis_barang', '-'))
                     
-                    combined_jenis = f"{nama_barang}"
+                    # CHANGED: Create Paragraph for proper text wrapping
+                    combined_text = f"{nama_barang}"
                     if jenis_barang != '-' and jenis_barang != nama_barang:
-                        combined_jenis += f"\n{jenis_barang}"
+                        combined_text += f"<br/>{jenis_barang}"
                     
-                    # Format dimensions with line break if too long - remove decimals
+                    combined_jenis = Paragraph(combined_text, item_text_style)
+                    
                     p = safe_barang_get('panjang_barang', '-')
                     l = safe_barang_get('lebar_barang', '-')
                     t = safe_barang_get('tinggi_barang', '-')
-                    
+
                     # Convert to integer if possible to remove decimals
                     try:
-                        p = str(int(float(p))) if p != '-' else '-'
-                        l = str(int(float(l))) if l != '-' else '-'
-                        t = str(int(float(t))) if t != '-' else '-'
+                        p = str(float(p)) if p != '-' else '-'
+                        l = str(float(l)) if l != '-' else '-'
+                        t = str(float(t)) if t != '-' else '-'
                     except (ValueError, TypeError):
                         pass
-                    
-                    kubikasi = f"{p}x{l}x{t}"
-                    
-                    # Break kubikasi if too long
-                    if len(kubikasi) > 12:
-                        kubikasi = f"{p}x{l}\nx{t}"
+
+                    # CHANGED: Use line break for kubikasi to prevent overflow
+                    kubikasi_text = f"{p}x{l}<br/>x{t}"
+                    kubikasi = Paragraph(kubikasi_text, item_text_style)
                     
                     m3 = safe_barang_get('m3_barang', 0)
                     ton = safe_barang_get('ton_barang', 0)
@@ -1252,14 +1257,14 @@ class PDFPackingListGenerator:
                     unit_price_val = f"Rp {float(unit_price):,.0f}" if unit_price not in [None, '', '-'] else "Rp 0"
                     total_price_val = f"Rp {float(total_harga):,.0f}" if total_harga not in [None, '', '-'] else "Rp 0"
                     
-                    # Container number without suffix
                     container_with_suffix = container_no
                     
+                    # CHANGED: Use Paragraph objects for pengirim and jenis barang
                     table_data.append([
                         str(i), 
                         container_with_suffix,
-                        pengirim,
-                        combined_jenis,
+                        pengirim_para,      # Paragraph object
+                        combined_jenis,      # Paragraph object
                         kubikasi,
                         m3_val,
                         ton_val, 
@@ -1323,88 +1328,61 @@ class PDFPackingListGenerator:
                 f"Rp {total_price:,.0f}"
             ])
             
-            # Create table with proper column widths - adjusted to prevent overlapping
+            # CHANGED: Adjusted column widths for better spacing
             items_table = Table(table_data, colWidths=[
                 0.8*cm,  # No
-                1.6*cm,  # No. Container (diperbesar sedikit)
-                3.2*cm,  # Pengirim 
-                3.2*cm,  # Jenis Barang 
-                2.0*cm,  # Kubikasi 
+                1.6*cm,  # No. Container
+                3.0*cm,  # Pengirim (reduced from 3.2)
+                3.5*cm,  # Jenis Barang (increased from 3.2 for better wrapping)
+                1.8*cm,  # Kubikasi (reduced from 2.0)
                 1.1*cm,  # M3
                 1.1*cm,  # Ton
                 1.1*cm,  # Col
                 1.8*cm,  # Unit Price
-                2.4*cm   # Total Price (diperbesar untuk angka besar)
+                2.4*cm   # Total Price
             ])
             
-            # Table styling with improved spacing and multiline header support
+            # Table styling with improved spacing
             items_table.setStyle(TableStyle([
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),  # Smaller font for header to fit better
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),  # Center align multiline header
+                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows
                 ('FONTSIZE', (0, 1), (-1, -2), 8),
                 ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
-                ('ALIGN', (0, 1), (1, -2), 'CENTER'),  # No and No. Container columns
-                ('ALIGN', (2, 1), (4, -2), 'LEFT'),    # Pengirim, Jenis Barang, Kubikasi (left align)
-                ('ALIGN', (5, 1), (-1, -2), 'RIGHT'),   # M3, Ton, Col, prices (right align numbers)
-                ('VALIGN', (0, 1), (-1, -2), 'TOP'),   # Top align for multiline content
+                ('ALIGN', (0, 1), (1, -2), 'CENTER'),
+                ('ALIGN', (2, 1), (4, -2), 'LEFT'),
+                ('ALIGN', (5, 1), (-1, -2), 'RIGHT'),
+                ('VALIGN', (0, 1), (-1, -2), 'TOP'),
                 
                 # Total row styling
-                ('FONTSIZE', (0, -1), (0, -1), 6),   # Font size 8 untuk kolom "TOTAL"
-                ('FONTSIZE', (1, -1), (-1, -1), 9),  # Font size 9 untuk kolom lainnya
+                ('FONTSIZE', (0, -1), (0, -1), 6),
+                ('FONTSIZE', (1, -1), (-1, -1), 9),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-                ('ALIGN', (0, -1), (4, -1), 'CENTER'),  # First 5 columns center
-                ('ALIGN', (5, -1), (-1, -1), 'RIGHT'),  # Numbers right align
+                ('ALIGN', (0, -1), (4, -1), 'CENTER'),
+                ('ALIGN', (5, -1), (-1, -1), 'RIGHT'),
                 ('VALIGN', (0, -1), (-1, -1), 'MIDDLE'),
                 
                 # Borders
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 
-                # Enhanced padding for better spacing
+                # Padding
                 ('LEFTPADDING', (0, 0), (-1, -1), 4),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 4),
                 ('TOPPADDING', (0, 0), (-1, -1), 6),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 
-                # Minimum row height for multiline content
                 ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.white]),
             ]))
             
             story.append(items_table)
             story.append(Spacer(1, 20))
-            
-            # SUMMARY SECTION
-            # summary_data = [
-            #     [f"Total Items: {len(barang_list)}"],
-            #     [f"Total Volume: {total_m3:.3f} m3"],
-            #     [f"Total Weight: {total_ton:.3f} ton"],
-            #     [f"Total Colli: {total_colli:.0f}"],
-            #     [""],
-            #     [f"Grand Total: Rp {total_price:,.0f}"]
-            # ]
-            
-            # summary_table = Table(summary_data, colWidths=[18*cm])
-            # summary_table.setStyle(TableStyle([
-            #     ('FONTSIZE', (0, 0), (-1, -2), 9),
-            #     ('FONTSIZE', (0, -1), (-1, -1), 12),
-            #     ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-            #     ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-            #     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            #     ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            #     ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            #     ('TOPPADDING', (0, 0), (-1, -1), 2),
-            #     ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            #     ('LINEABOVE', (0, -1), (-1, -1), 2, colors.black)
-            # ]))
-            
-            # story.append(summary_table)
             
             # Build PDF
             print("[DEBUG] Building final PDF invoice...")
@@ -1431,10 +1409,10 @@ class PDFPackingListGenerator:
                     # Ask if user wants to open the file
                     if messagebox.askyesno("Buka File?", "Apakah Anda ingin membuka PDF invoice sekarang?"):
                         try:
-                            if os.name == 'nt':  # Windows
+                            if os.name == 'nt':
                                 os.startfile(file_path)
-                            elif os.name == 'posix':  # macOS and Linux
-                                os.system(f'open "{file_path}"')  # macOS
+                            elif os.name == 'posix':
+                                os.system(f'open "{file_path}"')
                         except Exception as e:
                             messagebox.showwarning("Info", f"File berhasil disimpan, tapi gagal membuka otomatis.\nSilakan buka manual: {file_path}")
                 else:
@@ -1449,3 +1427,6 @@ class PDFPackingListGenerator:
             print(f"[ERROR] {error_msg}")
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
             messagebox.showerror("Error", f"Gagal membuat PDF invoice: {str(e)}")
+            
+        
+        

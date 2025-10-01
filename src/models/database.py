@@ -349,6 +349,7 @@ class SQLiteDatabase:
         query = '''
         CREATE TABLE IF NOT EXISTS detail_container (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tanggal DATE NOT NULL,
             barang_id INTEGER NOT NULL,
             container_id INTEGER NOT NULL,
             tax_id INTEGER,
@@ -1021,8 +1022,8 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
 
     # ================== PRICING FEATURES ==================
 
-    def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga):
-        """Assign barang to container with pricing and tax handling"""
+    def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, tanggal):
+        """Assign barang to container with pricing, tax handling, and date"""
         try:
             # Check if barang has tax (pajak = 1)
             barang_data = self.execute_one("SELECT pajak, penerima FROM barang WHERE barang_id = ?", (barang_id,))
@@ -1038,29 +1039,38 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                 # Create tax record and get tax_id
                 tax_id = self.save_tax_data_with_return_id(container_id, barang_id, receiver_name, total_harga)
             
-            # Insert into detail_container with tax_id
+            # Insert into detail_container with tax_id and tanggal
             query = """
-            INSERT INTO detail_container 
-            (barang_id, container_id, tax_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, assigned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO detail_container
+            (tanggal, barang_id, container_id, tax_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, assigned_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             """
             
             result = self.execute(query, (
-                barang_id, container_id, tax_id, satuan, door_type, 
-                colli_amount, harga_per_unit, total_harga
+                tanggal,  # Tambahkan tanggal di sini
+                barang_id, 
+                container_id, 
+                tax_id, 
+                satuan, 
+                door_type,
+                colli_amount, 
+                harga_per_unit, 
+                total_harga
             ))
             
             return result is not None
             
         except Exception as e:
-            print(f"Error assigning barang to container with tax: {e}")
+            print(f"Error assigning barang to container with tax and date: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def get_barang_in_container_with_colli_and_pricing(self, container_id):
         """Get all barang in a specific container with colli and pricing information"""
         try:
             result = self.execute("""
-                SELECT 
+                SELECT
                     b.barang_id,
                     b.nama_barang,
                     b.panjang_barang,
@@ -1070,6 +1080,7 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                     b.ton_barang,
                     r.nama_customer AS receiver_name,
                     s.nama_customer AS sender_name,
+                    dc.tanggal,                           
                     dc.satuan,
                     dc.door_type,
                     dc.colli_amount,
@@ -1081,15 +1092,16 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                 JOIN customers r ON b.penerima = r.customer_id
                 JOIN customers s ON b.pengirim = s.customer_id
                 WHERE dc.container_id = ?
-                ORDER BY dc.assigned_at DESC
+                ORDER BY dc.assigned_at ASC 
             """, (container_id,))
-            
+        
             logger.debug(f"Retrieved {len(result)} barang with pricing for container {container_id}")
             return result
         except Exception as e:
             logger.error(f"Error getting barang in container with pricing: {e}")
             return []
-
+    
+    
     def update_barang_pricing_in_container(self, barang_id, container_id, harga_per_unit, total_harga):
         """Update pricing for specific barang in container"""
         try:
