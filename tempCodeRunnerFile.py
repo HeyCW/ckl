@@ -1,2 +1,1 @@
-w and configure root window
-                print
+ge

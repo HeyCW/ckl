@@ -264,185 +264,17 @@ class PDFPackingListGenerator:
     def __init__(self, db):
         self.db = db
         
-    def generate_pdf_packing_list_with_signature(self, container_id, filter_criteria=None):
-        """Generate PDF packing list without signature prompt"""
-        print(f"[DEBUG] Starting PDF generation for container_id: {container_id}")
-        print(f"[DEBUG] Filter criteria: {filter_criteria}")
-        
-        try:
-            # Get container details
-            container = self.db.get_container_by_id(container_id)
-            if not container:
-                print("[ERROR] Container tidak ditemukan!")
-                messagebox.showerror("Error", "Container tidak ditemukan!")
-                return
-            
-            print(f"[DEBUG] Container found")
-            
-            # Get barang in container
-            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
-            print(f"[DEBUG] Found {len(container_barang) if container_barang else 0} items in container")
-            
-            if not container_barang:
-                print("[WARNING] Container kosong!")
-                messagebox.showwarning("Peringatan", "Container kosong, tidak ada yang akan diprint!")
-                return
-            
-            # Filter barang if criteria provided
-            if filter_criteria:
-                print(f"[DEBUG] Applying filter: {filter_criteria}")
-                filtered_barang = []
-                sender_filter = filter_criteria.get('sender_name', '')
-                receiver_filter = filter_criteria.get('receiver_name', '')
-                
-                for barang in container_barang:
-                    # Handle both dict and sqlite3.Row objects
-                    if hasattr(barang, 'keys'):  # sqlite3.Row object
-                        sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else ''
-                        receiver = barang['receiver_name'] if 'receiver_name' in barang.keys() and barang['receiver_name'] else ''
-                    else:  # dict object
-                        sender = barang.get('sender_name', '')
-                        receiver = barang.get('receiver_name', '')
-                    
-                    if sender == sender_filter and receiver == receiver_filter:
-                        filtered_barang.append(barang)
-                
-                container_barang = filtered_barang
-                print(f"[DEBUG] After filtering: {len(container_barang)} items remain")
-                
-                if not container_barang:
-                    print("[WARNING] No items after filtering")
-                    messagebox.showwarning("Peringatan", "Tidak ada barang untuk kombinasi yang dipilih!")
-                    return
-            
-            # INPUT SUFFIX ABJAD untuk Invoice Number
-            print("[DEBUG] Asking for invoice suffix...")
-            invoice_suffix = ""
-            
-            try:
-                # Dialog untuk input suffix
-                suffix_dialog = tk.Toplevel()
-                suffix_dialog.title("Invoice Number Suffix")
-                suffix_dialog.geometry("400x250")
-                suffix_dialog.resizable(False, False)
-                suffix_dialog.grab_set()
-                suffix_dialog.transient()
-                
-                # Center dialog
-                suffix_dialog.geometry("+%d+%d" % (suffix_dialog.winfo_screenwidth()//2 - 200, 
-                                                suffix_dialog.winfo_screenheight()//2 - 125))
-                
-                suffix_result = {"value": "", "cancelled": True}
-                
-                # Main frame
-                main_frame = ttk.Frame(suffix_dialog)
-                main_frame.pack(fill='both', expand=True, padx=20, pady=20)
-                
-                # Title
-                title_label = ttk.Label(main_frame, 
-                                    text="Invoice Number Suffix",
-                                    font=('Arial', 12, 'bold'))
-                title_label.pack(pady=(0, 10))
-                
-                # Explanation
-                exp_label = ttk.Label(main_frame,
-                                    text="Masukkan huruf/abjad yang akan ditambahkan\ndi akhir nomor invoice (contoh: A, B, C, dst)",
-                                    font=('Arial', 10))
-                exp_label.pack(pady=(0, 15))
-                
-                # Example
-                example_label = ttk.Label(main_frame,
-                                        text="Contoh: Container #1 → Invoice #1-A",
-                                        font=('Arial', 9),
-                                        foreground='blue')
-                example_label.pack(pady=(0, 15))
-                
-                # Input frame
-                input_frame = ttk.Frame(main_frame)
-                input_frame.pack(fill='x', pady=(0, 20))
-                
-                ttk.Label(input_frame, text="Suffix:", font=('Arial', 10)).pack(side='left')
-                suffix_entry = ttk.Entry(input_frame, font=('Arial', 10), width=10)
-                suffix_entry.pack(side='left', padx=(10, 0))
-                suffix_entry.focus()
-                
-                # Button frame
-                button_frame = ttk.Frame(main_frame)
-                button_frame.pack(fill='x')
-                
-                def on_ok():
-                    value = suffix_entry.get().strip().upper()
-                    # Validate: only letters allowed
-                    if value and not value.isalpha():
-                        messagebox.showwarning("Peringatan", "Hanya huruf/abjad yang diperbolehkan!")
-                        return
-                    
-                    suffix_result["value"] = value
-                    suffix_result["cancelled"] = False
-                    suffix_dialog.destroy()
-                
-                def on_cancel():
-                    suffix_result["cancelled"] = True
-                    suffix_dialog.destroy()
-                
-                def on_skip():
-                    suffix_result["value"] = ""
-                    suffix_result["cancelled"] = False
-                    suffix_dialog.destroy()
-                
-                ttk.Button(button_frame, text="OK", command=on_ok).pack(side='left', padx=(0, 5))
-                ttk.Button(button_frame, text="Skip (Tanpa Suffix)", command=on_skip).pack(side='left', padx=5)
-                ttk.Button(button_frame, text="Batal", command=on_cancel).pack(side='right')
-                
-                # Bind Enter and Escape
-                suffix_dialog.bind("<Return>", lambda e: on_ok())
-                suffix_dialog.bind("<Escape>", lambda e: on_cancel())
-                
-                print("[DEBUG] Suffix dialog created, waiting for user input...")
-                suffix_dialog.wait_window()
-                
-                if suffix_result["cancelled"]:
-                    print("[DEBUG] User cancelled suffix input")
-                    return
-                
-                invoice_suffix = suffix_result["value"]
-                print(f"[DEBUG] Invoice suffix: '{invoice_suffix}'")
-                
-            except Exception as suffix_error:
-                print(f"[ERROR] Error in suffix dialog: {suffix_error}")
-                # Continue without suffix
-                invoice_suffix = ""
-            
-            # SKIP SIGNATURE OPTIONS - NO SIGNATURE PROMPT
-            print("[DEBUG] Skipping signature options - creating PDF without signature")
-            signature_path = None
-            
-            # Generate PDF with suffix but no signature
-            print("[DEBUG] Starting PDF creation with suffix...")
-            self._create_pdf_document_packing(container, container_barang, container_id, filter_criteria, signature_path, invoice_suffix)
-            
-            print("[DEBUG] PDF generation completed successfully!")
-            
-        except Exception as e:
-            error_msg = f"Error in generate_pdf_packing_list_with_signature: {str(e)}"
-            print(f"[ERROR] {error_msg}")
-            print(f"[ERROR] Traceback: {traceback.format_exc()}")
-            messagebox.showerror("Error", f"Gagal membuat PDF packing list: {str(e)}")
-
     def _create_pdf_document_packing(self, container, barang_list, container_id, filter_criteria, signature_path, invoice_suffix=""):
-        """Create the actual PDF document without signature section"""
+        """Create the actual PDF document matching Invoice format exactly"""
         print("[DEBUG] Starting _create_pdf_document_packing")
         
         try:
             # Generate filename with suffix
             filter_suffix = ""
             if filter_criteria:
-                sender = filter_criteria.get('sender_name', 'Unknown')[:10]
                 receiver = filter_criteria.get('receiver_name', 'Unknown')[:10]
-                # Clean filename from invalid characters
-                sender = "".join(c for c in sender if c.isalnum() or c in (' ', '-', '_')).rstrip()
                 receiver = "".join(c for c in receiver if c.isalnum() or c in (' ', '-', '_')).rstrip()
-                filter_suffix = f"_{sender}_to_{receiver}"
+                filter_suffix = f"_{receiver}"
             
             invoice_suffix_file = f"_{invoice_suffix}" if invoice_suffix else ""
             
@@ -464,7 +296,7 @@ class PDFPackingListGenerator:
             
             print(f"[DEBUG] Creating PDF at: {file_path}")
             
-            # Create PDF document
+            # Create PDF document - SAME SIZE as Invoice
             doc = SimpleDocTemplate(file_path, pagesize=A4,
                                 rightMargin=50, leftMargin=50,
                                 topMargin=50, bottomMargin=50)
@@ -472,68 +304,29 @@ class PDFPackingListGenerator:
             # Get styles
             styles = getSampleStyleSheet()
             
-            # Custom styles
-            logo_style = ParagraphStyle(
-                'Logo',
-                parent=styles['Normal'],
-                fontSize=14,
-                alignment=TA_LEFT,
-                textColor=colors.orange,
-                fontName='Helvetica-Bold'
-            )
-            
+            # Custom styles - SAME as Invoice
             title_style = ParagraphStyle(
                 'Title',
                 parent=styles['Heading1'],
-                fontSize=14,
+                fontSize=16,
                 alignment=TA_RIGHT,
                 fontName='Helvetica-Bold',
-                spaceAfter=0
-            )
-            
-            company_info_style = ParagraphStyle(
-                'CompanyInfo',
-                parent=styles['Normal'],
-                fontSize=8,
-                alignment=TA_LEFT,
                 spaceAfter=10
             )
             
-            invoice_info_style = ParagraphStyle(
-                'InvoiceInfo',
+            normal_style = ParagraphStyle(
+                'Normal',
+                parent=styles['Normal'],
+                fontSize=9,
+                alignment=TA_LEFT
+            )
+            
+            small_style = ParagraphStyle(
+                'Small',
                 parent=styles['Normal'],
                 fontSize=8,
-                alignment=TA_RIGHT,
-                spaceAfter=10
+                alignment=TA_LEFT
             )
-            
-            # ADDED: Style for item text with proper wrapping
-            item_text_style = ParagraphStyle(
-                'ItemText',
-                parent=styles['Normal'],
-                fontSize=7,
-                leading=10,
-                alignment=TA_LEFT,
-                wordWrap='CJK'
-            )
-            
-            # Handle logo
-            logo_path = "assets/logo-cklogistik.png"
-            header_data = []
-            
-            if logo_path and os.path.exists(logo_path):
-                try:
-                    logo_img = Image(logo_path, width=10*cm, height=1.5*cm)
-                    title_text = "CUSTOMER PACKING LIST"
-                    header_data = [[logo_img, Paragraph(title_text, title_style)]]
-                except Exception:
-                    logo_text = "cahaya karunia<br/>logistic"
-                    title_text = "CUSTOMER PACKING LIST"
-                    header_data = [[Paragraph(logo_text, logo_style), Paragraph(title_text, title_style)]]
-            else:
-                logo_text = "cahaya karunia<br/>logistic"
-                title_text = "CUSTOMER PACKING LIST"
-                header_data = [[Paragraph(logo_text, logo_style), Paragraph(title_text, title_style)]]
             
             # Safe way to get container values
             def safe_get(key, default='-'):
@@ -548,38 +341,72 @@ class PDFPackingListGenerator:
             # Build story (content)
             story = []
             
-            # HEADER SECTION
-            header_table = Table(header_data, colWidths=[8*cm, 10*cm])
-            header_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10)
-            ]))
+            # ========================================
+            # HEADER SECTION - Match Invoice Layout
+            # ========================================
             
-            story.append(header_table)
+            # Logo and Title Row
+            logo_path = "assets/logo-cklogistik.png"
+            if logo_path and os.path.exists(logo_path):
+                try:
+                    logo_img = Image(logo_path, width=4*cm, height=1.2*cm)
+                    
+                    # Create header table: Logo | Company Info | Title
+                    header_data = [
+                        [
+                            logo_img,
+                            Paragraph("Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607", small_style),
+                            Paragraph("CUSTOMER PACKING LIST", title_style)
+                        ]
+                    ]
+                    
+                    header_table = Table(header_data, colWidths=[4.5*cm, 7*cm, 7*cm])
+                    header_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                        ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+                        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                    ]))
+                    
+                    story.append(header_table)
+                    story.append(Spacer(1, 15))
+                    
+                except Exception as logo_error:
+                    print(f"[ERROR] Logo error: {logo_error}")
+                    # Fallback without logo
+                    story.append(Paragraph("CUSTOMER PACKING LIST", title_style))
+                    story.append(Spacer(1, 15))
+            else:
+                story.append(Paragraph("CUSTOMER PACKING LIST", title_style))
+                story.append(Spacer(1, 15))
             
-            # COMPANY INFO and INVOICE INFO
-            company_address = "Jl. Teluk Raya Selatan No. 6, Surabaya<br/>Phone: 031-60166017"
+            # ========================================
+            # CUSTOMER INFO SECTION - Match Invoice
+            # ========================================
             
-            # Generate invoice number with suffix
-            container_no = safe_get('container')
+            # Get receiver from filter
+            receiver_name = filter_criteria.get('receiver_name', '-') if filter_criteria else '-'
+            
+            # Invoice Number - Format sama dengan Invoice
             current_month_roman = {
                 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI",
                 7: "VII", 8: "VIII", 9: "IX", 10: "X", 11: "XI", 12: "XII"
             }
             
-            month_roman = current_month_roman.get(datetime.now().month, "IX")
+            month_roman = current_month_roman.get(datetime.now().month, "X")
             year = datetime.now().year
             
-            # Format: CKL/SUB/IX/2025/container_id + suffix
+            # Format: CKL/SUB/X/2025/container_id + suffix
             base_invoice = f"CKL/SUB/{month_roman}/{year}/{container_id:05d}"
+            
             if invoice_suffix:
                 invoice_number = f"{base_invoice} {invoice_suffix}"
             else:
                 invoice_number = base_invoice
             
+            # ETD Date
             etd_date = safe_get('etd_sub')
             if etd_date and etd_date != '-':
                 try:
@@ -593,61 +420,60 @@ class PDFPackingListGenerator:
             else:
                 formatted_etd = datetime.now().strftime('%d/%m/%Y')
             
-            invoice_info = f"Invoice Number: {invoice_number}<br/>Tanggal (ETD): {formatted_etd}"
-            
-            info_data = [
-                [Paragraph(company_address, company_info_style), 
-                Paragraph(invoice_info, invoice_info_style)]
+            # Customer info table - MATCH Invoice format exactly
+            customer_data = [
+                ['Bill To (Nama Customer)', ':', receiver_name, '', 'Invoice Number', ':', invoice_number],
+                ['', '', '', '', '', '', ''],
+                ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', '', '', ''],
+                ['Destination (Tujuan)', ':', safe_get('destination'), '', 'Tanggal (ETD)', ':', formatted_etd],
+                ['Party (Volume)', ':', f"{safe_get('party')} m3", '', '', '', ''],
             ]
             
-            info_table = Table(info_data, colWidths=[8*cm, 10*cm])
-            info_table.setStyle(TableStyle([
+            customer_table = Table(customer_data, colWidths=[4*cm, 0.3*cm, 5*cm, 1*cm, 3.5*cm, 0.3*cm, 4.9*cm])
+            customer_table.setStyle(TableStyle([
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('ALIGN', (2, 0), (2, -1), 'LEFT'),
+                ('ALIGN', (4, 0), (4, -1), 'LEFT'),
+                ('ALIGN', (5, 0), (5, -1), 'LEFT'),
+                ('ALIGN', (6, 0), (6, -1), 'LEFT'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 0),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 15)
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
             ]))
             
-            story.append(info_table)
+            story.append(customer_table)
+            story.append(Spacer(1, 15))
             
-            # CUSTOMER INFO SECTION
-            if filter_criteria:
-                sender = filter_criteria.get('sender_name', '')
-                receiver = filter_criteria.get('receiver_name', '')
-                
-                customer_data = [
-                    [f"Bill To (Nama Customer): {receiver}"],
-                    [""],
-                    [f"Feeder (Nama Kapal): {safe_get('feeder')}"],
-                    [f"Destination (Tujuan): {safe_get('destination')}"],
-                    [f"Party (Volume): {safe_get('party')} m3"]
-                ]
-                
-                customer_table = Table(customer_data, colWidths=[18*cm])
-                customer_table.setStyle(TableStyle([
-                    ('FONTSIZE', (0, 0), (-1, -1), 9),
-                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                    ('TOPPADDING', (0, 0), (-1, -1), 2),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2)
-                ]))
-                
-                story.append(customer_table)
-                story.append(Spacer(1, 15))
+            # ========================================
+            # ITEMS TABLE - MATCH Invoice format
+            # ========================================
             
-            # ITEMS TABLE - Matching invoice format
-            table_data = [['No.', 'No.\nContainer', 'Pengirim', 'Jenis Barang', 'Kubikasi', 'M3', 'Ton', 'Col', 'Catatan']]
+            # Table header - Add all columns like Invoice
+            table_data = [[
+                'No.', 
+                'No.\nContainer', 
+                'Pengirim', 
+                'Jenis Barang', 
+                'Kubikasi', 
+                'M3', 
+                'Ton', 
+                'Col',
+                'Catatan'
+            ]]
             
             # Items data
             total_m3 = 0
             total_ton = 0
             total_colli = 0
             
+            container_no = safe_get('container')
+            
             for i, barang_row in enumerate(barang_list, 1):
                 try:
-                    # Handle both dict and sqlite3.Row objects
                     if hasattr(barang_row, 'keys'):
                         barang = {key: barang_row[key] for key in barang_row.keys()}
                     else:
@@ -661,42 +487,27 @@ class PDFPackingListGenerator:
                             return default
                     
                     # Get data
-                    pengirim_text = str(safe_barang_get('sender_name', '-'))
-                    # CHANGED: Use Paragraph for pengirim
-                    pengirim_para = Paragraph(pengirim_text, item_text_style)
-                    
+                    pengirim = str(safe_barang_get('sender_name', '-'))
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
-                    jenis_barang = str(safe_barang_get('jenis_barang', '-'))
-                    
-                    # CHANGED: Create Paragraph for proper text wrapping
-                    combined_text = f"{nama_barang}"
-                    if jenis_barang != '-' and jenis_barang != nama_barang:
-                        combined_text += f"<br/>{jenis_barang}"
-                    
-                    combined_jenis = Paragraph(combined_text, item_text_style)
                     
                     p = safe_barang_get('panjang_barang', '-')
                     l = safe_barang_get('lebar_barang', '-')
                     t = safe_barang_get('tinggi_barang', '-')
-
-
-                    # Convert to integer if possible to remove decimals
+                    
+                    # Format dimensi
                     try:
-                        p = str(float(p)) if p != '-' else '-'
-                        l = str(float(l)) if l != '-' else '-'
-                        t = str(float(t)) if t != '-' else '-'
-                    except (ValueError, TypeError):
-                        pass
-
-                    # CHANGED: Use line break for kubikasi to prevent overflow
-                    kubikasi_text = f"{p}x{l}<br/>x{t}"
-                    kubikasi = Paragraph(kubikasi_text, item_text_style)
+                        p_str = f"{float(p):.1f}" if p != '-' else '-'
+                        l_str = f"{float(l):.1f}" if l != '-' else '-'
+                        t_str = f"{float(t):.1f}" if t != '-' else '-'
+                    except:
+                        p_str, l_str, t_str = str(p), str(l), str(t)
+                    
+                    kubikasi = f"{p_str}*{l_str}*{t_str}"
                     
                     m3 = safe_barang_get('m3_barang', 0)
                     ton = safe_barang_get('ton_barang', 0)
                     colli = safe_barang_get('colli_amount', 0)
-                    
-                    catatan = str(safe_barang_get('keterangan', safe_barang_get('notes', '')))
+                    catatan = str(safe_barang_get('keterangan', ''))
                     
                     # Add to totals
                     try:
@@ -709,42 +520,52 @@ class PDFPackingListGenerator:
                     # Format values
                     m3_val = f"{float(m3):.3f}" if m3 not in [None, '', '-'] else "0.000"
                     ton_val = f"{float(ton):.3f}" if ton not in [None, '', '-'] else "0.000"
-                    colli_val = f"{int(colli):.2f}" if colli not in [None, '', '-'] else "0.00"
+                    colli_val = f"{float(colli):.2f}" if colli not in [None, '', '-'] else "0.00"
                     
-                    # Container number with suffix
-                    container_with_suffix = f"{container_no}"
-                    
-                    # CHANGED: Use Paragraph objects
+                    # Add row
                     table_data.append([
-                        str(i), 
-                        container_with_suffix,
-                        pengirim_para,      # Paragraph object
-                        combined_jenis,      # Paragraph object
+                        str(i),
+                        container_no,
+                        pengirim,
+                        nama_barang,
                         kubikasi,
                         m3_val,
-                        ton_val, 
+                        ton_val,
                         colli_val,
-                        catatan
+                        catatan[:20]  # Limit catatan length
                     ])
                     
                 except Exception as e:
                     print(f"[ERROR] Error processing item {i}: {e}")
                     continue
             
-            # CHANGED: Adjusted column widths for better spacing
-            items_table = Table(table_data, colWidths=[
-                0.8*cm,  # No
-                1.6*cm,  # No. Container
-                3.0*cm,  # Pengirim (reduced from 3.2)
-                3.5*cm,  # Jenis Barang (increased from 3.2 for better wrapping)
-                1.8*cm,  # Kubikasi (reduced from 2.0)
-                1.1*cm,  # M3
-                1.1*cm,  # Ton
-                1.1*cm,  # Col
-                2.4*cm   # Catatan
+            # TOTAL row - Match Invoice style
+            table_data.append([
+                'TOTAL',
+                '',
+                '',
+                '',
+                '',
+                f"{total_m3:.3f}",
+                f"{total_ton:.3f}",
+                f"{total_colli:.0f}",
+                ''
             ])
             
-            # Table styling - matching invoice format
+            # Create table - Column widths optimized for A4
+            items_table = Table(table_data, colWidths=[
+                0.8*cm,  # No
+                2.0*cm,  # No. Container
+                3.0*cm,  # Pengirim
+                4.5*cm,  # Jenis Barang
+                2.5*cm,  # Kubikasi
+                1.5*cm,  # M3
+                1.5*cm,  # Ton
+                1.2*cm,  # Col
+                2.0*cm   # Catatan
+            ])
+            
+            # Table styling - MATCH Invoice exactly
             items_table.setStyle(TableStyle([
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -755,38 +576,59 @@ class PDFPackingListGenerator:
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('ALIGN', (0, 1), (1, -1), 'CENTER'),
-                ('ALIGN', (2, 1), (4, -1), 'LEFT'),
-                ('ALIGN', (5, 1), (7, -1), 'RIGHT'),
-                ('ALIGN', (8, 1), (8, -1), 'LEFT'),
-                ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+                ('FONTSIZE', (0, 1), (-1, -2), 8),
+                ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+                ('ALIGN', (0, 1), (0, -2), 'CENTER'),  # No.
+                ('ALIGN', (1, 1), (1, -2), 'CENTER'),  # Container
+                ('ALIGN', (2, 1), (4, -2), 'LEFT'),    # Pengirim to Kubikasi
+                ('ALIGN', (5, 1), (7, -2), 'RIGHT'),   # M3, Ton, Col
+                ('ALIGN', (8, 1), (8, -2), 'LEFT'),    # Catatan
+                ('VALIGN', (0, 1), (-1, -2), 'TOP'),
+                
+                # Total row
+                ('FONTSIZE', (0, -1), (-1, -1), 9),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                ('ALIGN', (0, -1), (4, -1), 'CENTER'),
+                ('ALIGN', (5, -1), (-1, -1), 'RIGHT'),
                 
                 # Borders
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 
-                # Enhanced padding for better spacing
+                # Padding
                 ('LEFTPADDING', (0, 0), (-1, -1), 4),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                
-                # Minimum row height for multiline content
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.white]),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
             
             story.append(items_table)
+            story.append(Spacer(1, 20))
             
-            # PDF ENDS HERE - NO SUMMARY AND NO SIGNATURE
-            print("[DEBUG] PDF selesai tanpa summary dan signature")
+            # ========================================
+            # FOOTER SECTION - Bank info (optional)
+            # ========================================
+            
+            footer_text = """mohon pembayaran dapat di transfer ke rekening:
+
+    A/N : PT CAHAYA KARUNIA LOGISTIK
+    468-651-1189
+    BCA Cabang Surabaya"""
+            
+            footer_para = Paragraph(footer_text.replace('\n', '<br/>'), small_style)
+            story.append(footer_para)
+            story.append(Spacer(1, 10))
+            
+            # Signature area
+            signature_text = "Surabaya,"
+            story.append(Paragraph(signature_text, normal_style))
             
             # Build PDF
             print("[DEBUG] Building final PDF...")
             doc.build(story)
             print(f"[SUCCESS] PDF successfully created at: {file_path}")
             
-            # Check if file exists and has size
+            # Success message
             if os.path.exists(file_path):
                 file_size = os.path.getsize(file_path)
                 print(f"[DEBUG] PDF file size: {file_size} bytes")
@@ -794,15 +636,14 @@ class PDFPackingListGenerator:
                 if file_size > 0:
                     messagebox.showinfo(
                         "Sukses",
-                        f"PDF Packing List berhasil dibuat!\n\n"
-                        f"Lokasi: {file_path}\n"
-                        f"Size: {file_size} bytes\n"
-                        f"Invoice Number: {base_invoice}{' ' + invoice_suffix if invoice_suffix else ''}\n\n"
-                        f"Dokumen siap untuk dicetak atau dikirim\n"
-                        f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+                        f"📄 PDF Packing List berhasil dibuat!\n\n"
+                        f"📁 Lokasi: {file_path}\n"
+                        f"📦 Container: {container_no}\n"
+                        f"🔤 Invoice Number: {invoice_number}\n"
+                        f"👤 Customer: {receiver_name}\n\n"
+                        f"📅 Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
                     )
                     
-                    # Ask if user wants to open the file
                     if messagebox.askyesno("Buka File?", "Apakah Anda ingin membuka PDF sekarang?"):
                         try:
                             if os.name == 'nt':
@@ -810,10 +651,10 @@ class PDFPackingListGenerator:
                             elif os.name == 'posix':
                                 os.system(f'open "{file_path}"')
                         except Exception as e:
-                            messagebox.showwarning("Info", f"File berhasil disimpan, tapi gagal membuka otomatis.\nSilakan buka manual: {file_path}")
+                            messagebox.showwarning("Info", f"File berhasil disimpan.\nSilakan buka manual: {file_path}")
                 else:
                     print("[ERROR] PDF file created but has 0 bytes")
-                    messagebox.showerror("Error", "PDF file created but is empty!")
+                    messagebox.showerror("Error", "PDF file is empty!")
             else:
                 print("[ERROR] PDF file was not created")
                 messagebox.showerror("Error", "PDF file was not created!")
@@ -823,7 +664,7 @@ class PDFPackingListGenerator:
             print(f"[ERROR] {error_msg}")
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
             messagebox.showerror("Error", f"Gagal membuat PDF: {str(e)}")
-    
+        
     def _add_signature_box(self, story, signature_path=None):
         """Add signature box with optional signature image"""
         try:
@@ -880,101 +721,208 @@ class PDFPackingListGenerator:
             print(f"[ERROR] Failed to add signature box: {e}")
             raise
     
-    def generate_pdf_invoice_with_tax(self, container_id, filter_criteria=None):
-        """Generate PDF invoice with tax calculations"""
-        print(f"[DEBUG] Starting PDF Invoice generation for container_id: {container_id}")
+    def generate_combined_pdf_invoice_with_tax(self, container_ids, ref_joa, filter_criteria=None, all_barang=[]):
+        """
+        Generate combined PDF invoice for multiple containers - filter by RECEIVER ONLY
+        
+        Args:
+            container_ids: list of container IDs to combine
+            ref_joa: Reference JOA number
+            filter_criteria: dict with 'receiver_name' (sender is ignored)
+            all_barang: pre-collected barang list (same as packing list)
+        """
+        print(f"[DEBUG] Starting COMBINED PDF Invoice for JOA: {ref_joa}")
+        print(f"[DEBUG] Container IDs: {container_ids}")
         print(f"[DEBUG] Filter criteria: {filter_criteria}")
         
         try:
-            # Get container details
-            container = self.db.get_container_by_id(container_id)
-            if not container:
-                print("[ERROR] Container tidak ditemukan!")
-                messagebox.showerror("Error", "Container tidak ditemukan!")
-                return
+            # Collect all containers
+            all_containers = []
             
-            print(f"[DEBUG] Container found")
+            for container_id in container_ids:
+                container = self.db.get_container_by_id(container_id)
+                if not container:
+                    print(f"[ERROR] Container {container_id} not found!")
+                    continue
+                
+                all_containers.append(container)
             
-            # Get barang in container
-            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
-            print(f"[DEBUG] Found {len(container_barang) if container_barang else 0} items in container")
-            
-            if not container_barang:
-                print("[WARNING] Container kosong!")
-                messagebox.showwarning("Peringatan", "Container kosong, tidak ada yang akan diprint!")
-                return
-            
-            # Filter barang if criteria provided
+            # Filter barang by receiver (same logic as packing list)
             if filter_criteria:
-                print(f"[DEBUG] Applying filter: {filter_criteria}")
-                filtered_barang = []
-                sender_filter = filter_criteria.get('sender_name', '')
                 receiver_filter = filter_criteria.get('receiver_name', '')
+                # ambil hanya barang sesuai receiver
+                filtered_barang = [b for b in all_barang if b.get('receiver_name', '') == receiver_filter]
+            else:
+                # kalau tidak ada filter → ambil semua
+                filtered_barang = all_barang
                 
-                for barang in container_barang:
-                    # Handle both dict and sqlite3.Row objects
-                    if hasattr(barang, 'keys'):  # sqlite3.Row object
-                        sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else ''
-                        receiver = barang['receiver_name'] if 'receiver_name' in barang.keys() and barang['receiver_name'] else ''
-                    else:  # dict object
-                        sender = barang.get('sender_name', '')
-                        receiver = barang.get('receiver_name', '')
+            all_barang = filtered_barang
+            
+            if not all_containers:
+                messagebox.showerror("Error", "No valid containers found!")
+                return
+            
+            if not all_barang:
+                messagebox.showwarning("Warning", "No items found for selected receiver!")
+                return
+            
+            # Count unique senders
+            unique_senders = set()
+            for barang in all_barang:
+                if hasattr(barang, 'keys'):
+                    sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else ''
+                else:
+                    sender = barang.get('sender_name', '')
+                if sender:
+                    unique_senders.add(sender)
+            
+            print(f"[DEBUG] Combined {len(all_barang)} items from {len(all_containers)} containers")
+            print(f"[DEBUG] Total {len(unique_senders)} unique senders: {', '.join(unique_senders)}")
+            
+            # INPUT SUFFIX untuk Combined Invoice Number
+            print("[DEBUG] Asking for invoice suffix...")
+            invoice_suffix = ""
+            
+            try:
+                suffix_dialog = tk.Toplevel()
+                suffix_dialog.title("Invoice Number Suffix")
+                suffix_dialog.geometry("400x250")
+                suffix_dialog.resizable(False, False)
+                suffix_dialog.grab_set()
+                suffix_dialog.transient()
+                
+                suffix_dialog.geometry("+%d+%d" % (suffix_dialog.winfo_screenwidth()//2 - 200, 
+                                                suffix_dialog.winfo_screenheight()//2 - 125))
+                
+                suffix_result = {"value": "", "cancelled": True}
+                
+                main_frame = ttk.Frame(suffix_dialog)
+                main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+                
+                title_label = ttk.Label(main_frame, 
+                                    text="Invoice Number Suffix (Combined)",
+                                    font=('Arial', 12, 'bold'))
+                title_label.pack(pady=(0, 10))
+                
+                exp_label = ttk.Label(main_frame,
+                                    text="Masukkan huruf/abjad yang akan ditambahkan\ndi akhir nomor invoice (contoh: A, B, C, dst)",
+                                    font=('Arial', 10))
+                exp_label.pack(pady=(0, 15))
+                
+                example_label = ttk.Label(main_frame,
+                                        text=f"Contoh: JOA {ref_joa} → Invoice JOA-{ref_joa}-A",
+                                        font=('Arial', 9),
+                                        foreground='blue')
+                example_label.pack(pady=(0, 15))
+                
+                input_frame = ttk.Frame(main_frame)
+                input_frame.pack(fill='x', pady=(0, 20))
+                
+                ttk.Label(input_frame, text="Suffix:", font=('Arial', 10)).pack(side='left')
+                suffix_entry = ttk.Entry(input_frame, font=('Arial', 10), width=10)
+                suffix_entry.pack(side='left', padx=(10, 0))
+                suffix_entry.focus()
+                
+                button_frame = ttk.Frame(main_frame)
+                button_frame.pack(fill='x')
+                
+                def on_ok():
+                    value = suffix_entry.get().strip().upper()
+                    if value and not value.isalpha():
+                        messagebox.showwarning("Peringatan", "Hanya huruf/abjad yang diperbolehkan!")
+                        return
                     
-                    if sender == sender_filter and receiver == receiver_filter:
-                        filtered_barang.append(barang)
+                    suffix_result["value"] = value
+                    suffix_result["cancelled"] = False
+                    suffix_dialog.destroy()
                 
-                container_barang = filtered_barang
-                print(f"[DEBUG] After filtering: {len(container_barang)} items remain")
+                def on_cancel():
+                    suffix_result["cancelled"] = True
+                    suffix_dialog.destroy()
                 
-                if not container_barang:
-                    print("[WARNING] No items after filtering")
-                    messagebox.showwarning("Peringatan", "Tidak ada barang untuk kombinasi yang dipilih!")
+                def on_skip():
+                    suffix_result["value"] = ""
+                    suffix_result["cancelled"] = False
+                    suffix_dialog.destroy()
+                
+                ttk.Button(button_frame, text="OK", command=on_ok).pack(side='left', padx=(0, 5))
+                ttk.Button(button_frame, text="Skip (Tanpa Suffix)", command=on_skip).pack(side='left', padx=5)
+                ttk.Button(button_frame, text="Batal", command=on_cancel).pack(side='right')
+                
+                suffix_dialog.bind("<Return>", lambda e: on_ok())
+                suffix_dialog.bind("<Escape>", lambda e: on_cancel())
+                
+                print("[DEBUG] Suffix dialog created, waiting for user input...")
+                suffix_dialog.wait_window()
+                
+                if suffix_result["cancelled"]:
+                    print("[DEBUG] User cancelled suffix input")
                     return
+                
+                invoice_suffix = suffix_result["value"]
+                print(f"[DEBUG] Invoice suffix: '{invoice_suffix}'")
+                
+            except Exception as suffix_error:
+                print(f"[ERROR] Error in suffix dialog: {suffix_error}")
+                invoice_suffix = ""
             
-            # Generate PDF invoice without suffix input
-            print("[DEBUG] Starting PDF invoice creation with tax...")
-            self._create_pdf_invoice_document(container, container_barang, container_id, filter_criteria)
+            # Generate combined PDF invoice with suffix
+            self._create_pdf_invoice_document_combined(
+                all_containers, 
+                all_barang, 
+                container_ids,
+                ref_joa,
+                filter_criteria,
+                invoice_suffix
+            )
             
-            print("[DEBUG] PDF invoice generation completed successfully!")
+            print("[DEBUG] Combined PDF invoice generation completed successfully!")
             
         except Exception as e:
-            error_msg = f"Error in generate_pdf_invoice_with_tax: {str(e)}"
+            error_msg = f"Error in generate_combined_pdf_invoice_with_tax: {str(e)}"
             print(f"[ERROR] {error_msg}")
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
-            messagebox.showerror("Error", f"Gagal membuat PDF invoice: {str(e)}")
-
-    def _create_pdf_invoice_document(self, container, barang_list, container_id, filter_criteria=None):
-        """Create PDF invoice document with pricing and tax information"""
-        print("[DEBUG] Starting _create_pdf_invoice_document")
+            messagebox.showerror("Error", f"Failed to create combined PDF invoice: {str(e)}")
+                 
+    def _create_pdf_invoice_document_combined(self, containers, barang_list, container_ids, ref_joa, filter_criteria=None, invoice_suffix=""):
+        """Create combined PDF invoice for multiple containers - WITH TAX CHECK"""
+        print("[DEBUG] Starting _create_pdf_invoice_document_combined - WITH TAX CHECK")
         
         try:
-            # Generate filename without suffix
+            # Use first container as template
+            container = containers[0]
+            
+            # Generate filename
             filter_suffix = ""
             if filter_criteria:
-                sender = filter_criteria.get('sender_name', 'Unknown')[:10]
                 receiver = filter_criteria.get('receiver_name', 'Unknown')[:10]
-                # Clean filename from invalid characters
-                sender = "".join(c for c in sender if c.isalnum() or c in (' ', '-', '_')).rstrip()
                 receiver = "".join(c for c in receiver if c.isalnum() or c in (' ', '-', '_')).rstrip()
-                filter_suffix = f"_{sender}_to_{receiver}"
+                filter_suffix = f"_{receiver}"
             
-            filename = f"Invoice_Container_{container_id}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            suffix_file = f"_{invoice_suffix}" if invoice_suffix else ""
+            filename = f"Invoice_Combined_JOA_{ref_joa}{suffix_file}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             print(f"[DEBUG] Generated filename: {filename}")
             
             # Ask user where to save
-            print("[DEBUG] Showing file save dialog...")
             file_path = filedialog.asksaveasfilename(
                 defaultextension=".pdf",
                 filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
                 initialfile=filename,
-                title="Save PDF Invoice"
+                title="Save Combined PDF Invoice"
             )
             
             if not file_path:
                 print("[DEBUG] No file path provided")
                 return
             
-            print(f"[DEBUG] Creating PDF invoice at: {file_path}")
+            print(f"[DEBUG] Creating combined PDF at: {file_path}")
+            
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import cm
+            from reportlab.lib import colors
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
             
             # Create PDF document
             doc = SimpleDocTemplate(file_path, pagesize=A4,
@@ -985,67 +933,74 @@ class PDFPackingListGenerator:
             styles = getSampleStyleSheet()
             
             # Custom styles
-            logo_style = ParagraphStyle(
-                'Logo',
-                parent=styles['Normal'],
-                fontSize=14,
-                alignment=TA_LEFT,
-                textColor=colors.orange,
-                fontName='Helvetica-Bold'
-            )
+            title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18,
+                                        alignment=TA_RIGHT, fontName='Helvetica-Bold', spaceAfter=0)
+            company_info_style = ParagraphStyle('CompanyInfo', parent=styles['Normal'], fontSize=10,
+                                            alignment=TA_LEFT, spaceAfter=10, leading=14)
+            invoice_info_style = ParagraphStyle('InvoiceInfo', parent=styles['Normal'], fontSize=10,
+                                            alignment=TA_RIGHT, spaceAfter=10)
+            item_text_style = ParagraphStyle('ItemText', parent=styles['Normal'], fontSize=9,
+                                            leading=12, alignment=TA_LEFT, wordWrap='CJK')
             
-            title_style = ParagraphStyle(
-                'Title',
-                parent=styles['Heading1'],
-                fontSize=14,
-                alignment=TA_RIGHT,
-                fontName='Helvetica-Bold',
-                spaceAfter=0
-            )
-            
-            company_info_style = ParagraphStyle(
-                'CompanyInfo',
-                parent=styles['Normal'],
-                fontSize=8,
-                alignment=TA_LEFT,
-                spaceAfter=10
-            )
-            
-            invoice_info_style = ParagraphStyle(
-                'InvoiceInfo',
-                parent=styles['Normal'],
-                fontSize=8,
-                alignment=TA_RIGHT,
-                spaceAfter=10
-            )
-            
-            # ADDED: Style for item text with proper wrapping
-            item_text_style = ParagraphStyle(
-                'ItemText',
-                parent=styles['Normal'],
-                fontSize=7,
-                leading=10,
-                alignment=TA_LEFT,
-                wordWrap='CJK'
-            )
-            
-            # Handle logo
+            # ========================================
+            # HEADER: Logo (kiri) + Company Info (tengah) + Title (kanan)
+            # ========================================
             logo_path = "assets/logo-cklogistik.png"
-            header_data = []
-            
             if logo_path and os.path.exists(logo_path):
                 try:
-                    logo_img = Image(logo_path, width=10*cm, height=1.5*cm)
-                    title_text = "INVOICE CONTAINER"
-                    header_data = [[logo_img, Paragraph(title_text, title_style)]]
-                except Exception:
-                    logo_text = "cahaya karunia<br/>logistic"
-                    title_text = "INVOICE CONTAINER"
-                    header_data = [[Paragraph(logo_text, logo_style), Paragraph(title_text, title_style)]]
+                    # Logo: 4.5cm x 1.5cm
+                    logo_img = Image(logo_path, width=4.5*cm, height=1.5*cm)
+                    
+                    # Company info di tengah
+                    company_text = "Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                    company_para = Paragraph(company_text, company_info_style)
+                    
+                    # Title di kanan
+                    title_para = Paragraph("SALES INVOICE", title_style)
+                    
+                    header_data = [[logo_img, company_para, title_para]]
+                    header_table = Table(header_data, colWidths=[5*cm, 7.5*cm, 6*cm])
+                    header_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                        ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+                        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                        ('TOPPADDING', (0, 0), (-1, -1), 0),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+                    ]))
+                    
+                except Exception as logo_error:
+                    print(f"[ERROR] Logo error: {logo_error}")
+                    # Fallback tanpa logo
+                    company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                    company_para = Paragraph(company_text, company_info_style)
+                    title_para = Paragraph("SALES INVOICE", title_style)
+                    header_data = [[company_para, title_para]]
+                    header_table = Table(header_data, colWidths=[10*cm, 8*cm])
+                    header_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                    ]))
+                    
             else:
-                logo_text = "cahaya karunia<br/>logistic"
-                title_text = "INVOICE CONTAINER"
-                header_data = [[Paragraph(logo_text, logo_style), Paragraph(title_text, title_style)]]
+                # Tanpa logo file
+                company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                company_para = Paragraph(company_text, company_info_style)
+                title_para = Paragraph("SALES INVOICE", title_style)
+                header_data = [[company_para, title_para]]
+                header_table = Table(header_data, colWidths=[10*cm, 8*cm])
+                header_table.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ]))
             
             # Safe way to get container values
             def safe_get(key, default='-'):
@@ -1057,26 +1012,14 @@ class PDFPackingListGenerator:
                 except:
                     return str(default)
             
-            # Build story (content)
+            # Build story
             story = []
-            
-            # HEADER SECTION
-            header_table = Table(header_data, colWidths=[8*cm, 10*cm])
-            header_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10)
-            ]))
-            
             story.append(header_table)
+            story.append(Spacer(1, 20))
             
-            # COMPANY INFO and INVOICE INFO
-            company_address = "Jl. Teluk Raya Selatan No. 6, Surabaya<br/>Phone: 031-60166017"
-            
-            # Generate invoice number without suffix
-            container_no = safe_get('container')
+            # ========================================
+            # INVOICE INFO
+            # ========================================
             current_month_roman = {
                 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI",
                 7: "VII", 8: "VIII", 9: "IX", 10: "X", 11: "XI", 12: "XII"
@@ -1084,9 +1027,14 @@ class PDFPackingListGenerator:
             
             month_roman = current_month_roman.get(datetime.now().month, "IX")
             year = datetime.now().year
+            base_invoice = f"CKL/SUB/{month_roman}/{year}/JOA-{ref_joa}"
             
-            # Format: CKL/SUB/IX/2025/container_id (no suffix)
-            invoice_number = f"CKL/SUB/{month_roman}/{year}/{container_id:05d}"
+            if invoice_suffix:
+                invoice_number = f"{base_invoice} {invoice_suffix}"
+            else:
+                invoice_number = base_invoice
+            
+            print(f"[DEBUG] Generated combined invoice number: {invoice_number}")
             
             etd_date = safe_get('etd_sub')
             if etd_date and etd_date != '-':
@@ -1101,101 +1049,158 @@ class PDFPackingListGenerator:
             else:
                 formatted_etd = datetime.now().strftime('%d/%m/%Y')
             
-            invoice_info = f"Invoice Number: {invoice_number}<br/>Tanggal (ETD): {formatted_etd}"
-            
-            info_data = [
-                [Paragraph(company_address, company_info_style), 
-                Paragraph(invoice_info, invoice_info_style)]
-            ]
-            
-            info_table = Table(info_data, colWidths=[8*cm, 10*cm])
-            info_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 15)
-            ]))
-            
-            story.append(info_table)
-            
-            # CUSTOMER INFO SECTION
+            # Customer info
             if filter_criteria:
-                sender = filter_criteria.get('sender_name', '')
                 receiver = filter_criteria.get('receiver_name', '')
                 
                 customer_data = [
-                    [f"Bill To (Nama Customer): {receiver}"],
-                    [""],
-                    [f"Feeder (Nama Kapal): {safe_get('feeder')}"],
-                    [f"Destination (Tujuan): {safe_get('destination')}"],
-                    [f"Party (Volume): {safe_get('party')} m3"]
+                    ['Bill To (Nama Customer)', ':', receiver, '', 'Invoice Number', ':', invoice_number],
+                    ['', '', '', '', '', '', ''],
+                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', '', '', ''],
+                    ['Destination (Tujuan)', ':', safe_get('destination'), '', 'Tanggal (ETD)', ':', formatted_etd],
+                    ['REF JOA', ':', ref_joa, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
                 ]
                 
-                customer_table = Table(customer_data, colWidths=[18*cm])
+                customer_table = Table(customer_data, colWidths=[4.5*cm, 0.3*cm, 5*cm, 1*cm, 3.5*cm, 0.3*cm, 4.9*cm])
                 customer_table.setStyle(TableStyle([
-                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
                     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('ALIGN', (2, 0), (2, -1), 'LEFT'),
+                    ('ALIGN', (4, 0), (4, -1), 'LEFT'),
+                    ('ALIGN', (5, 0), (5, -1), 'LEFT'),
+                    ('ALIGN', (6, 0), (6, -1), 'LEFT'),
                     ('LEFTPADDING', (0, 0), (-1, -1), 0),
                     ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                    ('TOPPADDING', (0, 0), (-1, -1), 2),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2)
+                    ('TOPPADDING', (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
                 ]))
                 
                 story.append(customer_table)
-                story.append(Spacer(1, 15))
+                story.append(Spacer(1, 20))
             
-            # Get tax information by receiver
+            # ========================================
+            # GET TAX INFORMATION - CEK FIELD PAJAK ✅
+            # ========================================
             tax_summary = {}
             try:
                 if filter_criteria:
                     receiver = filter_criteria.get('receiver_name', '')
-                    tax_query = """
-                        SELECT 
-                            bt.penerima,
-                            AVG(bt.ppn_rate) as avg_ppn_rate,
-                            AVG(bt.pph23_rate) as avg_pph_rate,
-                            SUM(bt.ppn_amount) as total_ppn_amount,
-                            SUM(bt.pph23_amount) as total_pph_amount,
-                            SUM(bt.total_nilai_barang) as total_nilai
-                        FROM barang_tax bt
-                        WHERE bt.container_id = ? AND bt.penerima = ?
-                        GROUP BY bt.penerima
-                    """
-                    result = self.db.execute(tax_query, (container_id, receiver))
                     
-                    if result and len(result) > 0:
-                        row = result[0]
+                    # Aggregate tax from all containers - DENGAN CEK PAJAK
+                    total_ppn_amount = 0
+                    total_pph_amount = 0
+                    ppn_rates = []
+                    pph_rates = []
+                    has_any_taxable = False  # Flag untuk cek apakah ada barang kena pajak
+                    
+                    for container_id in container_ids:
+                        # QUERY BARU - Join dengan barang untuk cek field pajak = 1
+                        tax_query = """
+                            SELECT 
+                                AVG(bt.ppn_rate) as avg_ppn_rate,
+                                AVG(bt.pph23_rate) as avg_pph_rate,
+                                SUM(bt.ppn_amount) as total_ppn_amount,
+                                SUM(bt.pph23_amount) as total_pph_amount
+                            FROM barang_tax bt
+                            INNER JOIN barang b ON bt.barang_id = b.barang_id
+                            WHERE bt.container_id = ? 
+                            AND bt.penerima = ?
+                            AND b.pajak = 1
+                        """
+                        result = self.db.execute(tax_query, (container_id, receiver))
+                        
+                        if result and len(result) > 0:
+                            row = result[0]
+                            if row['avg_ppn_rate'] or row['avg_pph_rate']:
+                                has_any_taxable = True
+                                
+                            if row['avg_ppn_rate']:
+                                ppn_rates.append(row['avg_ppn_rate'])
+                            if row['avg_pph_rate']:
+                                pph_rates.append(row['avg_pph_rate'])
+                            total_ppn_amount += row['total_ppn_amount'] or 0
+                            total_pph_amount += row['total_pph_amount'] or 0
+                    
+                    # Hanya set has_tax = True jika ada barang dengan pajak = 1
+                    if has_any_taxable and (ppn_rates or pph_rates):
+                        avg_ppn = (sum(ppn_rates) / len(ppn_rates)) if ppn_rates else 0
+                        avg_pph = (sum(pph_rates) / len(pph_rates)) if pph_rates else 0
+                        
                         tax_summary[receiver] = {
-                            'ppn_rate': (row['avg_ppn_rate'] or 0) * 100,
-                            'pph_rate': (row['avg_pph_rate'] or 0) * 100,
-                            'ppn_amount': row['total_ppn_amount'] or 0,
-                            'pph_amount': row['total_pph_amount'] or 0,
+                            'ppn_rate': avg_ppn * 100,
+                            'pph_rate': avg_pph * 100,
+                            'ppn_amount': total_ppn_amount,
+                            'pph_amount': total_pph_amount,
                             'has_tax': True
                         }
+                        print(f"[DEBUG] Combined tax found: PPN=Rp {total_ppn_amount:,.0f}, PPH=Rp {total_pph_amount:,.0f}")
                     else:
+                        # TIDAK ADA PAJAK
                         tax_summary[receiver] = {
-                            'ppn_rate': 0, 'pph_rate': 0, 'ppn_amount': 0, 'pph_amount': 0, 'has_tax': False
+                            'ppn_rate': 0, 'pph_rate': 0, 
+                            'ppn_amount': 0, 'pph_amount': 0, 
+                            'has_tax': False
                         }
+                        print(f"[DEBUG] No taxable items found (pajak = 0 or no barang with pajak = 1)")
             except Exception as e:
-                print(f"Error getting tax info: {e}")
+                print(f"[ERROR] Getting tax info: {e}")
+                import traceback
+                traceback.print_exc()
             
+            # ========================================
             # ITEMS TABLE WITH PRICING
-            table_data = [['No.', 'No.\nContainer', 'Pengirim', 'Jenis Barang', 'Kubikasi', 'M3', 'Ton', 'Col', 'Unit Price', 'Total Price']]
+            # ========================================
             
-            # Items data
+            # Prepare data with container info
+            items_with_container = []
+            for barang_row in barang_list:
+                try:
+                    if hasattr(barang_row, 'keys'):
+                        barang = {key: barang_row[key] for key in barang_row.keys()}
+                    else:
+                        barang = dict(barang_row)
+                    
+                    # Get container number for this item
+                    item_container_id = barang.get('container_id', container_ids[0])
+                    item_container = next((c for c, cid in zip(containers, container_ids) if cid == item_container_id), container)
+                    container_no = item_container.get('container', f'ID {item_container_id}') if hasattr(item_container, 'get') else str(item_container_id)
+                    
+                    items_with_container.append({
+                        'barang': barang,
+                        'container_no': container_no
+                    })
+                except Exception as e:
+                    print(f"[ERROR] Processing barang: {e}")
+                    continue
+            
+            # Table header
+            table_data = [[
+                'No.', 
+                'Container',
+                'Jenis Barang', 
+                'Kubikasi', 
+                'M3', 
+                'Ton', 
+                'Col',
+                'Unit Price',
+                'Total Price'
+            ]]
+            
+            # Totals
             total_m3 = 0
             total_ton = 0
             total_colli = 0
             total_price = 0
             
-            for i, barang_row in enumerate(barang_list, 1):
+            item_counter = 1
+            
+            # Process each item
+            for item in items_with_container:
                 try:
-                    # Handle both dict and sqlite3.Row objects
-                    if hasattr(barang_row, 'keys'):
-                        barang = {key: barang_row[key] for key in barang_row.keys()}
-                    else:
-                        barang = dict(barang_row)
+                    barang = item['barang']
+                    container_no = item['container_no']
                     
                     def safe_barang_get(key, default='-'):
                         try:
@@ -1204,26 +1209,26 @@ class PDFPackingListGenerator:
                         except Exception:
                             return default
                     
-                    # Get data
-                    pengirim_text = str(safe_barang_get('sender_name', '-'))
-                    # CHANGED: Use Paragraph for pengirim
-                    pengirim_para = Paragraph(pengirim_text, item_text_style)
-                    
+                    # Jenis Barang (dengan pengirim)
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
                     jenis_barang = str(safe_barang_get('jenis_barang', '-'))
                     
-                    # CHANGED: Create Paragraph for proper text wrapping
-                    combined_text = f"{nama_barang}"
+                    pengirim_text = str(safe_barang_get('sender_name', ''))
+                    if pengirim_text and pengirim_text != '-':
+                        combined_text = f"{pengirim_text}<br/>{nama_barang}"
+                    else:
+                        combined_text = f"{nama_barang}"
+                    
                     if jenis_barang != '-' and jenis_barang != nama_barang:
-                        combined_text += f"<br/>{jenis_barang}"
+                        combined_text += f"<br/><i>{jenis_barang}</i>"
                     
                     combined_jenis = Paragraph(combined_text, item_text_style)
                     
+                    # Kubikasi
                     p = safe_barang_get('panjang_barang', '-')
                     l = safe_barang_get('lebar_barang', '-')
                     t = safe_barang_get('tinggi_barang', '-')
 
-                    # Convert to integer if possible to remove decimals
                     try:
                         p = str(float(p)) if p != '-' else '-'
                         l = str(float(l)) if l != '-' else '-'
@@ -1231,40 +1236,51 @@ class PDFPackingListGenerator:
                     except (ValueError, TypeError):
                         pass
 
-                    # CHANGED: Use line break for kubikasi to prevent overflow
-                    kubikasi_text = f"{p}x{l}<br/>x{t}"
+                    kubikasi_text = f"{p}*{l}*{t}"
                     kubikasi = Paragraph(kubikasi_text, item_text_style)
                     
-                    m3 = safe_barang_get('m3_barang', 0)
-                    ton = safe_barang_get('ton_barang', 0)
+                    # Values
+                    m3_per_unit = safe_barang_get('m3_barang', 0)
+                    ton_per_unit = safe_barang_get('ton_barang', 0)
                     colli = safe_barang_get('colli_amount', 0)
                     unit_price = safe_barang_get('harga_per_unit', 0)
                     total_harga = safe_barang_get('total_harga', 0)
                     
-                    # Add to totals
+                    # Convert to float/int for calculation
                     try:
-                        total_m3 += float(m3) if m3 not in [None, '', '-'] else 0
-                        total_ton += float(ton) if ton not in [None, '', '-'] else 0
-                        total_colli += int(colli) if colli not in [None, '', '-'] else 0
+                        m3_float = float(m3_per_unit) if m3_per_unit not in [None, '', '-'] else 0
+                        ton_float = float(ton_per_unit) if ton_per_unit not in [None, '', '-'] else 0
+                        colli_int = int(colli) if colli not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        m3_float = 0
+                        ton_float = 0
+                        colli_int = 0
+                    
+                    # Calculate total: M3 * Colli and Ton * Colli
+                    total_m3_item = m3_float * colli_int
+                    total_ton_item = ton_float * colli_int
+                    
+                    # Add to grand total
+                    total_m3 += total_m3_item
+                    total_ton += total_ton_item
+                    total_colli += colli_int
+                    
+                    try:
                         total_price += float(total_harga) if total_harga not in [None, '', '-'] else 0
                     except (ValueError, TypeError):
                         pass
                     
                     # Format values
-                    m3_val = f"{float(m3):.3f}" if m3 not in [None, '', '-'] else "0.000"
-                    ton_val = f"{float(ton):.3f}" if ton not in [None, '', '-'] else "0.000"
-                    colli_val = f"{int(colli):.2f}" if colli not in [None, '', '-'] else "0.00"
+                    m3_val = f"{total_m3_item:.3f}"
+                    ton_val = f"{total_ton_item:.3f}"
+                    colli_val = f"{colli_int}"
                     unit_price_val = f"Rp {float(unit_price):,.0f}" if unit_price not in [None, '', '-'] else "Rp 0"
                     total_price_val = f"Rp {float(total_harga):,.0f}" if total_harga not in [None, '', '-'] else "Rp 0"
                     
-                    container_with_suffix = container_no
-                    
-                    # CHANGED: Use Paragraph objects for pengirim and jenis barang
                     table_data.append([
-                        str(i), 
-                        container_with_suffix,
-                        pengirim_para,      # Paragraph object
-                        combined_jenis,      # Paragraph object
+                        str(item_counter), 
+                        container_no,
+                        combined_jenis,
                         kubikasi,
                         m3_val,
                         ton_val, 
@@ -1273,54 +1289,45 @@ class PDFPackingListGenerator:
                         total_price_val
                     ])
                     
+                    item_counter += 1
+                    
                 except Exception as e:
-                    print(f"[ERROR] Error processing item {i}: {e}")
+                    print(f"[ERROR] Error processing item {item_counter}: {e}")
                     continue
             
-            # Add tax rows if applicable
+            # ========================================
+            # ADD TAX ROWS - HANYA JIKA has_tax = True ✅
+            # ========================================
             receiver = filter_criteria.get('receiver_name', '') if filter_criteria else ''
             if receiver in tax_summary and tax_summary[receiver]['has_tax']:
                 tax_data = tax_summary[receiver]
                 
-                # Add PPN row
+                # PPN row
                 if tax_data['ppn_amount'] > 0:
                     table_data.append([
-                        '', 
-                        '',
-                        '',
-                        f"PPN {tax_data['ppn_rate']:.1f}%",
-                        '',
-                        '',
-                        '', 
-                        '',
-                        '',
-                        f"Rp {tax_data['ppn_amount']:,.0f}"
+                        '', '', f"PPN {tax_data['ppn_rate']:.1f}%",
+                        '', '', '', '', '', f"Rp {tax_data['ppn_amount']:,.0f}"
                     ])
                     total_price += tax_data['ppn_amount']
+                    print(f"[DEBUG] Added PPN row: Rp {tax_data['ppn_amount']:,.0f}")
                 
-                # Add PPH row
+                # PPH row
                 if tax_data['pph_amount'] > 0:
                     table_data.append([
-                        '', 
-                        '',
-                        '',
-                        f"PPH {tax_data['pph_rate']:.1f}%",
-                        '',
-                        '',
-                        '', 
-                        '',
-                        '',
-                        f"Rp {tax_data['pph_amount']:,.0f}"
+                        '', '', f"PPH {tax_data['pph_rate']:.1f}%",
+                        '', '', '', '', '', f"Rp {tax_data['pph_amount']:,.0f}"
                     ])
                     total_price += tax_data['pph_amount']
+                    print(f"[DEBUG] Added PPH row: Rp {tax_data['pph_amount']:,.0f}")
+            else:
+                print("[DEBUG] No tax rows added (has_tax = False)")
             
             # Add total row
             table_data.append([
                 'TOTAL', 
-                '',
-                '',
-                '',
-                '',
+                '', 
+                '', 
+                '', 
                 f"{total_m3:.3f}",
                 f"{total_ton:.3f}", 
                 f"{total_colli:.0f}",
@@ -1328,53 +1335,50 @@ class PDFPackingListGenerator:
                 f"Rp {total_price:,.0f}"
             ])
             
-            # CHANGED: Adjusted column widths for better spacing
+            # Create table
             items_table = Table(table_data, colWidths=[
-                0.8*cm,  # No
-                1.6*cm,  # No. Container
-                3.0*cm,  # Pengirim (reduced from 3.2)
-                3.5*cm,  # Jenis Barang (increased from 3.2 for better wrapping)
-                1.8*cm,  # Kubikasi (reduced from 2.0)
-                1.1*cm,  # M3
-                1.1*cm,  # Ton
-                1.1*cm,  # Col
-                1.8*cm,  # Unit Price
-                2.4*cm   # Total Price
+                1.5*cm,  # No
+                2.2*cm,  # Container
+                5.0*cm,  # Jenis Barang
+                2.8*cm,  # Kubikasi
+                1.5*cm,  # M3
+                1.5*cm,  # Ton
+                1.2*cm,  # Col
+                2.3*cm,  # Unit Price
+                2.5*cm   # Total Price
             ])
             
-            # Table styling with improved spacing
+            # Table styling
             items_table.setStyle(TableStyle([
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows
-                ('FONTSIZE', (0, 1), (-1, -2), 8),
+                ('FONTSIZE', (0, 1), (-1, -2), 9),
                 ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
-                ('ALIGN', (0, 1), (1, -2), 'CENTER'),
-                ('ALIGN', (2, 1), (4, -2), 'LEFT'),
-                ('ALIGN', (5, 1), (-1, -2), 'RIGHT'),
+                ('ALIGN', (0, 1), (1, -2), 'CENTER'),  # No & Container
+                ('ALIGN', (2, 1), (3, -2), 'LEFT'),    # Jenis Barang & Kubikasi
+                ('ALIGN', (4, 1), (-1, -2), 'RIGHT'),  # M3, Ton, Col, Prices
                 ('VALIGN', (0, 1), (-1, -2), 'TOP'),
                 
-                # Total row styling
-                ('FONTSIZE', (0, -1), (0, -1), 6),
-                ('FONTSIZE', (1, -1), (-1, -1), 9),
+                # Total row
+                ('FONTSIZE', (0, -1), (-1, -1), 11),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-                ('ALIGN', (0, -1), (4, -1), 'CENTER'),
-                ('ALIGN', (5, -1), (-1, -1), 'RIGHT'),
-                ('VALIGN', (0, -1), (-1, -1), 'MIDDLE'),
+                ('ALIGN', (0, -1), (3, -1), 'CENTER'),
+                ('ALIGN', (4, -1), (-1, -1), 'RIGHT'),
                 
                 # Borders
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 
                 # Padding
-                ('LEFTPADDING', (0, 0), (-1, -1), 4),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
                 ('TOPPADDING', (0, 0), (-1, -1), 6),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 
@@ -1385,48 +1389,601 @@ class PDFPackingListGenerator:
             story.append(Spacer(1, 20))
             
             # Build PDF
-            print("[DEBUG] Building final PDF invoice...")
+            print("[DEBUG] Building final combined PDF invoice...")
             doc.build(story)
-            print(f"[SUCCESS] PDF invoice successfully created at: {file_path}")
+            print(f"[SUCCESS] Combined PDF invoice created at: {file_path}")
             
-            # Check if file exists and has size
+            # Success message
             if os.path.exists(file_path):
                 file_size = os.path.getsize(file_path)
-                print(f"[DEBUG] PDF file size: {file_size} bytes")
                 
                 if file_size > 0:
+                    # Build display invoice number
+                    display_invoice = base_invoice
+                    if invoice_suffix:
+                        display_invoice += f" {invoice_suffix}"
+                    
                     messagebox.showinfo(
-                        "Sukses",
-                        f"PDF Invoice berhasil dibuat!\n\n"
-                        f"Lokasi: {file_path}\n"
-                        f"Size: {file_size} bytes\n"
-                        f"Invoice Number: {invoice_number}\n"
-                        f"Total Amount: Rp {total_price:,.0f}\n\n"
-                        f"Dokumen siap untuk dicetak atau dikirim\n"
-                        f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+                        "Success",
+                        f"✅ Combined Invoice PDF created!\n\n"
+                        f"📁 Location: {file_path}\n"
+                        f"📦 Containers: {len(containers)}\n"
+                        f"📄 REF JOA: {ref_joa}\n"
+                        f"🔤 Invoice Number: {display_invoice}\n"
+                        f"💰 Total Amount: Rp {total_price:,.0f}\n\n"
+                        f"📅 Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
                     )
                     
-                    # Ask if user wants to open the file
-                    if messagebox.askyesno("Buka File?", "Apakah Anda ingin membuka PDF invoice sekarang?"):
+                    if messagebox.askyesno("Open File?", "Open the PDF now?"):
                         try:
                             if os.name == 'nt':
                                 os.startfile(file_path)
                             elif os.name == 'posix':
                                 os.system(f'open "{file_path}"')
                         except Exception as e:
-                            messagebox.showwarning("Info", f"File berhasil disimpan, tapi gagal membuka otomatis.\nSilakan buka manual: {file_path}")
-                else:
-                    print("[ERROR] PDF file created but has 0 bytes")
-                    messagebox.showerror("Error", "PDF file created but is empty!")
-            else:
-                print("[ERROR] PDF file was not created")
-                messagebox.showerror("Error", "PDF file was not created!")
-                    
+                            messagebox.showwarning("Info", f"File saved but couldn't open automatically.\nPlease open manually: {file_path}")
+                            
         except Exception as e:
-            error_msg = f"Error in _create_pdf_invoice_document: {str(e)}"
+            error_msg = f"Error in _create_pdf_invoice_document_combined: {str(e)}"
             print(f"[ERROR] {error_msg}")
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
-            messagebox.showerror("Error", f"Gagal membuat PDF invoice: {str(e)}")
+            messagebox.showerror("Error", f"Failed to create combined PDF: {str(e)}")
             
         
+    def generate_combined_pdf_packing_list(self, container_ids, ref_joa, filter_criteria=None, all_barang = []):
+        """
+        Generate combined PDF packing list for multiple containers - filter by RECEIVER ONLY
         
+        Args:
+            container_ids: list of container IDs
+            ref_joa: Reference JOA number
+            filter_criteria: dict with 'receiver_name' (sender ignored)
+        """
+        print(f"[DEBUG] Starting COMBINED Packing List PDF for JOA: {ref_joa}")
+        print(f"[DEBUG] Container IDs: {container_ids}")
+        print(f"[DEBUG] Filter criteria: {filter_criteria}")
+        
+        try:
+            # Collect all containers and barang
+            all_containers = []
+            
+            for container_id in container_ids:
+                container = self.db.get_container_by_id(container_id)
+                if not container:
+                    print(f"[ERROR] Container {container_id} not found!")
+                    continue
+                
+                all_containers.append(container)
+                
+            if filter_criteria:
+                receiver_filter = filter_criteria.get('receiver_name', '')
+                # ambil hanya barang sesuai receiver
+                filtered_barang = [b for b in all_barang if b.get('receiver_name', '') == receiver_filter]
+            else:
+                # kalau tidak ada filter → ambil semua
+                filtered_barang = all_barang
+                
+            all_barang = filtered_barang
+            
+            
+            if not all_containers:
+                messagebox.showerror("Error", "No valid containers found!")
+                return
+            
+            if not all_barang:
+                messagebox.showwarning("Warning", "No items found for selected receiver!")
+                return
+            
+            # Count unique senders
+            unique_senders = set()
+            for barang in all_barang:
+                if hasattr(barang, 'keys'):
+                    sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else ''
+                else:
+                    sender = barang.get('sender_name', '')
+                if sender:
+                    unique_senders.add(sender)
+            
+            print(f"[DEBUG] Combined {len(all_barang)} items from {len(all_containers)} containers")
+            print(f"[DEBUG] Total {len(unique_senders)} unique senders: {', '.join(unique_senders)}")
+            
+            # INPUT SUFFIX
+            print("[DEBUG] Asking for suffix...")
+            invoice_suffix = ""
+            
+            try:
+                suffix_dialog = tk.Toplevel()
+                suffix_dialog.title("Packing List Number Suffix")
+                suffix_dialog.geometry("400x250")
+                suffix_dialog.resizable(False, False)
+                suffix_dialog.grab_set()
+                suffix_dialog.transient()
+                
+                suffix_dialog.geometry("+%d+%d" % (suffix_dialog.winfo_screenwidth()//2 - 200, 
+                                                suffix_dialog.winfo_screenheight()//2 - 125))
+                
+                suffix_result = {"value": "", "cancelled": True}
+                
+                main_frame = ttk.Frame(suffix_dialog)
+                main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+                
+                title_label = ttk.Label(main_frame, 
+                                    text="Packing List Number Suffix (Combined)",
+                                    font=('Arial', 12, 'bold'))
+                title_label.pack(pady=(0, 10))
+                
+                exp_label = ttk.Label(main_frame,
+                                    text="Masukkan huruf/abjad suffix\n(contoh: A, B, C, dst)",
+                                    font=('Arial', 10))
+                exp_label.pack(pady=(0, 15))
+                
+                example_label = ttk.Label(main_frame,
+                                        text=f"Contoh: JOA {ref_joa} → PL JOA-{ref_joa}-A",
+                                        font=('Arial', 9),
+                                        foreground='blue')
+                example_label.pack(pady=(0, 15))
+                
+                input_frame = ttk.Frame(main_frame)
+                input_frame.pack(fill='x', pady=(0, 20))
+                
+                ttk.Label(input_frame, text="Suffix:", font=('Arial', 10)).pack(side='left')
+                suffix_entry = ttk.Entry(input_frame, font=('Arial', 10), width=10)
+                suffix_entry.pack(side='left', padx=(10, 0))
+                suffix_entry.focus()
+                
+                button_frame = ttk.Frame(main_frame)
+                button_frame.pack(fill='x')
+                
+                def on_ok():
+                    value = suffix_entry.get().strip().upper()
+                    if value and not value.isalpha():
+                        messagebox.showwarning("Peringatan", "Hanya huruf/abjad!")
+                        return
+                    
+                    suffix_result["value"] = value
+                    suffix_result["cancelled"] = False
+                    suffix_dialog.destroy()
+                
+                def on_cancel():
+                    suffix_result["cancelled"] = True
+                    suffix_dialog.destroy()
+                
+                def on_skip():
+                    suffix_result["value"] = ""
+                    suffix_result["cancelled"] = False
+                    suffix_dialog.destroy()
+                
+                ttk.Button(button_frame, text="OK", command=on_ok).pack(side='left', padx=(0, 5))
+                ttk.Button(button_frame, text="Skip", command=on_skip).pack(side='left', padx=5)
+                ttk.Button(button_frame, text="Batal", command=on_cancel).pack(side='right')
+                
+                suffix_dialog.bind("<Return>", lambda e: on_ok())
+                suffix_dialog.bind("<Escape>", lambda e: on_cancel())
+                
+                suffix_dialog.wait_window()
+                
+                if suffix_result["cancelled"]:
+                    print("[DEBUG] User cancelled")
+                    return
+                
+                invoice_suffix = suffix_result["value"]
+                print(f"[DEBUG] Suffix: '{invoice_suffix}'")
+                
+            except Exception as suffix_error:
+                print(f"[ERROR] Suffix dialog error: {suffix_error}")
+                invoice_suffix = ""
+            
+            # Generate combined PDF
+            self._create_combined_packing_list_pdf(
+                all_containers, 
+                all_barang, 
+                container_ids,
+                ref_joa,
+                filter_criteria,
+                invoice_suffix
+            )
+            
+            print("[DEBUG] Combined packing list PDF completed!")
+            
+        except Exception as e:
+            error_msg = f"Error in generate_combined_pdf_packing_list: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            messagebox.showerror("Error", f"Failed: {str(e)}")
+
+    def _create_combined_packing_list_pdf(self, containers, barang_list, container_ids, ref_joa, filter_criteria=None, invoice_suffix=""):
+        """Create combined packing list PDF - Container as separate column"""
+        print("[DEBUG] Starting _create_combined_packing_list_pdf - Container Column")
+        
+        try:
+            container = containers[0]  # Use first as template
+            
+            # Generate filename
+            filter_suffix = ""
+            if filter_criteria:
+                receiver = filter_criteria.get('receiver_name', 'Unknown')[:10]
+                receiver = "".join(c for c in receiver if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                filter_suffix = f"_{receiver}"
+            
+            suffix_file = f"_{invoice_suffix}" if invoice_suffix else ""
+            filename = f"PackingList_Combined_JOA_{ref_joa}{suffix_file}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            print(f"[DEBUG] Filename: {filename}")
+            
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+                initialfile=filename,
+                title="Save Combined Sales Invoice PDF"
+            )
+            
+            if not file_path:
+                return
+            
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import cm
+            from reportlab.lib import colors
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+            
+            doc = SimpleDocTemplate(file_path, pagesize=A4,
+                                rightMargin=50, leftMargin=50,
+                                topMargin=50, bottomMargin=50)
+            
+            styles = getSampleStyleSheet()
+            
+            # Styles
+            title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16,
+                                        alignment=TA_RIGHT, fontName='Helvetica-Bold', spaceAfter=0)
+            company_info_style = ParagraphStyle('CompanyInfo', parent=styles['Normal'], fontSize=9,
+                                            alignment=TA_LEFT, spaceAfter=10)
+            invoice_info_style = ParagraphStyle('InvoiceInfo', parent=styles['Normal'], fontSize=9,
+                                            alignment=TA_RIGHT, spaceAfter=10)
+            item_text_style = ParagraphStyle('ItemText', parent=styles['Normal'], fontSize=8,
+                                            leading=11, alignment=TA_LEFT, wordWrap='CJK')
+            
+            # ========================================
+            # HEADER: Logo + Company Info + Title
+            # ========================================
+            logo_path = "assets/logo-cklogistik.png"
+            if logo_path and os.path.exists(logo_path):
+                try:
+                    logo_img = Image(logo_path, width=4*cm, height=1.2*cm)
+                    company_text = "Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                    company_para = Paragraph(company_text, company_info_style)
+                    title_para = Paragraph("PACKING LISTS", title_style)
+                    
+                    header_data = [[logo_img, company_para, title_para]]
+                    header_table = Table(header_data, colWidths=[4.5*cm, 7*cm, 7*cm])
+                    header_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                        ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+                        ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                    ]))
+                    
+                except Exception as logo_error:
+                    print(f"[ERROR] Logo error: {logo_error}")
+                    company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                    company_para = Paragraph(company_text, company_info_style)
+                    title_para = Paragraph("SALES INVOICE", title_style)
+                    header_data = [[company_para, title_para]]
+                    header_table = Table(header_data, colWidths=[10*cm, 8*cm])
+                    header_table.setStyle(TableStyle([
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                    ]))
+            else:
+                company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                company_para = Paragraph(company_text, company_info_style)
+                title_para = Paragraph("SALES INVOICE", title_style)
+                header_data = [[company_para, title_para]]
+                header_table = Table(header_data, colWidths=[10*cm, 8*cm])
+                header_table.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ]))
+            
+            def safe_get(key, default='-'):
+                try:
+                    if hasattr(container, 'get'):
+                        return str(container.get(key, default) or default)
+                    else:
+                        return str(container[key] if key in container and container[key] else default)
+                except:
+                    return str(default)
+            
+            story = []
+            story.append(header_table)
+            story.append(Spacer(1, 15))
+            
+            # ========================================
+            # INVOICE INFO
+            # ========================================
+            current_month_roman = {1: "I", 2: "II", 3: "III", 4: "IV", 5: "V", 6: "VI",
+                                7: "VII", 8: "VIII", 9: "IX", 10: "X", 11: "XI", 12: "XII"}
+            month_roman = current_month_roman.get(datetime.now().month, "IX")
+            year = datetime.now().year
+            base_invoice = f"CKL/SUB/{month_roman}/{year}/JOA-{ref_joa}"
+            
+            if invoice_suffix:
+                invoice_number = f"{base_invoice} {invoice_suffix}"
+            else:
+                invoice_number = base_invoice
+            
+            etd_date = safe_get('etd_sub')
+            if etd_date and etd_date != '-':
+                try:
+                    if isinstance(etd_date, str):
+                        etd_obj = datetime.strptime(etd_date, '%Y-%m-%d')
+                    else:
+                        etd_obj = etd_date
+                    formatted_etd = etd_obj.strftime('%d/%m/%Y')
+                except:
+                    formatted_etd = etd_date
+            else:
+                formatted_etd = datetime.now().strftime('%d/%m/%Y')
+            
+            # Customer info
+            if filter_criteria:
+                receiver = filter_criteria.get('receiver_name', '')
+                
+                customer_data = [
+                    ['Bill To (Nama Customer)', ':', receiver, '', 'Invoice Number', ':', invoice_number],
+                    ['', '', '', '', '', '', ''],
+                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', '', '', ''],
+                    ['Destination (Tujuan)', ':', safe_get('destination'), '', 'Tanggal (ETD)', ':', formatted_etd],
+                    ['REF JOA', ':', ref_joa, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
+                ]
+                
+                customer_table = Table(customer_data, colWidths=[4*cm, 0.3*cm, 5*cm, 1*cm, 3.5*cm, 0.3*cm, 4.9*cm])
+                customer_table.setStyle(TableStyle([
+                    ('FONTSIZE', (0, 0), (-1, -1), 9),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('ALIGN', (2, 0), (2, -1), 'LEFT'),
+                    ('ALIGN', (4, 0), (4, -1), 'LEFT'),
+                    ('ALIGN', (5, 0), (5, -1), 'LEFT'),
+                    ('ALIGN', (6, 0), (6, -1), 'LEFT'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ]))
+                story.append(customer_table)
+                story.append(Spacer(1, 15))
+            
+            # ========================================
+            # ITEMS TABLE - DENGAN KOLOM CONTAINER
+            # ========================================
+            
+            # Prepare data with container info
+            items_with_container = []
+            for barang_row in barang_list:
+                try:
+                    if hasattr(barang_row, 'keys'):
+                        barang = {key: barang_row[key] for key in barang_row.keys()}
+                    else:
+                        barang = dict(barang_row)
+                    
+                    # Get container number for this item
+                    item_container_id = barang.get('container_id', container_ids[0])
+                    item_container = next((c for c, cid in zip(containers, container_ids) if cid == item_container_id), container)
+                    container_no = item_container.get('container', f'ID {item_container_id}') if hasattr(item_container, 'get') else str(item_container_id)
+                    
+                    items_with_container.append({
+                        'barang': barang,
+                        'container_no': container_no
+                    })
+                except Exception as e:
+                    print(f"[ERROR] Processing barang: {e}")
+                    continue
+            
+            # Table header - DENGAN KOLOM CONTAINER
+            table_data = [[
+                'No.', 
+                'Container',  # KOLOM BARU
+                'Jenis Barang', 
+                'Kubikasi', 
+                'M3', 
+                'Ton', 
+                'Col',
+                'Catatan'
+            ]]
+            
+            total_m3 = 0
+            total_ton = 0
+            total_colli = 0
+            
+            item_counter = 1
+            
+            # Process each item
+            for item in items_with_container:
+                try:
+                    barang = item['barang']
+                    container_no = item['container_no']
+                    
+                    def safe_barang_get(key, default='-'):
+                        try:
+                            value = barang.get(key, default)
+                            return value if value not in [None, '', 'NULL', 'null'] else default
+                        except:
+                            return default
+                    
+                    # Jenis Barang (dengan pengirim)
+                    nama_barang = str(safe_barang_get('nama_barang', '-'))
+                    jenis_barang = str(safe_barang_get('jenis_barang', '-'))
+                    
+                    pengirim_text = str(safe_barang_get('sender_name', ''))
+                    if pengirim_text and pengirim_text != '-':
+                        combined_text = f"{pengirim_text}<br/>{nama_barang}"
+                    else:
+                        combined_text = f"{nama_barang}"
+                    
+                    if jenis_barang != '-' and jenis_barang != nama_barang:
+                        combined_text += f"<br/><i>{jenis_barang}</i>"
+                    
+                    combined_jenis = Paragraph(combined_text, item_text_style)
+                    
+                    # Kubikasi
+                    p = safe_barang_get('panjang_barang', '-')
+                    l = safe_barang_get('lebar_barang', '-')
+                    t = safe_barang_get('tinggi_barang', '-')
+                    
+                    try:
+                        p = str(float(p)) if p != '-' else '-'
+                        l = str(float(l)) if l != '-' else '-'
+                        t = str(float(t)) if t != '-' else '-'
+                    except (ValueError, TypeError):
+                        pass
+                    
+                    kubikasi_text = f"{p}*{l}*{t}"
+                    kubikasi = Paragraph(kubikasi_text, item_text_style)
+                    
+                    # Values
+                    
+                    colli = safe_barang_get('colli_amount', 0)
+                    m3 = safe_barang_get('m3_barang', 0) * colli
+                    ton = safe_barang_get('ton_barang', 0) * colli
+                    catatan = str(safe_barang_get('keterangan', safe_barang_get('notes', '')))
+                    
+                    try:
+                        total_m3 += float(m3) if m3 not in [None, '', '-'] else 0
+                        total_ton += float(ton) if ton not in [None, '', '-'] else 0
+                        total_colli += int(colli) if colli not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        pass
+                    
+                    m3_val = f"{float(m3):.3f}" if m3 not in [None, '', '-'] else "0.000"
+                    ton_val = f"{float(ton):.3f}" if ton not in [None, '', '-'] else "0.000"
+                    colli_val = f"{int(colli):.2f}" if colli not in [None, '', '-'] else "0.00"
+                    
+                    # Item row - DENGAN CONTAINER
+                    table_data.append([
+                        str(item_counter),
+                        container_no,  # CONTAINER NUMBER
+                        combined_jenis,
+                        kubikasi,
+                        m3_val,
+                        ton_val,
+                        colli_val,
+                        catatan[:30]
+                    ])
+                    
+                    item_counter += 1
+                    
+                except Exception as e:
+                    print(f"[ERROR] Item error: {e}")
+                    continue
+            
+            # TOTAL row
+            table_data.append([
+                'TOTAL',
+                '',  # Empty container cell
+                '',
+                '',
+                f"{total_m3:.3f}",
+                f"{total_ton:.3f}",
+                f"{total_colli:.0f}",
+                ''
+            ])
+            
+            # Create table - DENGAN KOLOM CONTAINER
+            items_table = Table(table_data, colWidths=[
+                1.5*cm,  # No
+                2.2*cm,  # Container (KOLOM BARU)
+                5.5*cm,  # Jenis Barang
+                2.5*cm,  # Kubikasi
+                1.6*cm,  # M3
+                1.6*cm,  # Ton
+                1.3*cm,  # Col
+                3.5*cm   # Catatan
+            ])
+            
+            # Table styling
+            style_commands = [
+                # Header row
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+                
+                # Data rows
+                ('FONTSIZE', (0, 1), (-1, -2), 8),
+                ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+                ('ALIGN', (0, 1), (0, -2), 'CENTER'),  # No
+                ('ALIGN', (1, 1), (1, -2), 'CENTER'),  # Container
+                ('ALIGN', (2, 1), (3, -2), 'LEFT'),    # Jenis Barang & Kubikasi
+                ('ALIGN', (4, 1), (6, -2), 'RIGHT'),   # M3, Ton, Col
+                ('ALIGN', (7, 1), (7, -2), 'LEFT'),    # Catatan
+                ('VALIGN', (0, 1), (-1, -2), 'TOP'),
+                
+                # Total row
+                ('FONTSIZE', (0, -1), (-1, -1), 10),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+                ('ALIGN', (0, -1), (3, -1), 'CENTER'),
+                ('ALIGN', (4, -1), (-1, -1), 'RIGHT'),
+                
+                # Borders
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                
+                # Padding
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]
+            
+            items_table.setStyle(TableStyle(style_commands))
+            
+            story.append(items_table)
+            story.append(Spacer(1, 15))
+            
+            # Build
+            doc.build(story)
+            print(f"[SUCCESS] Combined sales invoice created: {file_path}")
+            
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                
+                if file_size > 0:
+                    display_invoice = base_invoice
+                    if invoice_suffix:
+                        display_invoice += f" {invoice_suffix}"
+                    
+                    messagebox.showinfo("Success",
+                        f"✅ Combined Sales Invoice PDF created!\n\n"
+                        f"📁 Location: {file_path}\n"
+                        f"📦 Containers: {len(containers)}\n"
+                        f"📄 REF JOA: {ref_joa}\n"
+                        f"🔤 Invoice Number: {display_invoice}\n\n"
+                        f"📅 Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}")
+                    
+                    if messagebox.askyesno("Open?", "Open PDF now?"):
+                        try:
+                            if os.name == 'nt':
+                                os.startfile(file_path)
+                            elif os.name == 'posix':
+                                os.system(f'open "{file_path}"')
+                        except Exception as e:
+                            messagebox.showwarning("Info", f"File saved.\nOpen manually: {file_path}")
+                            
+        except Exception as e:
+            error_msg = f"Error in _create_combined_packing_list_pdf: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            messagebox.showerror("Error", f"Failed: {str(e)}")
+            
+            

@@ -10,41 +10,94 @@ from PIL import Image, ImageTk
 from src.widget.paginated_tree_view import PaginatedTreeView
 
 class BarangWindow:
+    
     def __init__(self, parent, db, refresh_callback=None):
         self.parent = parent
         self.db = db
         self.refresh_callback = refresh_callback
+        self.original_barang_data = []
         self.create_window()
     
+    def get_scale_factor(self):
+        """Calculate scale factor based on screen size"""
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        # Base scale on 1920x1080 as reference
+        width_scale = screen_width / 1920
+        height_scale = screen_height / 1080
+        
+        # Use average and clamp between 0.7 and 1.2
+        scale = (width_scale + height_scale) / 2
+        return max(0.7, min(1.2, scale))
+    
+    def scaled_font(self, base_size):
+        """Return scaled font size"""
+        scale = self.get_scale_factor()
+        return max(8, int(base_size * scale))
+    
+    def on_window_resize(self, event):
+        """Handle window resize to adjust column widths"""
+        if hasattr(self, 'tree') and event.widget == self.window:
+            try:
+                window_width = self.window.winfo_width()
+                available_width = window_width - 100
+                
+                # Proportional widths for barang columns
+                self.tree.column('ID', width=int(available_width * 0.03))
+                self.tree.column('Pengirim', width=int(available_width * 0.10))
+                self.tree.column('Penerima', width=int(available_width * 0.10))
+                self.tree.column('Nama', width=int(available_width * 0.12))
+                self.tree.column('Dimensi', width=int(available_width * 0.08))
+                self.tree.column('Volume', width=int(available_width * 0.05))
+                self.tree.column('Berat', width=int(available_width * 0.05))
+                # Price columns
+                for col in ['Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 
+                           'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD',
+                           'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD']:
+                    self.tree.column(col, width=int(available_width * 0.045))
+                self.tree.column('Pajak', width=int(available_width * 0.04))
+                self.tree.column('Created', width=int(available_width * 0.08))
+            except:
+                pass
+    
     def create_window(self):
-        """Create barang management window"""
+        """Create barang management window with responsive design"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("📦 Data Barang")
-        self.window.geometry("1200x800")
+        
+        # Get screen dimensions
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        # Adaptive window size
+        window_width = min(int(screen_width * 0.85), 1400)
+        window_height = min(int(screen_height * 0.85), 850)
+        
+        self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
         
+        # Resizable
+        self.window.minsize(1000, 600)
+        self.window.resizable(True, True)
+        
         try:
-            # Load dan resize image
             icon_image = Image.open("assets/logo.jpg")
             icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
             icon_photo = ImageTk.PhotoImage(icon_image)
-            
-            # Set sebagai window icon
             self.window.iconphoto(False, icon_photo)
-            
         except Exception as e:
             print(f"Icon tidak ditemukan: {e}")
         
-        # Center window
         self.center_window()
         
-        # Header
+        # Header with responsive font
         header = tk.Label(
             self.window,
             text="📦 KELOLA DATA BARANG",
-            font=('Arial', 18, 'bold'),
+            font=('Arial', self.scaled_font(18), 'bold'),
             bg='#27ae60',
             fg='white',
             pady=15
@@ -70,19 +123,23 @@ class BarangWindow:
         self.notebook.add(list_frame, text='📋 Daftar Barang')
         self.create_list_tab(list_frame)
         
-        # Close button
+        # Close button with responsive font
         close_btn = tk.Button(
             self.window,
             text="❌ Tutup",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', self.scaled_font(12), 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=10,
-            pady=5,
+            padx=30,
+            pady=10,
             command=self.window.destroy
         )
         close_btn.pack(pady=10)
-    
+        
+        # Bind resize event
+        self.window.bind('<Configure>', self.on_window_resize)
+        
+        
     def create_manual_tab(self, parent):
         """Create manual input tab with scrollable content"""
         # Main container
@@ -728,26 +785,29 @@ class BarangWindow:
         self.tree_container = tree_container
     
     def create_list_tab(self, parent):
-        """Create barang list tab with search, update, delete functionality"""
-        # Container
+        """Create barang list tab with responsive design"""
         list_container = tk.Frame(parent, bg='#ecf0f1')
         list_container.pack(fill='both', expand=True, padx=20, pady=20)
         
-        # Header
+        # Header with responsive font
         header_frame = tk.Frame(list_container, bg='#ecf0f1')
         header_frame.pack(fill='x', pady=(0, 10))
         
-        tk.Label(header_frame, text="📋 DAFTAR BARANG", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(side='left')
+        tk.Label(
+            header_frame, 
+            text="📋 DAFTAR BARANG", 
+            font=('Arial', self.scaled_font(14), 'bold'), 
+            bg='#ecf0f1'
+        ).pack(side='left')
         
-        # Search/Filter Frame
+        # Search frame with responsive fonts
         search_frame = tk.Frame(list_container, bg='#ffffff', relief='solid', bd=1)
         search_frame.pack(fill='x', pady=(0, 10))
         
-        # Search label
         search_label = tk.Label(
             search_frame,
             text="🔍 Filter & Pencarian:",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', self.scaled_font(12), 'bold'),
             fg='#2c3e50',
             bg='#ffffff'
         )
@@ -882,6 +942,7 @@ class BarangWindow:
             items_per_page=100  
         )
         
+        
         # Configure columns
         self.tree.heading('ID', text='ID')
         self.tree.heading('Pengirim', text='Pengirim')
@@ -941,61 +1002,79 @@ class BarangWindow:
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
         
     def load_pengirim_penerima_filter(self):
-        """Load unique pengirim and penerima for filter dropdowns"""
+        """Load unique pengirim and penerima for filter dropdowns - FIXED"""
         try:
+            # Get all customers
             customers = self.db.get_all_customers()
             customers_list = [c['nama_customer'] for c in customers if 'nama_customer' in c]
 
-            # Update combobox values
-            customers_list = sorted(list(customers_list))
+            # Sort and store
+            customers_list = sorted(list(set(customers_list)))
 
+            # Update combobox values
             self.filter_pengirim_combo['values'] = customers_list
             self.filter_penerima_combo['values'] = customers_list
             
+            # PERBAIKAN: Store original values untuk filtering
+            self.original_pengirim_filter_values = customers_list.copy()
+            self.original_penerima_filter_values = customers_list.copy()
+            
+            print(f"✅ Loaded {len(customers_list)} customers for filter")
             
         except Exception as e:
             print(f"Error loading pengirim/penerima filter: {e}")
+            import traceback
+            traceback.print_exc()        
             
     def on_search_change(self, *args):
-        """Handle search input changes"""
-        self.filter_barang()
+        """Handle search input changes - DEBOUNCED"""
+        # Cancel previous timer if exists
+        if hasattr(self, 'search_timer') and self.search_timer:
+            self.window.after_cancel(self.search_timer)
+        
+        # Schedule filter after 300ms delay (debouncing)
+        self.search_timer = self.window.after(300, self.filter_barang)
     
     def clear_barang_filter(self):
-        """Clear semua filter dan reload semua data barang"""
+        """Clear semua filter dan reload semua data barang - FIXED"""
         try:
-            # Clear filter inputs (sesuaikan dengan nama field Anda)
-            if hasattr(self, 'search_nama'):
-                self.search_nama.delete(0, tk.END)
-            if hasattr(self, 'search_pengirim'):
-                if hasattr(self.search_pengirim, 'set'):  # Combobox
-                    self.search_pengirim.set('')
-                else:  # Entry
-                    self.search_pengirim.delete(0, tk.END)
-            if hasattr(self, 'search_penerima'):
-                if hasattr(self.search_penerima, 'set'):  # Combobox
-                    self.search_penerima.set('')
-                else:  # Entry
-                    self.search_penerima.delete(0, tk.END)
+            # Clear search inputs
+            self.search_name_var.set('')
+            self.filter_pengirim_var.set('')
+            self.filter_penerima_var.set('')
             
-            # Reload semua data
+            # Reload all data without filter
             self.load_barang()
+            
+            # Update info label
+            if hasattr(self, 'info_label'):
+                total_count = len(self.original_barang_data) if hasattr(self, 'original_barang_data') else 0
+                self.info_label.config(text=f"💡 Menampilkan semua {total_count} barang")
+            
+            print("✅ Filter cleared, showing all barang")
             
         except Exception as e:
             print(f"Error clearing filter: {str(e)}")
-    
+            import traceback
+            traceback.print_exc()
+        
     def filter_barang(self):
-        """Filter barang based on search criteria for PaginatedTreeView"""
+        """Filter barang based on search criteria - OPTIMIZED VERSION"""
         try:
             if not hasattr(self, 'original_barang_data') or not self.original_barang_data:
                 self.load_barang()  # Load data if not available
                 return
             
             # Get search criteria
-            search_name = self.search_name_var.get().strip()
-            filter_pengirim = self.filter_pengirim_var.get()
-            filter_penerima = self.filter_penerima_var.get()
+            search_name = self.search_name_var.get().strip().lower()
+            filter_pengirim = self.filter_pengirim_var.get().strip().lower()
+            filter_penerima = self.filter_penerima_var.get().strip().lower()
             
-            print(f"Filtering with: name='{search_name}', pengirim='{filter_pengirim}', penerima='{filter_penerima}'")
+            print(f"\n=== FILTERING BARANG ===")
+            print(f"Search name: '{search_name}'")
+            print(f"Filter pengirim: '{filter_pengirim}'")
+            print(f"Filter penerima: '{filter_penerima}'")
+            print(f"Total original data: {len(self.original_barang_data)}")
             
             # Filter data
             filtered_data = []
@@ -1003,70 +1082,39 @@ class BarangWindow:
             for barang in self.original_barang_data:
                 show_item = True
                 
-                print(f"Processing item: {barang.get('nama_barang', 'Unknown')}")
-
-                # Extract values for filtering (assuming dict structure based on your code)
+                # Extract values for filtering
                 if isinstance(barang, dict):
-                    # Dictionary structure
                     nama_barang = str(barang.get('nama_barang', '')).lower()
-                    
-                    # Get pengirim name
-                    pengirim_id = barang.get('pengirim', '')
-                    try:
-                        pengirim_data = self.db.get_customer_by_id(pengirim_id) if pengirim_id else {}
-                        pengirim = pengirim_data.get('nama_customer', '') if pengirim_data else ''
-                    except Exception as e:
-                        print(f"Error getting pengirim data: {e}")
-                        pengirim = ''
-                    
-                    # Get penerima name
-                    penerima_id = barang.get('penerima', '')
-                    try:
-                        penerima_data = self.db.get_customer_by_id(penerima_id) if penerima_id else {}
-                        penerima = penerima_data.get('nama_customer', '') if penerima_data else ''
-                    except Exception as e:
-                        print(f"Error getting penerima data: {e}")
-                        penerima = ''
-                    
-                    print(f"Pengirim ID: {pengirim_id}, Name: {pengirim}")
-                    print(f"Penerima ID: {penerima_id}, Name: {penerima}")
-                    
+                    pengirim_name = str(barang.get('sender_name', '')).lower()
+                    penerima_name = str(barang.get('receiver_name', '')).lower()
                 else:
-                    # List/tuple structure - adjust indices based on your column order
+                    # Fallback for tuple/list structure
                     nama_barang = str(barang[3]).lower() if len(barang) > 3 else ''
-                    pengirim = str(barang[1]) if len(barang) > 1 else ''
-                    penerima = str(barang[2]) if len(barang) > 2 else ''
+                    pengirim_name = str(barang[1]).lower() if len(barang) > 1 else ''
+                    penerima_name = str(barang[2]).lower() if len(barang) > 2 else ''
                 
-                # Check name filter with flexible matching
+                # PERBAIKAN: Filter logic yang lebih robust
+                # 1. Check name filter (partial match, support multiple words)
                 if search_name:
-                    search_terms = search_name.lower().split()
-                    match_found = False
-                    
-                    for term in search_terms:
-                        if term in nama_barang:
-                            match_found = True
-                            break
-                    
-                    if not match_found:
+                    search_terms = search_name.split()
+                    name_match = all(term in nama_barang for term in search_terms)
+                    if not name_match:
                         show_item = False
-                        print(f"Name filter failed for: {nama_barang}")
                 
-                # Check pengirim filter
-                if filter_pengirim and filter_pengirim.strip() != '':
-                    if filter_pengirim.lower() not in str(pengirim).lower():
+                # 2. Check pengirim filter (partial match)
+                if filter_pengirim and show_item:
+                    if filter_pengirim not in pengirim_name:
                         show_item = False
-                        print(f"Pengirim filter failed: {pengirim} vs {filter_pengirim}")
                 
-                # Check penerima filter
-                if filter_penerima and filter_penerima.strip() != '':
-                    if filter_penerima.lower() not in str(penerima).lower():
+                # 3. Check penerima filter (partial match)
+                if filter_penerima and show_item:
+                    if filter_penerima not in penerima_name:
                         show_item = False
-                        print(f"Penerima filter failed: {penerima} vs {filter_penerima}")
                 
                 if show_item:
                     filtered_data.append(barang)
             
-            print(f"Filtered {len(filtered_data)} items from {len(self.original_barang_data)} total")
+            print(f"Filtered result: {len(filtered_data)} items")
             
             # Format filtered data for PaginatedTreeView
             formatted_data = []
@@ -1077,15 +1125,23 @@ class BarangWindow:
                     dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
                     
                     # Format currency
-                    harga_m3_pp = f"Rp {barang.get('m3_pp', 0):,.0f}" if barang.get('m3_pp') else '-'
-                    harga_m3_pd = f"Rp {barang.get('m3_pd', 0):,.0f}" if barang.get('m3_pd') else '-'
-                    harga_m3_dd = f"Rp {barang.get('m3_dd', 0):,.0f}" if barang.get('m3_dd') else '-'
-                    harga_ton_pp = f"Rp {barang.get('ton_pp', 0):,.0f}" if barang.get('ton_pp') else '-'
-                    harga_ton_pd = f"Rp {barang.get('ton_pd', 0):,.0f}" if barang.get('ton_pd') else '-'
-                    harga_ton_dd = f"Rp {barang.get('ton_dd', 0):,.0f}" if barang.get('ton_dd') else '-'
-                    harga_col_pp = f"Rp {barang.get('col_pp', 0):,.0f}" if barang.get('col_pp') else '-'
-                    harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') else '-'
-                    harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') else '-'
+                    def format_price(value):
+                        if value and value != '-':
+                            try:
+                                return f"Rp {float(value):,.0f}"
+                            except:
+                                return '-'
+                        return '-'
+                    
+                    harga_m3_pp = format_price(barang.get('m3_pp'))
+                    harga_m3_pd = format_price(barang.get('m3_pd'))
+                    harga_m3_dd = format_price(barang.get('m3_dd'))
+                    harga_ton_pp = format_price(barang.get('ton_pp'))
+                    harga_ton_pd = format_price(barang.get('ton_pd'))
+                    harga_ton_dd = format_price(barang.get('ton_dd'))
+                    harga_col_pp = format_price(barang.get('col_pp'))
+                    harga_col_pd = format_price(barang.get('col_pd'))
+                    harga_col_dd = format_price(barang.get('col_dd'))
                     
                     # Format date
                     created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
@@ -1126,18 +1182,24 @@ class BarangWindow:
             
             if hasattr(self, 'info_label'):
                 if total_count != filtered_count:
-                    self.info_label.config(text=f"Menampilkan {filtered_count} dari {total_count} barang")
+                    self.info_label.config(
+                        text=f"🔍 Menampilkan {filtered_count} dari {total_count} barang",
+                        fg='#3498db'
+                    )
                 else:
-                    self.info_label.config(text="Pilih barang dari tabel untuk edit/hapus")
+                    self.info_label.config(
+                        text=f"💡 Menampilkan semua {total_count} barang",
+                        fg='#7f8c8d'
+                    )
             
-            print(f"Filter completed successfully: {filtered_count} items displayed")
+            print(f"✅ Filter completed: {filtered_count}/{total_count} items displayed")
             
         except Exception as e:
-            print(f"Error in filter_barang: {str(e)}")
+            print(f"❌ Error in filter_barang: {str(e)}")
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal menerapkan filter: {str(e)}")
-                
+              
     def update_barang(self):
         """Update selected barang"""
         selection = self.tree.selection()
@@ -2017,22 +2079,37 @@ class BarangWindow:
         close_btn.pack(pady=20)
     
     def center_window(self):
-        """Center window on parent"""
+        """Center window with boundary checks"""
         self.window.update_idletasks()
+        
         parent_x = self.parent.winfo_x()
         parent_y = self.parent.winfo_y()
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
         
-        # Ubah ukuran di sini
-        window_width = 1400  # dari 1400
-        window_height = 850  # dari 800
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        window_width = min(int(screen_width * 0.85), 1400)
+        window_height = min(int(screen_height * 0.85), 850)
         
         x = parent_x + (parent_width // 2) - (window_width // 2)
         y = parent_y + (parent_height // 2) - (window_height // 2) - 50
         
+        if x + window_width > screen_width:
+            x = screen_width - window_width - 20
+        if x < 0:
+            x = 20
+        if y + window_height > screen_height:
+            y = screen_height - window_height - 50
+        if y < 0:
+            y = 20
+        
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-    
+        self.window.lift()
+        self.window.focus_force()
+        
+        
     def load_customer_combo(self):
         """Load customers into combobox"""
         customers = self.db.get_all_customers()
@@ -2068,23 +2145,25 @@ class BarangWindow:
         # self.pengirim_combo.event_generate('<Button-1>')
 
     def filter_pengirim_list(self, event):
+        """Filter pengirim combobox in list tab when user types"""
         typed = self.filter_pengirim_var.get().lower()
         
-        if not hasattr(self, 'original_pengirim_values'):
-            # Simpan nilai asli jika belum ada
-            self.original_pengirim_values = list(self.filter_pengirim_combo['values'])
+        # PERBAIKAN: Gunakan original values yang sudah di-store
+        if not hasattr(self, 'original_pengirim_filter_values') or not self.original_pengirim_filter_values:
+            try:
+                customers = self.db.get_all_customers()
+                self.original_pengirim_filter_values = sorted([c['nama_customer'] for c in customers])
+            except:
+                self.original_pengirim_filter_values = []
         
         if typed == '':
             # Jika kosong, tampilkan semua
-            self.filter_pengirim_combo['values'] = self.original_pengirim_values
+            self.filter_pengirim_combo['values'] = self.original_pengirim_filter_values
         else:
             # Filter berdasarkan yang diketik
-            filtered = [item for item in self.original_pengirim_values 
+            filtered = [item for item in self.original_pengirim_filter_values 
                     if typed in item.lower()]
             self.filter_pengirim_combo['values'] = filtered
-        
-        # Buka dropdown untuk menampilkan hasil filter
-        # self.pengirim_combo.event_generate('<Button-1>')
 
     def filter_penerima(self, event):
         """Filter penerima combobox saat user mengetik"""
@@ -2107,24 +2186,26 @@ class BarangWindow:
         # self.penerima_combo.event_generate('<Button-1>')
 
     def filter_penerima_list(self, event):
-        """Filter penerima combobox saat user mengetik"""
+        """Filter penerima combobox in list tab when user types"""
         typed = self.filter_penerima_var.get().lower()
         
-        if not hasattr(self, 'original_penerima_values'):
-            # Simpan nilai asli jika belum ada
-            self.original_penerima_values = list(self.filter_penerima_combo['values'])
+        # PERBAIKAN: Gunakan original values yang sudah di-store
+        if not hasattr(self, 'original_penerima_filter_values') or not self.original_penerima_filter_values:
+            try:
+                customers = self.db.get_all_customers()
+                self.original_penerima_filter_values = sorted([c['nama_customer'] for c in customers])
+            except:
+                self.original_penerima_filter_values = []
         
         if typed == '':
             # Jika kosong, tampilkan semua
-            self.filter_penerima_combo['values'] = self.original_penerima_values
+            self.filter_penerima_combo['values'] = self.original_penerima_filter_values
         else:
             # Filter berdasarkan yang diketik
-            filtered = [item for item in self.original_penerima_values 
+            filtered = [item for item in self.original_penerima_filter_values 
                     if typed in item.lower()]
             self.filter_penerima_combo['values'] = filtered
-        
-        # Buka dropdown untuk menampilkan hasil filter
-        # self.penerima_combo.event_generate('<Button-1>')
+            
 
     def browse_file(self):
         """Browse for Excel file"""

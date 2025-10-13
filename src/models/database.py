@@ -1084,6 +1084,7 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                     dc.satuan,
                     dc.door_type,
                     dc.colli_amount,
+                    b.pajak,
                     COALESCE(dc.harga_per_unit, 0) as harga_per_unit,
                     COALESCE(dc.total_harga, 0) as total_harga,
                     dc.assigned_at

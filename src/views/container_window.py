@@ -15,9 +15,58 @@ class ContainerWindow:
         self.parent = parent
         self.db = db
         self.refresh_callback = refresh_callback
-        self.print_handler = PrintHandler(db) 
+        self.print_handler = PrintHandler(db)
         self.create_window()
         self.load_kapals()
+    
+    # ============ RESPONSIVE METHODS (TAMBAHKAN DI AWAL CLASS) ============
+    
+    def get_scale_factor(self):
+        """Calculate scale factor based on screen size"""
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        # Base scale on 1920x1080 as reference
+        width_scale = screen_width / 1920
+        height_scale = screen_height / 1080
+        
+        # Use average and clamp between 0.7 and 1.2
+        scale = (width_scale + height_scale) / 2
+        return max(0.7, min(1.2, scale))
+    
+    def scaled_font(self, base_size):
+        """Return scaled font size"""
+        scale = self.get_scale_factor()
+        return max(8, int(base_size * scale))
+    
+    def on_window_resize(self, event):
+        """Handle window resize to adjust column widths"""
+        if hasattr(self, 'container_tree') and event.widget == self.window:
+            try:
+                window_width = self.window.winfo_width()
+                available_width = window_width - 100
+                
+                # Adjust container tree columns
+                self.container_tree.column('ID', width=int(available_width * 0.05))
+                self.container_tree.column('Kapal', width=int(available_width * 0.20))
+                self.container_tree.column('Container', width=int(available_width * 0.20))
+                self.container_tree.column('Ref JOA', width=int(available_width * 0.15))
+                self.container_tree.column('Items', width=int(available_width * 0.15))
+            except:
+                pass
+        
+        if hasattr(self, 'container_barang_tree') and event.widget == self.window:
+            try:
+                window_width = self.window.winfo_width()
+                available_width = window_width - 100
+                
+                # Adjust container-barang tree columns
+                self.container_barang_tree.column('Pengirim', width=int(available_width * 0.10))
+                self.container_barang_tree.column('Penerima', width=int(available_width * 0.10))
+                self.container_barang_tree.column('Nama', width=int(available_width * 0.12))
+                # ... dst untuk kolom lainnya
+            except:
+                pass
 
     def load_kapals(self):
         """Load kapal options from the database"""
@@ -30,34 +79,42 @@ class ContainerWindow:
             messagebox.showerror("Database Error", str(e))
 
     def create_window(self):
-        """Create container management window"""
+        """Create container management window with responsive design"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("🚢 Data Container")
-        self.window.geometry("1400x1000")
+        
+        # Get screen dimensions
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        # Adaptive window size
+        window_width = min(int(screen_width * 0.85), 1400)
+        window_height = min(int(screen_height * 0.90), 1000)
+        
+        self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
         
+        # Resizable
+        self.window.minsize(1000, 700)
+        self.window.resizable(True, True)
+        
         try:
-            # Load dan resize image
             icon_image = Image.open("assets/logo.jpg")
             icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
             icon_photo = ImageTk.PhotoImage(icon_image)
-        
-            # Set sebagai window icon
             self.window.iconphoto(False, icon_photo)
-            
         except Exception as e:
             print(f"Icon tidak ditemukan: {e}")
         
-        # Center window
         self.center_window()
         
-        # Header
+        # Header with responsive font
         header = tk.Label(
             self.window,
             text="🚢 KELOLA DATA CONTAINER & BARANG",
-            font=('Arial', 18, 'bold'),
+            font=('Arial', self.scaled_font(18), 'bold'),
             bg='#e67e22',
             fg='white',
             pady=15
@@ -78,11 +135,11 @@ class ContainerWindow:
         self.notebook.add(container_barang_frame, text='📦 Barang dalam Container')
         self.create_container_barang_tab(container_barang_frame)
         
-        # Close button
+        # Close button with responsive font
         close_btn = tk.Button(
             self.window,
             text="❌ Tutup",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', self.scaled_font(12), 'bold'),
             bg='#e74c3c',
             fg='white',
             padx=30,
@@ -90,6 +147,9 @@ class ContainerWindow:
             command=self.window.destroy
         )
         close_btn.pack(pady=10)
+        
+        # Bind resize event
+        self.window.bind('<Configure>', self.on_window_resize)
     
     def create_container_tab(self, parent):
         """Create container management tab"""
@@ -145,7 +205,7 @@ class ContainerWindow:
         add_btn = tk.Button(
             btn_frame,
             text="➕ Tambah Container",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#e67e22',
             fg='white',
             padx=10,
@@ -157,7 +217,7 @@ class ContainerWindow:
         clear_btn = tk.Button(
             btn_frame,
             text="🗑️ Bersihkan",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#95a5a6',
             fg='white',
             padx=10,
@@ -169,7 +229,7 @@ class ContainerWindow:
         edit_btn = tk.Button(
             btn_frame,
             text="✏️ Edit Container",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#3498db',
             fg='white',
             padx=10,
@@ -181,7 +241,7 @@ class ContainerWindow:
         delete_btn = tk.Button(
             btn_frame,
             text="🗑️ Hapus Container",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#e74c3c',
             fg='white',
             padx=10,
@@ -194,7 +254,7 @@ class ContainerWindow:
         summary_btn = tk.Button(
             btn_frame,  # frame tempat button lain
             text="📊 Lihat Summary",
-            font=('Arial', 12, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg='#9b59b6',
             fg='white',
             padx=10,
@@ -272,7 +332,7 @@ class ContainerWindow:
         print_invoice_btn = tk.Button(
             btn_frame,
             text="🧾 Print Invoice Container",
-            font=('Arial', 11, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg="#4bc23b",
             fg='white',
             padx=20,
@@ -284,7 +344,7 @@ class ContainerWindow:
         print_invoice_pdf_btn = tk.Button(
             btn_frame,
             text="📄 Invoice PDF",
-            font=('Arial', 11, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg="#f39c12",  # Orange
             fg='white',
             padx=20,
@@ -298,7 +358,7 @@ class ContainerWindow:
         print_packing_btn = tk.Button(
             btn_frame,
             text="📋 Print Customer Packing List",
-            font=('Arial', 11, 'bold'),
+            font=('Arial', 8, 'bold'),
             bg="#1b9b0a",
             fg='white',
             padx=20,
@@ -323,44 +383,97 @@ class ContainerWindow:
             self.print_handler.print_container_invoice(container_id)
 
     def print_selected_container_invoice_pdf(self):
-        """Print selected container invoice as PDF"""
+        """Print selected container(s) invoice as PDF - supports multiple selection"""
         try:
             selected_items = self.container_tree.selection()
             if not selected_items:
-                messagebox.showwarning("Peringatan", "Pilih container yang akan diprint invoice PDF!")
+                messagebox.showwarning("Peringatan", "Pilih satu atau lebih container yang akan diprint invoice PDF!")
                 return
             
-            # Get container_id from selected item
-            item = self.container_tree.item(selected_items[0])
-            container_id = item['values'][0]  # Assuming container_id is in first column
+            # Get all selected container IDs
+            container_ids = []
+            container_names = []
+            
+            for selected in selected_items:
+                item = self.container_tree.item(selected)
+                container_id = item['values'][0]  # container_id in first column
+                container_name = item['values'][2]  # container name in third column
+                container_ids.append(container_id)
+                container_names.append(container_name)
+            
+            # Confirm if multiple containers
+            if len(container_ids) > 1:
+                confirm_msg = f"Print Invoice PDF untuk {len(container_ids)} container?\n\n"
+                confirm_msg += "Container yang dipilih:\n"
+                for name in container_names[:5]:  # Show max 5
+                    confirm_msg += f"• {name}\n"
+                if len(container_names) > 5:
+                    confirm_msg += f"... dan {len(container_names) - 5} container lainnya\n"
+                
+                if not messagebox.askyesno("Konfirmasi Print Multiple", confirm_msg):
+                    return
             
             # Call print handler
             if hasattr(self, 'print_handler'):
-                self.print_handler.print_container_invoice_pdf(container_id)
+                self.print_handler.print_container_invoice_pdf(container_ids)
             else:
                 messagebox.showerror("Error", "Print handler tidak tersedia!")
                 
         except Exception as e:
             messagebox.showerror("Error", f"Gagal print invoice PDF: {str(e)}")
             print(f"Error in print_selected_container_invoice_pdf: {e}")
-
+            
     
     def print_selected_customer_packing_list(self):
-        """Print customer packing list for selected container"""
-        selection = self.container_tree.selection()
-        if not selection:
-            messagebox.showwarning("Peringatan", "Pilih container yang akan diprint packing listnya!")
-            return
-        
-        item = self.container_tree.item(selection[0])
-        container_id = item['values'][0]
-        container_name = item['values'][3]  # Container column
-        
-        # Show customer selection dialog
-        self.print_handler.show_sender_receiver_selection_dialog_pdf(container_id)
+        """Print customer packing list for selected container(s) - supports multiple selection"""
+        try:
+            selected_items = self.container_tree.selection()
+            if not selected_items:
+                messagebox.showwarning("Peringatan", "Pilih satu atau lebih container yang akan diprint packing list PDF!")
+                return
+            
+            # Get all selected container IDs
+            container_ids = []
+            container_names = []
+            
+            for selected in selected_items:
+                item = self.container_tree.item(selected)
+                container_id = item['values'][0]  # container_id in first column
+                container_name = item['values'][2]  # container name in third column
+                container_ids.append(container_id)
+                container_names.append(container_name)
+            
+            # Confirm if multiple containers
+            if len(container_ids) > 1:
+                confirm_msg = f"Print Packing List PDF untuk {len(container_ids)} container?\n\n"
+                confirm_msg += "Container yang dipilih:\n"
+                for name in container_names[:5]:  # Show max 5
+                    confirm_msg += f"• {name}\n"
+                if len(container_names) > 5:
+                    confirm_msg += f"... dan {len(container_names) - 5} container lainnya\n"
+                
+                if not messagebox.askyesno("Konfirmasi Print Multiple", confirm_msg):
+                    return
+            
+            # Call print handler - SAME AS INVOICE
+            if hasattr(self, 'print_handler'):
+                self.print_handler.print_customer_packing_list_pdf(container_ids)
+            else:
+                messagebox.showerror("Error", "Print handler tidak tersedia!")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal print packing list PDF: {str(e)}")
+            print(f"Error in print_selected_customer_packing_list: {e}")    
     
     def create_container_barang_tab(self, parent):
-        """Create container-barang management tab with pricing, sender/receiver selection, and tax management."""
+        """Create container-barang management tab with pricing, sender/receiver selection, and tax management - OPTIMIZED"""
+
+        # Initialize cache dan timer untuk debouncing
+        self._cached_barang_data = None
+        self._cache_invalid = True
+        self._cached_customers = {}
+        self.filter_timer = None
+        self.filter_delay = 300  # milliseconds
 
         # === Frame Seleksi (atas) ===
         selection_frame = tk.Frame(parent, bg='#ecf0f1')
@@ -368,17 +481,13 @@ class ContainerWindow:
         tk.Label(selection_frame, text="📦 Kelola Barang dalam Container",
                 font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 10))
 
-        # container_select_frame (tetap jika butuh)
-        container_select_frame = tk.Frame(selection_frame, bg='#ecf0f1')
-        container_select_frame.pack(fill='x', pady=5)
-
         # === area search + delivery + tax (grid 3 kolom di baris atas) ===
         search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         search_add_frame.pack(fill='x', pady=10)
 
         # LEFT: kontrol pemilihan container/pengirim/penerima/colli
         left_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        left_frame.grid(row=0, column=0, sticky='nw', padx=(0, 5))
+        left_frame.pack(side='left', fill='both', expand=False, padx=(0, 10))
 
         # Container selection
         container_select_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -392,7 +501,7 @@ class ContainerWindow:
         self.load_container_combo()
         self.container_combo.bind('<<ComboboxSelected>>', self.on_container_select)
 
-        # Sender selection
+        # Sender selection dengan debouncing
         sender_frame = tk.Frame(left_frame, bg='#ecf0f1')
         sender_frame.pack(fill='x', pady=5)
         tk.Label(sender_frame, text="📤 Pilih Pengirim:").pack(side='left')
@@ -401,10 +510,12 @@ class ContainerWindow:
                                                 textvariable=self.sender_search_var,
                                                 width=25)
         self.sender_search_combo.pack(side='left', padx=(5, 20))
-        self.sender_search_var.trace('w', self.on_sender_receiver_select)
-        self.sender_search_combo.bind('<KeyRelease>', self.filter_senders)
+        
+        # PERBAIKAN: Gunakan debounced filter
+        self.sender_search_var.trace('w', self.schedule_filter)
+        self.sender_search_combo.bind('<KeyRelease>', self.on_sender_keyrelease)
 
-        # Receiver selection
+        # Receiver selection dengan debouncing
         receiver_frame = tk.Frame(left_frame, bg='#ecf0f1')
         receiver_frame.pack(fill='x', pady=5)
         tk.Label(receiver_frame, text="📥 Pilih Penerima:").pack(side='left')
@@ -413,8 +524,10 @@ class ContainerWindow:
                                                 textvariable=self.receiver_search_var,
                                                 width=25)
         self.receiver_search_combo.pack(side='left', padx=(5, 20))
-        self.receiver_search_var.trace('w', self.on_sender_receiver_select)
-        self.receiver_search_combo.bind('<KeyRelease>', self.filter_receivers)
+        
+        # PERBAIKAN: Gunakan debounced filter
+        self.receiver_search_var.trace('w', self.schedule_filter)
+        self.receiver_search_combo.bind('<KeyRelease>', self.on_receiver_keyrelease)
 
         # Colli input
         colli_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -434,19 +547,18 @@ class ContainerWindow:
             background='#e67e22',
             foreground='white',
             borderwidth=2,
-            date_pattern='yyyy-mm-dd',  # Format DATE untuk database
-            state='readonly'  # Cegah input manual, harus lewat calendar
+            date_pattern='yyyy-mm-dd',
+            state='readonly'
         )
         self.tanggal_entry.pack(side='left', padx=(5, 10))
 
-        # MIDDLE: Biaya pengantaran (tetap di tengah-kanan atas)
+        # MIDDLE: Biaya pengantaran
         delivery_cost_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        delivery_cost_frame.grid(row=0, column=1, sticky='n', padx=10)
+        delivery_cost_frame.pack(side='left', fill='both', expand=False, padx=10)
 
         tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:",
                 font=('Arial', 12, 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 5))
 
-        # Title + description + cost + lokasi (sama seperti yang sudah kamu punya)
         desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         desc_row.pack(fill='x', pady=2)
         tk.Label(desc_row, text="Title:").pack(side='left')
@@ -493,10 +605,10 @@ class ContainerWindow:
                                                     width=37, state="readonly")
         self.delivery_destination_combo.pack(side='left', padx=(5, 20))
 
-        # RIGHT-TOP: Ringkasan/Pra-tabel Pajak (di kanan atas seperti yang diinginkan)
+        # RIGHT-TOP: Ringkasan/Pra-tabel Pajak
         tax_overview_frame = tk.Frame(search_add_frame, bg='#ecf0f1', relief='flat')
-        tax_overview_frame.grid(row=0, column=2, sticky='ne', padx=(10, 0))
-        
+        tax_overview_frame.pack(side='right', fill='both', expand=False, padx=(10, 0))
+
         tax_overview_frame.grid_columnconfigure(0, minsize=1000)
 
         tk.Label(tax_overview_frame, text="🧾 Daftar Pajak (Ringkasan)",
@@ -507,12 +619,11 @@ class ContainerWindow:
 
         tax_columns = ('Jenis_Tax', 'Penerima', 'Jumlah', 'Tanggal')
 
-        # Gunakan PaginatedTreeView untuk ringkasan pajak juga (tinggi kecil agar muat di kanan-atas)
         self.tax_summary_tree = PaginatedTreeView(
             parent=tax_tree_container,
             columns=tax_columns,
             show='headings',
-            height=6,            # ringkasan: sedikit baris
+            height=6,
             items_per_page=5
         )
         self.tax_summary_tree.heading('Jenis_Tax', text='Jenis Pajak')
@@ -525,58 +636,57 @@ class ContainerWindow:
         self.tax_summary_tree.column('Tanggal', width=80)
         self.tax_summary_tree.pack(fill='both', expand=True)
 
-
-        # === Actions frame (tombol-tombol utama) tetap di bawah selection area ===
+        # === Actions frame (tombol-tombol utama) ===
         actions_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         actions_frame.pack(fill='x', pady=10)
 
         add_barang_btn = tk.Button(actions_frame, text="💰 Tambah Barang + Harga ke Container",
-                                font=('Arial', 8, 'bold'), bg='#27ae60', fg='white',
+                                font=('Arial', 7, 'bold'), bg='#27ae60', fg='white',
                                 padx=10, pady=5, command=self.add_selected_barang_to_container)
         add_barang_btn.pack(side='left', padx=(0, 10))
 
         remove_barang_btn = tk.Button(actions_frame, text="➖ Hapus Barang dari Container",
-                                    font=('Arial', 8, 'bold'), bg='#e74c3c', fg='white',
+                                    font=('Arial', 7, 'bold'), bg='#e74c3c', fg='white',
                                     padx=10, pady=5, command=self.remove_barang_from_container)
         remove_barang_btn.pack(side='left', padx=(0, 10))
 
         edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli & Tanggal",
-                                font=('Arial', 8, 'bold'), bg='#16a085', fg='white',
+                                font=('Arial', 7, 'bold'), bg='#16a085', fg='white',
                                 padx=10, pady=5, command=self.edit_barang_colli_in_container)
         edit_colli_btn.pack(side='left', padx=(0, 10))
 
         edit_price_btn = tk.Button(actions_frame, text="✏️ Edit Harga",
-                                font=('Arial', 8, 'bold'), bg='#f39c12', fg='white',
+                                font=('Arial', 7, 'bold'), bg='#f39c12', fg='white',
                                 padx=10, pady=5, command=self.edit_barang_price_in_container)
         edit_price_btn.pack(side='left', padx=(0, 10))
 
         manage_delivery_btn = tk.Button(actions_frame, text="🚚 Kelola Biaya Pengantaran",
-                                        font=('Arial', 8, 'bold'), bg='#e67e22', fg='white',
+                                        font=('Arial', 7, 'bold'), bg='#e67e22', fg='white',
                                         padx=10, pady=5, command=self.manage_delivery_costs)
         manage_delivery_btn.pack(side='left', padx=(0, 10))
 
         summary_btn = tk.Button(actions_frame, text="📊 Lihat Summary Container",
-                                font=('Arial', 8, 'bold'), bg='#9b59b6', fg='white',
+                                font=('Arial', 7, 'bold'), bg='#9b59b6', fg='white',
                                 padx=10, pady=5, command=self.view_container_summary)
         summary_btn.pack(side='left', padx=(0, 10))
 
         clear_selection_btn = tk.Button(actions_frame, text="🗑️ Bersihkan Pilihan",
-                                        font=('Arial', 8, 'bold'), bg='#95a5a6', fg='white',
+                                        font=('Arial', 7, 'bold'), bg='#95a5a6', fg='white',
                                         padx=10, pady=5, command=self.clear_selection)
         clear_selection_btn.pack(side='left', padx=(0, 10))
 
-        # Muat data pelanggan/pengirim (sisa code)
+        # Muat data pelanggan/pengirim
         self.original_pengirim_values = []
         self.load_customers()
         self.load_pengirim()
 
-        # === Content frame bawah: hanya dua panel (left=available, middle=container) ===
+        # === Content frame bawah: dua panel (left=available, middle=container) ===
         content_frame = tk.Frame(parent, bg='#ecf0f1')
         content_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
 
         content_frame.grid_rowconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(1, weight=2)
+        content_frame.grid_columnconfigure(0, weight=1, minsize=400)
+        content_frame.grid_columnconfigure(1, weight=2, minsize=600) 
 
         # Left side - Available barang
         left_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
@@ -624,15 +734,74 @@ class ContainerWindow:
             self.container_barang_tree.heading(col, text=text)
         self.container_barang_tree.pack(fill='both', expand=True)
 
-        # (Opsional) muat data container barang jika ada method
+        # Load data container barang jika ada
         if hasattr(self, 'load_container_barang'):
             try:
                 self.load_container_barang()
             except Exception:
                 pass
+    
+    # TAMBAHKAN method baru untuk debouncing
+    def schedule_filter(self, *args):
+        """Schedule filter execution with debouncing"""
+        # Cancel previous timer if exists
+        if self.filter_timer:
+            self.window.after_cancel(self.filter_timer)
+        
+        # Schedule new filter after delay
+        self.filter_timer = self.window.after(self.filter_delay, self.execute_filter)
 
-        # Selesai - sekarang ringkasan pajak ada di kanan-atas, bukan di bawah kanan.
+    def execute_filter(self):
+        """Execute the actual filter"""
+        sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
+        receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
+        
+        print(f"Executing filter - Sender: {sender}, Receiver: {receiver}")
+        self.load_customer_barang_tree(sender, receiver)
+        
+        self.filter_timer = None
 
+    def on_sender_keyrelease(self, event):
+        """Handle sender combobox key release for dropdown filtering"""
+        typed = self.sender_search_var.get().lower()
+        
+        if not hasattr(self, 'original_pengirim_values') or not self.original_pengirim_values:
+            self.original_pengirim_values = list(self.sender_search_combo['values'])
+        
+        if typed == '':
+            self.sender_search_combo['values'] = self.original_pengirim_values
+        else:
+            filtered = [item for item in self.original_pengirim_values 
+                    if typed in item.lower()]
+            self.sender_search_combo['values'] = filtered
+
+    def on_receiver_keyrelease(self, event):
+        """Handle receiver combobox key release for dropdown filtering"""
+        typed = self.receiver_search_var.get().lower()
+        
+        if not hasattr(self, 'original_receiver_values') or not self.original_receiver_values:
+            try:
+                customers = self.db.execute("SELECT customer_id, nama_customer FROM customers ORDER BY customer_id")
+                self.original_receiver_values = [f"{customer[0]} - {customer[1]}" for customer in customers]
+            except Exception as e:
+                print(f"Error loading receivers: {e}")
+                self.original_receiver_values = []
+        
+        if typed == '':
+            self.receiver_search_combo['values'] = self.original_receiver_values
+        else:
+            filtered = [item for item in self.original_receiver_values 
+                    if typed in item.lower()]
+            self.receiver_search_combo['values'] = filtered
+
+    # TAMBAHKAN method untuk invalidate cache
+    def invalidate_barang_cache(self):
+        """Invalidate cached barang data"""
+        self._cache_invalid = True
+        if hasattr(self, '_cached_customers'):
+            self._cached_customers.clear()
+    
+    
     def load_destinations(self, event=None):
         try:
             print("load_destinations dipanggil")
@@ -1180,44 +1349,6 @@ class ContainerWindow:
         except Exception as e:
             messagebox.showerror("Error", f"Gagal export summary: {str(e)}")
             
-    def filter_senders(self, event=None):
-        """Filter sender combobox based on typed text"""
-        typed = self.sender_search_var.get().lower()
-        
-        if not hasattr(self, 'original_pengirim_values'):
-            # Simpan nilai asli jika belum ada
-            self.original_pengirim_values = list(self.sender_search_combo['values'])
-        
-        if typed == '':
-            # Jika kosong, tampilkan semua
-            self.sender_search_combo['values'] = self.original_pengirim_values
-        else:
-            # Filter berdasarkan yang diketik
-            filtered = [item for item in self.original_pengirim_values 
-                    if typed in item.lower()]
-            self.sender_search_combo['values'] = filtered
-            
-
-        
-    def filter_receivers(self, event=None):
-        """Filter receiver combobox based on typed text"""
-        try:
-            typed = self.receiver_search_var.get().lower()
-            
-            if not typed:
-                # Reload all customers if nothing typed
-                customers = self.db.execute("SELECT customer_id, nama_customer FROM customers ORDER BY customer_id")
-                customer_list = [f"{customer[0]} - {customer[1]}" for customer in customers]
-                self.receiver_search_combo['values'] = customer_list
-                return
-                
-            # Get all customer values and filter
-            all_customers = list(self.receiver_search_combo['values'])
-            filtered = [customer for customer in all_customers if typed in customer.lower()]
-            self.receiver_search_combo['values'] = filtered
-            
-        except Exception as e:
-            print(f"Error filtering receivers: {e}")
 
     def on_sender_receiver_select(self, *args):
         """Handle selection of sender or receiver to load available barang"""
@@ -4319,210 +4450,112 @@ class ContainerWindow:
             print(f"Error loading pengirim customers: {e}")
     
     def load_customer_barang_tree(self, sender_name=None, receiver_name=None):
-        """Load barang based on sender and/or receiver selection for PaginatedTreeView"""
+        """Load barang based on sender and/or receiver selection - OPTIMIZED"""
         try:
             print(f"Loading customer barang tree with sender: {sender_name}, receiver: {receiver_name}")
             
-            # Get all barang data
-            all_barang = self.db.get_all_barang()
-            
-            # Filter out None values
-            if all_barang:
+            # PERBAIKAN: Cache data barang untuk menghindari query berulang
+            if not hasattr(self, '_cached_barang_data') or self._cache_invalid:
+                all_barang = self.db.get_all_barang()
                 all_barang = [barang for barang in all_barang if barang is not None]
+                self._cached_barang_data = all_barang
+                self._cache_invalid = False
             else:
-                all_barang = []
+                all_barang = self._cached_barang_data
             
-            # Filter data based on sender and receiver
+            # PERBAIKAN: Pre-load customer data untuk menghindari query berulang
+            if not hasattr(self, '_cached_customers'):
+                self._cached_customers = {}
+            
+            # Filter data
             filtered_data = []
+            sender_lower = sender_name.lower() if sender_name else None
+            receiver_lower = receiver_name.lower() if receiver_name else None
             
-            for i, barang in enumerate(all_barang):
+            for barang in all_barang:
                 try:
                     if barang is None:
-                        print(f"Warning: Barang at index {i} is None, skipping...")
                         continue
                     
-                    show_item = True
-                    
-                    print(f"Processing item {i}: {barang.get('nama_barang', 'Unknown') if isinstance(barang, dict) else 'Unknown'}")
-                    
-                    # Extract values for filtering
-                    if isinstance(barang, dict):
-                        # Dictionary structure
-                        nama_barang = str(barang.get('nama_barang', ''))
-                        
-                        # Get pengirim name with proper None checking
-                        pengirim_id = barang.get('pengirim', '')
-                        pengirim = ''
-                        if pengirim_id:
+                    # Get sender name (with caching)
+                    pengirim_id = barang.get('pengirim', '')
+                    if pengirim_id:
+                        if pengirim_id not in self._cached_customers:
                             try:
-                                # Try get_sender_by_id first
                                 sender_data = self.db.get_sender_by_id(pengirim_id)
-                                if sender_data and isinstance(sender_data, dict):
-                                    pengirim = sender_data.get('nama_pengirim', '')
+                                if sender_data:
+                                    self._cached_customers[pengirim_id] = sender_data.get('nama_pengirim', '')
                                 else:
-                                    # Fallback to get_customer_by_id
                                     customer_data = self.db.get_customer_by_id(pengirim_id)
-                                    if customer_data and isinstance(customer_data, dict):
-                                        pengirim = customer_data.get('nama_customer', '')
-                            except Exception as e:
-                                print(f"Error getting sender data for ID {pengirim_id}: {e}")
-                                # Use fallback from barang data
-                                pengirim = barang.get('sender_name', '')
+                                    self._cached_customers[pengirim_id] = customer_data.get('nama_customer', '') if customer_data else ''
+                            except:
+                                self._cached_customers[pengirim_id] = barang.get('sender_name', '')
                         
-                        # Get penerima name with proper None checking
-                        penerima_id = barang.get('penerima', '')
-                        penerima = ''
-                        if penerima_id:
+                        pengirim = self._cached_customers.get(pengirim_id, '')
+                    else:
+                        pengirim = ''
+                    
+                    # Get receiver name (with caching)
+                    penerima_id = barang.get('penerima', '')
+                    if penerima_id:
+                        if penerima_id not in self._cached_customers:
                             try:
                                 customer_data = self.db.get_customer_by_id(penerima_id)
-                                if customer_data and isinstance(customer_data, dict):
-                                    penerima = customer_data.get('nama_customer', '')
-                                else:
-                                    print(f"Warning: get_customer_by_id({penerima_id}) returned invalid data")
-                            except Exception as e:
-                                print(f"Error getting receiver data for ID {penerima_id}: {e}")
-                                # Use fallback from barang data
-                                penerima = barang.get('receiver_name', '')
+                                self._cached_customers[penerima_id] = customer_data.get('nama_customer', '') if customer_data else ''
+                            except:
+                                self._cached_customers[penerima_id] = barang.get('receiver_name', '')
                         
-                        print(f"Pengirim ID: {pengirim_id}, Name: {pengirim}")
-                        print(f"Penerima ID: {penerima_id}, Name: {penerima}")
-                        
-                    elif isinstance(barang, (list, tuple)) and len(barang) > 0:
-                        # List/tuple structure
-                        nama_barang = str(barang[3]) if len(barang) > 3 else ''
-                        pengirim = str(barang[1]) if len(barang) > 1 else ''
-                        penerima = str(barang[2]) if len(barang) > 2 else ''
+                        penerima = self._cached_customers.get(penerima_id, '')
                     else:
-                        print(f"Warning: Invalid barang data structure at index {i}")
-                        continue
+                        penerima = ''
                     
-                    # Check sender filter
-                    if sender_name and sender_name.strip() != '':
-                        print(f"Sender filter: {sender_name}, Current sender: {pengirim}")
-                        if sender_name.lower() not in str(pengirim).lower():
-                            show_item = False
+                    # Filter check
+                    show_item = True
                     
-                    # Check receiver filter
-                    if receiver_name and receiver_name.strip() != '':
-                        print(f"Receiver filter: {receiver_name}, Current receiver: {penerima}")
-                        if receiver_name.lower() not in str(penerima).lower():
-                            show_item = False
+                    if sender_lower and sender_lower not in pengirim.lower():
+                        show_item = False
                     
-                    print(f"Show item: {show_item}")
+                    if receiver_lower and receiver_lower not in penerima.lower():
+                        show_item = False
                     
                     if show_item:
-                        filtered_data.append(barang)
-                        
-                except Exception as e:
-                    print(f"Error processing barang row {i}: {e}")
-                    continue
-            
-            print(f"Filtered {len(filtered_data)} items from {len(all_barang)} total")
-            
-            # Format filtered data for PaginatedTreeView
-            formatted_data = []
-            
-            for i, barang in enumerate(filtered_data):
-                try:
-                    if barang is None:
-                        continue
-                        
-                    if isinstance(barang, dict):
-                        # Dictionary structure - format for display
-                        # Format dimensions
+                        # Format for display
                         panjang = barang.get('panjang_barang', '-')
                         lebar = barang.get('lebar_barang', '-')
                         tinggi = barang.get('tinggi_barang', '-')
                         dimensi = f"{panjang}×{lebar}×{tinggi}"
                         
-                        # Get sender and receiver names for display with error handling
-                        pengirim_id = barang.get('pengirim', '')
-                        sender_name_display = '-'
-                        if pengirim_id:
-                            try:
-                                sender_data = self.db.get_sender_by_id(pengirim_id)
-                                if sender_data and isinstance(sender_data, dict):
-                                    sender_name_display = sender_data.get('nama_pengirim', '-')
-                                else:
-                                    customer_data = self.db.get_customer_by_id(pengirim_id)
-                                    if customer_data and isinstance(customer_data, dict):
-                                        sender_name_display = customer_data.get('nama_customer', '-')
-                            except Exception as e:
-                                print(f"Error getting sender display name: {e}")
-                                sender_name_display = barang.get('sender_name', '-')
-                        
-                        penerima_id = barang.get('penerima', '')
-                        receiver_name_display = '-'
-                        if penerima_id:
-                            try:
-                                customer_data = self.db.get_customer_by_id(penerima_id)
-                                if customer_data and isinstance(customer_data, dict):
-                                    receiver_name_display = customer_data.get('nama_customer', '-')
-                            except Exception as e:
-                                print(f"Error getting receiver display name: {e}")
-                                receiver_name_display = barang.get('receiver_name', '-')
-                        
-                        # Format volume and weight
                         volume = str(barang.get('m3_barang', '-'))
                         berat = str(barang.get('ton_barang', '-'))
                         
-                        # Create row tuple
                         row_data = (
                             str(barang.get('barang_id', '')),
-                            sender_name_display,
-                            receiver_name_display,
+                            pengirim or '-',
+                            penerima or '-',
                             str(barang.get('nama_barang', '-')),
                             dimensi,
                             volume,
                             berat
                         )
                         
-                        formatted_data.append(row_data)
+                        filtered_data.append(row_data)
                         
-                    elif isinstance(barang, (list, tuple)):
-                        # List/tuple structure - add as is
-                        if len(barang) > 0:
-                            formatted_data.append(barang)
-                            
                 except Exception as e:
-                    print(f"Error formatting customer barang row {i}: {e}")
+                    print(f"Error processing barang: {e}")
                     continue
             
-            # Set filtered data to PaginatedTreeView
-            self.available_tree.set_data(formatted_data)
+            # Set filtered data to tree
+            self.available_tree.set_data(filtered_data)
             
-            # Create descriptive message
-            total_count = len(all_barang)
-            filtered_count = len(filtered_data)
-            
-            criteria = []
-            if sender_name and sender_name.strip():
-                criteria.append(f"Pengirim: {sender_name}")
-            if receiver_name and receiver_name.strip():
-                criteria.append(f"Penerima: {receiver_name}")
-            
-            if criteria:
-                criteria_text = " & ".join(criteria)
-                print(f"Menampilkan {filtered_count} dari {total_count} barang dengan kriteria: {criteria_text}")
-            else:
-                print(f"Menampilkan semua {filtered_count} barang")
-            
-            print(f"Successfully loaded {filtered_count} barang to PaginatedTreeView")
+            print(f"Filtered {len(filtered_data)} items from {len(all_barang)} total")
             
         except Exception as e:
             print(f"Error loading customer barang tree: {e}")
             import traceback
             traceback.print_exc()
-            
-            # Fallback: try to show all barang without filter
-            try:
-                print("Attempting fallback: loading all barang without filter...")
-                self.load_all_customer_barang_fallback()
-            except Exception as fallback_error:
-                print(f"Fallback also failed: {fallback_error}")
-                # Set empty data to clear the tree
-                self.available_tree.set_data([])
-                      
+            self.available_tree.set_data([])
+        
+        
     def load_available_barang(self):
         """Load available barang ke PaginatedTreeView"""
         try:
@@ -4758,21 +4791,35 @@ class ContainerWindow:
         
                  
     def center_window(self):
-        """Center window on parent"""
+        """Center window with boundary checks"""
         self.window.update_idletasks()
+        
         parent_x = self.parent.winfo_x()
         parent_y = self.parent.winfo_y()
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
         
-        # Ubah ukuran di sini
-        window_width = 1400  # dari 1400
-        window_height = 850  # dari 800
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        window_width = min(int(screen_width * 0.85), 1400)
+        window_height = min(int(screen_height * 0.90), 1000)
         
         x = parent_x + (parent_width // 2) - (window_width // 2)
         y = parent_y + (parent_height // 2) - (window_height // 2) - 50
         
+        if x + window_width > screen_width:
+            x = screen_width - window_width - 20
+        if x < 0:
+            x = 20
+        if y + window_height > screen_height:
+            y = screen_height - window_height - 50
+        if y < 0:
+            y = 20
+        
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        self.window.lift()
+        self.window.focus_force()
     
     def load_container_combo(self):
         """Load containers into combobox"""
@@ -5144,7 +5191,7 @@ class ContainerWindow:
                 except (KeyError, IndexError):
                     return default
             
-            # Calculate totals including pricing
+            # Calculate totals including pricing - PERBAIKAN: kalikan dengan colli
             total_volume = 0
             total_weight = 0
             total_colli = 0
@@ -5152,16 +5199,22 @@ class ContainerWindow:
             
             for b in container_barang:
                 try:
-                    m3_value = safe_get(b, 'm3_barang', 0)
-                    total_volume += float(m3_value) if m3_value not in [None, '', '-'] else 0
-                    
-                    ton_value = safe_get(b, 'ton_barang', 0)
-                    total_weight += float(ton_value) if ton_value not in [None, '', '-'] else 0
-                    
+                    # Get colli amount first
                     colli_value = safe_get(b, 'colli_amount', 0)
-                    total_colli += int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    colli = int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    total_colli += colli
                     
-                    # Calculate total pricing
+                    # PERBAIKAN: Volume dikalikan dengan colli
+                    m3_value = safe_get(b, 'm3_barang', 0)
+                    m3_per_unit = float(m3_value) if m3_value not in [None, '', '-'] else 0
+                    total_volume += m3_per_unit * colli
+                    
+                    # PERBAIKAN: Berat dikalikan dengan colli
+                    ton_value = safe_get(b, 'ton_barang', 0)
+                    ton_per_unit = float(ton_value) if ton_value not in [None, '', '-'] else 0
+                    total_weight += ton_per_unit * colli
+                    
+                    # Calculate total pricing (sudah benar, total_harga sudah hasil kali)
                     total_harga_value = safe_get(b, 'total_harga', 0)
                     total_nilai += float(total_harga_value) if total_harga_value not in [None, '', '-'] else 0
                     
@@ -5169,7 +5222,7 @@ class ContainerWindow:
                     print(f"Error calculating totals for barang: {ve}")
                     continue
             
-            # Group by customer with pricing
+            # Group by customer with pricing - PERBAIKAN: kalikan dengan colli
             customer_summary = {}
             for barang in container_barang:
                 try:
@@ -5186,25 +5239,28 @@ class ContainerWindow:
                     
                     customer_summary[customer]['count'] += 1
                     
-                    # Safe calculation for customer summary
+                    # Get colli for this barang
+                    colli_value = safe_get(barang, 'colli_amount', 0)
+                    colli = int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    customer_summary[customer]['colli'] += colli
+                    
+                    # PERBAIKAN: Volume dikalikan dengan colli
                     try:
                         m3_value = safe_get(barang, 'm3_barang', 0)
-                        customer_summary[customer]['volume'] += float(m3_value) if m3_value not in [None, '', '-'] else 0
+                        m3_per_unit = float(m3_value) if m3_value not in [None, '', '-'] else 0
+                        customer_summary[customer]['volume'] += m3_per_unit * colli
                     except (ValueError, TypeError):
                         pass
                     
+                    # PERBAIKAN: Berat dikalikan dengan colli
                     try:
                         ton_value = safe_get(barang, 'ton_barang', 0)
-                        customer_summary[customer]['weight'] += float(ton_value) if ton_value not in [None, '', '-'] else 0
+                        ton_per_unit = float(ton_value) if ton_value not in [None, '', '-'] else 0
+                        customer_summary[customer]['weight'] += ton_per_unit * colli
                     except (ValueError, TypeError):
                         pass
                     
-                    try:
-                        colli_value = safe_get(barang, 'colli_amount', 0)
-                        customer_summary[customer]['colli'] += int(colli_value) if colli_value not in [None, '', '-'] else 0
-                    except (ValueError, TypeError):
-                        pass
-                    
+                    # Nilai (sudah benar)
                     try:
                         nilai_value = safe_get(barang, 'total_harga', 0)
                         customer_summary[customer]['nilai'] += float(nilai_value) if nilai_value not in [None, '', '-'] else 0
@@ -5223,63 +5279,86 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal membuat summary container: {str(e)}")
-
+            
+        
     def show_container_summary_dialog_with_pricing(self, container, barang_list, customer_summary, total_volume, total_weight, total_colli, total_nilai):
-        """Show container summary in a dialog with pricing information"""
+        """Show container summary in a dialog with pricing information - showing sender and receiver"""
         try:
             summary_window = tk.Toplevel(self.window)
-            summary_window.title(f"📊 Summary Container - {container.get('container', 'N/A') if hasattr(container, 'get') else container['container'] if 'container' in container else 'N/A'}")
-            summary_window.geometry("1000x750")
+            
+            # Get container name safely
+            container_name = container.get('container', 'N/A') if hasattr(container, 'get') else (container['container'] if 'container' in container else 'N/A')
+            
+            summary_window.title(f"📊 Summary Container - {container_name}")
+            
+            # Responsive sizing
+            screen_width = summary_window.winfo_screenwidth()
+            screen_height = summary_window.winfo_screenheight()
+            dialog_width = min(1200, int(screen_width * 0.85))
+            dialog_height = min(800, int(screen_height * 0.85))
+            
+            summary_window.geometry(f"{dialog_width}x{dialog_height}")
             summary_window.configure(bg='#ecf0f1')
             summary_window.transient(self.window)
             summary_window.grab_set()
             
             try:
-                # Load dan resize image
                 icon_image = Image.open("assets/logo.jpg")
                 icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
                 icon_photo = ImageTk.PhotoImage(icon_image)
-            
-                # Set sebagai window icon
                 summary_window.iconphoto(False, icon_photo)
-                
             except Exception as e:
                 print(f"Icon tidak ditemukan: {e}")
             
-            # Center window
+            # Center window with boundary check
             summary_window.update_idletasks()
-            x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (500)
-            y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (375)
-            summary_window.geometry(f"1000x750+{x}+{y}")
+            parent_x = self.window.winfo_x()
+            parent_y = self.window.winfo_y()
+            parent_width = self.window.winfo_width()
+            parent_height = self.window.winfo_height()
             
-            # Safe way to get container values
-            def safe_container_get(key, default='-'):
+            x = parent_x + (parent_width // 2) - (dialog_width // 2)
+            y = parent_y + (parent_height // 2) - (dialog_height // 2)
+            
+            if x + dialog_width > screen_width:
+                x = screen_width - dialog_width - 20
+            if x < 0:
+                x = 20
+            if y + dialog_height > screen_height:
+                y = screen_height - dialog_height - 50
+            if y < 0:
+                y = 20
+            
+            summary_window.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
+            summary_window.lift()
+            summary_window.focus_force()
+            
+            # Safe getter for all data structures
+            def safe_get(obj, key, default='-'):
                 try:
-                    if hasattr(container, 'get'):
-                        return container.get(key, default)
-                    else:
-                        return container[key] if key in container else default
+                    if obj is None:
+                        return default
+                    if hasattr(obj, 'get'):
+                        return obj.get(key, default) if obj.get(key) is not None else default
+                    elif hasattr(obj, '__getitem__'):
+                        return obj[key] if obj[key] is not None else default
+                    elif hasattr(obj, key):
+                        val = getattr(obj, key, default)
+                        return val if val is not None else default
+                    return default
                 except:
                     return default
             
-            container_name = safe_container_get('container', 'N/A')
-            
             # Header
-            header = tk.Label(
-                summary_window,
-                text=f"📊 SUMMARY CONTAINER: {container_name}",
-                font=('Arial', 16, 'bold'),
-                bg='#e67e22',
-                fg='white',
-                pady=15
-            )
+            header = tk.Label(summary_window, text=f"📊 SUMMARY CONTAINER: {container_name}",
+                            font=('Arial', 16, 'bold'), bg='#e67e22', fg='white', pady=15)
             header.pack(fill='x')
             
-            # Create notebook for summary tabs
+            # Create notebook
             summary_notebook = ttk.Notebook(summary_window)
             summary_notebook.pack(fill='both', expand=True, padx=20, pady=20)
             
-            # Tab 1: Overview with Pricing
+            # Tab 1: Overview
             overview_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
             summary_notebook.add(overview_frame, text='📋 Overview')
             
@@ -5287,165 +5366,169 @@ class ContainerWindow:
             info_frame = tk.Frame(overview_frame, bg='#ffffff', relief='solid', bd=1)
             info_frame.pack(fill='x', padx=10, pady=10)
             
-            tk.Label(info_frame, text="🚢 INFORMASI CONTAINER", font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
+            tk.Label(info_frame, text="🚢 INFORMASI CONTAINER", 
+                    font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
             
             info_lines = [
-                f"Container: {safe_container_get('container')}",
-                f"Feeder: {safe_container_get('feeder')}",
-                f"Destination: {safe_container_get('destination')}",
-                f"Party: {safe_container_get('party')}",
-                f"ETD Sub: {safe_container_get('etd_sub')}",
-                f"CLS: {safe_container_get('cls')}",
-                f"Open: {safe_container_get('open')}",
-                f"Full: {safe_container_get('full')}",
-                f"Seal: {safe_container_get('seal')}",
-                f"Ref JOA: {safe_container_get('ref_joa')}"
+                f"Container: {safe_get(container, 'container')}",
+                f"Feeder: {safe_get(container, 'kapal_feeder') or safe_get(container, 'feeder')}",
+                f"Seal: {safe_get(container, 'seal')}",
+                f"Ref JOA: {safe_get(container, 'ref_joa')}"
             ]
-            info_text = "\n".join(info_lines)
             
-            tk.Label(info_frame, text=info_text.strip(), font=('Arial', 10), bg='#ffffff', justify='left').pack(padx=20, pady=10)
+            tk.Label(info_frame, text="\n".join(info_lines), font=('Arial', 10), 
+                    bg='#ffffff', justify='left').pack(padx=20, pady=10)
             
-            # Summary stats with pricing
+            # Stats
             stats_frame = tk.Frame(overview_frame, bg='#ffffff', relief='solid', bd=1)
             stats_frame.pack(fill='x', padx=10, pady=10)
             
-            tk.Label(stats_frame, text="📊 STATISTIK MUATAN & NILAI", font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
+            tk.Label(stats_frame, text="📊 STATISTIK MUATAN & NILAI", 
+                    font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
             
-            stats_lines = [
-                f"Total Barang: {len(barang_list)} items",
-                f"Total Volume: {total_volume:.3f} m³", 
-                f"Total Berat: {total_weight:.3f} ton",
-                f"Total Colli: {total_colli} kemasan",
-                f"Total Nilai: Rp {total_nilai:,.0f}",  # NEW PRICING INFO
-                f"Jumlah Customer: {len(customer_summary)}"
-            ]
-            stats_text = "\n".join(stats_lines)
+            stats_text = f"""Total Barang: {len(barang_list)} items
+    Total Volume: {total_volume:.3f} m³
+    Total Berat: {total_weight:.3f} ton
+    Total Colli: {total_colli} kemasan
+    Total Nilai: Rp {total_nilai:,.0f}"""
             
-            tk.Label(stats_frame, text=stats_text.strip(), font=('Arial', 12, 'bold'), bg='#ffffff', justify='left').pack(padx=20, pady=10)
+            tk.Label(stats_frame, text=stats_text, font=('Arial', 12, 'bold'), 
+                    bg='#ffffff', justify='left').pack(padx=20, pady=10)
             
-            # Tab 2: Customer Summary with Pricing
-            customer_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
-            summary_notebook.add(customer_frame, text='👥 Per Customer')
+            # Tab 2: Per Penerima (sesuai permintaan Anda)
+            penerima_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
+            summary_notebook.add(penerima_frame, text='👥 Per Penerima')
             
-            tk.Label(customer_frame, text="👥 RINGKASAN PER CUSTOMER", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
+            tk.Label(penerima_frame, text="👥 RINGKASAN PER PENERIMA", 
+                    font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
             
-            # Customer summary tree with pricing
-            customer_tree_container = tk.Frame(customer_frame, bg='#ecf0f1')
-            customer_tree_container.pack(fill='both', expand=True, padx=10, pady=10)
+            # Calculate summary by receiver only
+            penerima_summary = {}
             
-            customer_summary_tree = ttk.Treeview(customer_tree_container,
-                                            columns=('Customer', 'Items', 'Volume', 'Weight', 'Colli', 'Nilai'),
-                                            show='headings', height=15)
+            print("\n=== DEBUG: Processing barang_list ===")
+            for idx, barang in enumerate(barang_list):
+                try:
+                    # Debug: print struktur data barang
+                    if idx == 0:
+                        print(f"Sample barang keys: {list(barang.keys()) if hasattr(barang, 'keys') else 'Not a dict'}")
+                    
+                    # Try multiple field names for receiver
+                    penerima = (safe_get(barang, 'receiver_name') or 
+                            safe_get(barang, 'nama_customer') or 
+                            safe_get(barang, 'penerima') or '-')
+                    
+                    print(f"Barang {idx}: penerima = {penerima}")
+                    
+                    if penerima not in penerima_summary:
+                        penerima_summary[penerima] = {
+                            'count': 0, 'volume': 0, 'weight': 0, 'colli': 0, 'nilai': 0
+                        }
+                    
+                    penerima_summary[penerima]['count'] += 1
+                    penerima_summary[penerima]['volume'] += float(safe_get(barang, 'm3_barang', 0) or 0)
+                    penerima_summary[penerima]['weight'] += float(safe_get(barang, 'ton_barang', 0) or 0)
+                    penerima_summary[penerima]['colli'] += int(safe_get(barang, 'colli_amount', 0) or 0)
+                    penerima_summary[penerima]['nilai'] += float(safe_get(barang, 'total_harga', 0) or 0)
+                    
+                except Exception as e:
+                    print(f"Error processing barang {idx}: {e}")
+                    continue
             
-            customer_summary_tree.heading('Customer', text='Customer')
-            customer_summary_tree.heading('Items', text='Jumlah Barang')
-            customer_summary_tree.heading('Volume', text='Volume (m³)')
-            customer_summary_tree.heading('Weight', text='Berat (ton)')
-            customer_summary_tree.heading('Colli', text='Total Colli')
-            customer_summary_tree.heading('Nilai', text='Total Nilai (Rp)')
+            print(f"Penerima summary: {penerima_summary}")
             
-            customer_summary_tree.column('Customer', width=180)
-            customer_summary_tree.column('Items', width=100)
-            customer_summary_tree.column('Volume', width=100)
-            customer_summary_tree.column('Weight', width=100)
-            customer_summary_tree.column('Colli', width=100)
-            customer_summary_tree.column('Nilai', width=150)
+            # Penerima tree
+            penerima_tree_container = tk.Frame(penerima_frame, bg='#ecf0f1')
+            penerima_tree_container.pack(fill='both', expand=True, padx=10, pady=10)
             
-            # Add customer data with pricing
-            for customer, data in customer_summary.items():
-                customer_summary_tree.insert('', tk.END, values=(
-                    customer,
-                    data['count'],
-                    f"{data['volume']:.3f}",
-                    f"{data['weight']:.3f}",
-                    data['colli'],
-                    f"{data['nilai']:,.0f}"
+            penerima_tree = ttk.Treeview(penerima_tree_container,
+                                        columns=('Penerima', 'Jumlah_Barang', 'Volume', 'Berat', 'Total_Colli', 'Total_Nilai'),
+                                        show='headings', height=15)
+            
+            penerima_tree.heading('Penerima', text='Penerima')
+            penerima_tree.heading('Jumlah_Barang', text='Jumlah Barang')
+            penerima_tree.heading('Volume', text='Volume (m³)')
+            penerima_tree.heading('Berat', text='Berat (ton)')
+            penerima_tree.heading('Total_Colli', text='Total Colli')
+            penerima_tree.heading('Total_Nilai', text='Total Nilai (Rp)')
+            
+            penerima_tree.column('Penerima', width=200)
+            penerima_tree.column('Jumlah_Barang', width=120)
+            penerima_tree.column('Volume', width=100)
+            penerima_tree.column('Berat', width=100)
+            penerima_tree.column('Total_Colli', width=100)
+            penerima_tree.column('Total_Nilai', width=150)
+            
+            for penerima, data in penerima_summary.items():
+                penerima_tree.insert('', tk.END, values=(
+                    penerima, data['count'], f"{data['volume']:.3f}",
+                    f"{data['weight']:.3f}", data['colli'], f"{data['nilai']:,.0f}"
                 ))
             
-            # Scrollbar for customer tree
-            customer_v_scroll = ttk.Scrollbar(customer_tree_container, orient='vertical', command=customer_summary_tree.yview)
-            customer_summary_tree.configure(yscrollcommand=customer_v_scroll.set)
+            penerima_v_scroll = ttk.Scrollbar(penerima_tree_container, orient='vertical', command=penerima_tree.yview)
+            penerima_tree.configure(yscrollcommand=penerima_v_scroll.set)
+            penerima_tree.pack(side='left', fill='both', expand=True)
+            penerima_v_scroll.pack(side='right', fill='y')
             
-            customer_summary_tree.pack(side='left', fill='both', expand=True)
-            customer_v_scroll.pack(side='right', fill='y')
-            
-            # Tab 3: Detailed Items with Pricing
+            # Tab 3: Detail Barang
             items_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
             summary_notebook.add(items_frame, text='📦 Detail Barang')
             
-            tk.Label(items_frame, text="📦 DETAIL SEMUA BARANG DENGAN HARGA", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
+            tk.Label(items_frame, text="📦 DETAIL SEMUA BARANG DENGAN HARGA", 
+                    font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(pady=10)
             
-            # Items detail tree with pricing
             items_tree_container = tk.Frame(items_frame, bg='#ecf0f1')
             items_tree_container.pack(fill='both', expand=True, padx=10, pady=10)
             
             items_detail_tree = ttk.Treeview(items_tree_container,
-                                        columns=('Customer', 'Nama',  'Dimensi', 'Volume', 'Weight', 'Colli', 'Harga_Unit', 'Total_Harga', 'Added'),
+                                        columns=('Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
                                         show='headings', height=15)
             
-            items_detail_tree.heading('Customer', text='Customer')
-            items_detail_tree.heading('Nama', text='Nama Barang')
-            items_detail_tree.heading('Dimensi', text='Dimensi')
-            items_detail_tree.heading('Dimensi', text='P×L×T (cm)')
-            items_detail_tree.heading('Volume', text='Volume (m³)')
-            items_detail_tree.heading('Weight', text='Berat (ton)')
-            items_detail_tree.heading('Colli', text='Colli')
-            items_detail_tree.heading('Harga_Unit', text='Harga/Unit')
-            items_detail_tree.heading('Total_Harga', text='Total Harga')
-            items_detail_tree.heading('Added', text='Ditambahkan')
+            headers = ['Pengirim', 'Penerima', 'Nama Barang', 'P×L×T (cm)', 'Volume (m³)', 'Berat (ton)', 'Colli', 'Harga/Unit', 'Total Harga', 'Tanggal']
+            widths = [100, 100, 150, 100, 80, 80, 60, 100, 100, 90]
             
-            items_detail_tree.column('Customer', width=90)
-            items_detail_tree.column('Nama', width=120)
-            items_detail_tree.column('Dimensi', width=70)
-            items_detail_tree.column('Volume', width=60)
-            items_detail_tree.column('Weight', width=60)
-            items_detail_tree.column('Colli', width=50)
-            items_detail_tree.column('Harga_Unit', width=80)
-            items_detail_tree.column('Total_Harga', width=90)
-            items_detail_tree.column('Added', width=70)
+            for col, header, width in zip(items_detail_tree['columns'], headers, widths):
+                items_detail_tree.heading(col, text=header)
+                items_detail_tree.column(col, width=width)
             
-            # Add items data with safe access including pricing
-            def safe_barang_get(barang, key, default='-'):
-                try:
-                    value = barang[key]
-                    return value if value is not None else default
-                except (KeyError, IndexError):
-                    return default
-            
-            # Add items data with pricing
             for barang in barang_list:
                 try:
-                    panjang = safe_barang_get(barang, 'panjang_barang', '-')
-                    lebar = safe_barang_get(barang, 'lebar_barang', '-')
-                    tinggi = safe_barang_get(barang, 'tinggi_barang', '-')
+                    # Get pengirim with multiple fallbacks
+                    pengirim = (safe_get(barang, 'sender_name') or 
+                            safe_get(barang, 'pengirim_nama') or 
+                            safe_get(barang, 'pengirim') or '-')
+                    
+                    # Get penerima with multiple fallbacks
+                    penerima = (safe_get(barang, 'receiver_name') or 
+                            safe_get(barang, 'penerima_nama') or
+                            safe_get(barang, 'nama_customer') or 
+                            safe_get(barang, 'penerima') or '-')
+                    
+                    panjang = safe_get(barang, 'panjang_barang', '-')
+                    lebar = safe_get(barang, 'lebar_barang', '-')
+                    tinggi = safe_get(barang, 'tinggi_barang', '-')
                     dimensi = f"{panjang}×{lebar}×{tinggi}"
                     
-                    assigned_at = safe_barang_get(barang, 'assigned_at', '')
-                    added_date = assigned_at[:10] if assigned_at and len(str(assigned_at)) >= 10 else '-'
+                    tanggal = safe_get(barang, 'tanggal', '-')
+                    if tanggal != '-' and len(str(tanggal)) >= 10:
+                        tanggal = str(tanggal)[:10]
                     
-                    # Format pricing for display
-                    harga_unit = safe_barang_get(barang, 'harga_per_unit', 0)
-                    total_harga = safe_barang_get(barang, 'total_harga', 0)
+                    harga_unit = safe_get(barang, 'harga_per_unit', 0)
+                    total_harga = safe_get(barang, 'total_harga', 0)
                     
-                    harga_unit_display = f"{float(harga_unit):,.0f}" if str(harga_unit).replace('.', '').isdigit() else str(harga_unit)
-                    total_harga_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').isdigit() else str(total_harga)
+                    harga_unit_display = f"{float(harga_unit):,.0f}" if str(harga_unit).replace('.', '').replace('-', '').isdigit() and harga_unit != '-' else str(harga_unit)
+                    total_harga_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').replace('-', '').isdigit() and total_harga != '-' else str(total_harga)
                     
                     items_detail_tree.insert('', tk.END, values=(
-                        safe_barang_get(barang, 'nama_customer', '-'),
-                        safe_barang_get(barang, 'nama_barang', '-'),
-                        dimensi,
-                        safe_barang_get(barang, 'm3_barang', '-'),
-                        safe_barang_get(barang, 'ton_barang', '-'),
-                        safe_barang_get(barang, 'colli_amount', '-'),
-                        harga_unit_display,
-                        total_harga_display,
-                        added_date
+                        pengirim, penerima, safe_get(barang, 'nama_barang', '-'),
+                        dimensi, safe_get(barang, 'm3_barang', '-'),
+                        safe_get(barang, 'ton_barang', '-'),
+                        safe_get(barang, 'colli_amount', 0),
+                        harga_unit_display, total_harga_display, tanggal
                     ))
                 except Exception as item_error:
-                    print(f"Error adding item to detail tree: {item_error}")
+                    print(f"Error adding item: {item_error}")
                     continue
             
-            # Scrollbars for items tree
             items_v_scroll = ttk.Scrollbar(items_tree_container, orient='vertical', command=items_detail_tree.yview)
             items_h_scroll = ttk.Scrollbar(items_tree_container, orient='horizontal', command=items_detail_tree.xview)
             items_detail_tree.configure(yscrollcommand=items_v_scroll.set, xscrollcommand=items_h_scroll.set)
@@ -5458,24 +5541,17 @@ class ContainerWindow:
             items_tree_container.grid_columnconfigure(0, weight=1)
             
             # Close button
-            close_btn = tk.Button(
-                summary_window,
-                text="✅ Tutup",
-                font=('Arial', 12, 'bold'),
-                bg='#27ae60',
-                fg='white',
-                padx=30,
-                pady=10,
-                command=summary_window.destroy
-            )
-            close_btn.pack(pady=10)
+            tk.Button(summary_window, text="✅ Tutup", font=('Arial', 12, 'bold'),
+                    bg='#27ae60', fg='white', padx=30, pady=10,
+                    command=summary_window.destroy).pack(pady=10)
             
         except Exception as dialog_error:
             print(f"Error creating summary dialog: {dialog_error}")
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal membuat dialog summary: {str(dialog_error)}")
-
+        
+        
     def view_selected_container_summary(self):
         """View detailed summary of selected container from tree including pricing"""
         # Get selected item from container tree
@@ -5518,7 +5594,7 @@ class ContainerWindow:
                 except (KeyError, IndexError):
                     return default
             
-            # Calculate totals including pricing
+            # Calculate totals including pricing - PERBAIKAN: kalikan dengan colli
             total_volume = 0
             total_weight = 0
             total_colli = 0
@@ -5526,16 +5602,22 @@ class ContainerWindow:
             
             for b in container_barang:
                 try:
-                    m3_value = safe_get(b, 'm3_barang', 0)
-                    total_volume += float(m3_value) if m3_value not in [None, '', '-'] else 0
-                    
-                    ton_value = safe_get(b, 'ton_barang', 0)
-                    total_weight += float(ton_value) if ton_value not in [None, '', '-'] else 0
-                    
+                    # Get colli amount first
                     colli_value = safe_get(b, 'colli_amount', 0)
-                    total_colli += int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    colli = int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    total_colli += colli
                     
-                    # Calculate total pricing
+                    # PERBAIKAN: Volume dikalikan dengan colli
+                    m3_value = safe_get(b, 'm3_barang', 0)
+                    m3_per_unit = float(m3_value) if m3_value not in [None, '', '-'] else 0
+                    total_volume += m3_per_unit * colli
+                    
+                    # PERBAIKAN: Berat dikalikan dengan colli
+                    ton_value = safe_get(b, 'ton_barang', 0)
+                    ton_per_unit = float(ton_value) if ton_value not in [None, '', '-'] else 0
+                    total_weight += ton_per_unit * colli
+                    
+                    # Calculate total pricing (sudah benar)
                     total_harga_value = safe_get(b, 'total_harga', 0)
                     total_nilai += float(total_harga_value) if total_harga_value not in [None, '', '-'] else 0
                     
@@ -5543,7 +5625,7 @@ class ContainerWindow:
                     print(f"Error calculating totals for barang: {ve}")
                     continue
             
-            # Group by customer with pricing
+            # Group by customer with pricing - PERBAIKAN: kalikan dengan colli
             customer_summary = {}
             for barang in container_barang:
                 try:
@@ -5560,25 +5642,28 @@ class ContainerWindow:
                     
                     customer_summary[customer]['count'] += 1
                     
-                    # Safe calculation for customer summary
+                    # Get colli for this barang
+                    colli_value = safe_get(barang, 'colli_amount', 0)
+                    colli = int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    customer_summary[customer]['colli'] += colli
+                    
+                    # PERBAIKAN: Volume dikalikan dengan colli
                     try:
                         m3_value = safe_get(barang, 'm3_barang', 0)
-                        customer_summary[customer]['volume'] += float(m3_value) if m3_value not in [None, '', '-'] else 0
+                        m3_per_unit = float(m3_value) if m3_value not in [None, '', '-'] else 0
+                        customer_summary[customer]['volume'] += m3_per_unit * colli
                     except (ValueError, TypeError):
                         pass
                     
+                    # PERBAIKAN: Berat dikalikan dengan colli
                     try:
                         ton_value = safe_get(barang, 'ton_barang', 0)
-                        customer_summary[customer]['weight'] += float(ton_value) if ton_value not in [None, '', '-'] else 0
+                        ton_per_unit = float(ton_value) if ton_value not in [None, '', '-'] else 0
+                        customer_summary[customer]['weight'] += ton_per_unit * colli
                     except (ValueError, TypeError):
                         pass
                     
-                    try:
-                        colli_value = safe_get(b, 'colli_amount', 0)
-                        customer_summary[customer]['colli'] += int(colli_value) if colli_value not in [None, '', '-'] else 0
-                    except (ValueError, TypeError):
-                        pass
-                    
+                    # Nilai (sudah benar)
                     try:
                         nilai_value = safe_get(barang, 'total_harga', 0)
                         customer_summary[customer]['nilai'] += float(nilai_value) if nilai_value not in [None, '', '-'] else 0
@@ -5597,7 +5682,8 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal membuat summary container: {str(e)}")
-
+        
+        
     def view_container_details(self, event):
         """View container details on double-click"""
         selection = self.container_tree.selection()

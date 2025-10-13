@@ -71,15 +71,15 @@ class PrintHandler:
             
             ws.print_options.horizontalCentered = True
         
-            # Define optimized styles
-            header_font = Font(name='Arial', size=12, bold=True)
-            company_font = Font(name='Arial', size=10, bold=True)
-            normal_font = Font(name='Arial', size=7)
-            small_font = Font(name='Arial', size=6)
-            table_header_font = Font(name='Arial', size=6, bold=True)
-            profit_header_font = Font(name='Arial', size=8, bold=True)
-            profit_font = Font(name='Arial', size=7)
-            tax_font = Font(name='Arial', size=6, italic=True)
+            # Define optimized styles - ALL TIMES NEW ROMAN SIZE 12
+            header_font = Font(name='Times New Roman', size=12, bold=True)
+            company_font = Font(name='Times New Roman', size=12, bold=True)
+            normal_font = Font(name='Times New Roman', size=12)
+            small_font = Font(name='Times New Roman', size=12)
+            table_header_font = Font(name='Times New Roman', size=12, bold=True)
+            profit_header_font = Font(name='Times New Roman', size=12, bold=True)
+            profit_font = Font(name='Times New Roman', size=12)
+            tax_font = Font(name='Times New Roman', size=12, italic=True)
         
             center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
             left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
@@ -110,6 +110,7 @@ class PrintHandler:
             ws[f'A{current_row}'] = "INVOICE PACKING LIST"
             ws[f'A{current_row}'].font = header_font
             ws[f'A{current_row}'].alignment = center_align
+            ws.row_dimensions[current_row].height = 20
             current_row += 1
         
             # Company info
@@ -117,6 +118,7 @@ class PrintHandler:
             ws[f'A{current_row}'] = "CV. CAHAYA KARUNIA | Jl. Teluk Raya Selatan No. 6 Surabaya | Phone: 031-60166017"
             ws[f'A{current_row}'].font = normal_font
             ws[f'A{current_row}'].alignment = center_align
+            ws.row_dimensions[current_row].height = 18
             current_row += 2
         
             # Container information - 3 columns layout
@@ -147,7 +149,7 @@ class PrintHandler:
                 ws[f'{get_column_letter(col_start + 1)}{row}'] = str(value)
                 ws[f'{get_column_letter(col_start + 1)}{row}'].font = small_font
                 
-                ws.row_dimensions[row].height = 10
+                ws.row_dimensions[row].height = 18
             
             current_row = info_start_row + 4 + 1
         
@@ -159,7 +161,7 @@ class PrintHandler:
                 cell.font = table_header_font
                 cell.alignment = center_align
                 cell.border = thin_border
-                ws.row_dimensions[current_row].height = 8
+                ws.row_dimensions[current_row].height = 20
         
             current_row += 1
         
@@ -219,10 +221,7 @@ class PrintHandler:
                     if receiver and receiver not in tax_summary:
                         tax_summary[receiver] = {'ppn_rate': 0, 'pph_rate': 0, 'ppn_amount': 0, 'pph_amount': 0, 'has_tax': False}
             
-            # ============================================
-            # REVERSE LIST - PALING AWAL INPUT DI ATAS
-            # ============================================
-            print("\n=== REVERSING LIST - EARLIEST INPUT FIRST ===")
+            print("\n=== PROCESSING ITEMS ===")
             print(f"Total items: {len(barang_list)}")
             print("=" * 60)
         
@@ -240,12 +239,15 @@ class PrintHandler:
             total_ppn_all = 0
             total_pph_all = 0
             
-            # Manual tax calculation per receiver group
-            current_receiver_subtotal = 0
+            # Track receiver groups for tax calculation
+            # PENTING: Hanya hitung barang dengan pajak = 1
+            receiver_groups = []
             current_receiver = None
+            current_receiver_subtotal = 0
+            current_receiver_start = 0
             
-            # Function to insert tax rows for a receiver with MANUAL calculation
-            def insert_tax_rows_for_receiver_manual(receiver, subtotal, current_row):
+            # Function to insert tax rows for a receiver
+            def insert_tax_rows_for_receiver(receiver, subtotal, current_row):
                 nonlocal total_ppn_all, total_pph_all
                 
                 if receiver not in tax_summary:
@@ -255,27 +257,27 @@ class PrintHandler:
                 if not tax_data['has_tax'] or (tax_data['ppn_rate'] == 0 and tax_data['pph_rate'] == 0):
                     return current_row
                 
-                # SKIP tax calculation if subtotal is 0 or negative
+                # Skip tax calculation if subtotal is 0 or negative
                 if subtotal <= 0:
-                    print(f"  Skipping tax for {receiver}: Subtotal is {subtotal}")
+                    print(f"  ⚠ Skipping tax for {receiver}: Subtotal is {subtotal}")
                     return current_row
                 
-                # Calculate tax manually based on subtotal
-                ppn_amount_manual = subtotal * (tax_data['ppn_rate'] / 100)
-                pph_amount_manual = subtotal * (tax_data['pph_rate'] / 100)
+                # Calculate tax based on subtotal (only from items with pajak=1)
+                ppn_amount = subtotal * (tax_data['ppn_rate'] / 100)
+                pph_amount = subtotal * (tax_data['pph_rate'] / 100)
                 
-                print(f"  Inserting tax for {receiver}: Subtotal Rp {subtotal:,.0f}")
-                print(f"    PPN {tax_data['ppn_rate']:.1f}% = Rp {ppn_amount_manual:,.0f}")
-                print(f"    PPH {tax_data['pph_rate']:.1f}% = Rp {pph_amount_manual:,.0f}")
+                print(f"  ✓ Inserting tax for '{receiver}': Taxable Subtotal Rp {subtotal:,.0f}")
+                print(f"    - PPN {tax_data['ppn_rate']:.1f}% = Rp {ppn_amount:,.0f}")
+                print(f"    - PPH {tax_data['pph_rate']:.1f}% = Rp {pph_amount:,.0f}")
                 
                 # Add PPN row
                 if tax_data['ppn_rate'] > 0:
-                    ppn_row_data = ['', '', '', f"PPN {tax_data['ppn_rate']:.1f}%", '', '', '', '', '', '', '', ppn_amount_manual]
+                    ppn_row_data = ['', '', '', f"PPN {tax_data['ppn_rate']:.1f}%", '', '', '', '', '', '', '', ppn_amount]
                     
                     for col, value in enumerate(ppn_row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
                         cell.font = tax_font
-                        ws.row_dimensions[current_row].height = 8
+                        ws.row_dimensions[current_row].height = 18
                         
                         if col == 1:
                             cell.alignment = center_align
@@ -285,17 +287,17 @@ class PrintHandler:
                         else:
                             cell.alignment = left_align
                     
-                    total_ppn_all += ppn_amount_manual
+                    total_ppn_all += ppn_amount
                     current_row += 1
                 
                 # Add PPH row
                 if tax_data['pph_rate'] > 0:
-                    pph_row_data = ['', '', '', f"PPH {tax_data['pph_rate']:.1f}%", '', '', '', '', '', '', '', pph_amount_manual]
+                    pph_row_data = ['', '', '', f"PPH {tax_data['pph_rate']:.1f}%", '', '', '', '', '', '', '', pph_amount]
                     
                     for col, value in enumerate(pph_row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
                         cell.font = tax_font
-                        ws.row_dimensions[current_row].height = 8
+                        ws.row_dimensions[current_row].height = 18
                         
                         if col == 1:
                             cell.alignment = center_align
@@ -305,11 +307,12 @@ class PrintHandler:
                         else:
                             cell.alignment = left_align
                     
-                    total_pph_all += pph_amount_manual
+                    total_pph_all += pph_amount
                     current_row += 1
                 
                 return current_row
         
+            # Process each item
             for i, barang_row in enumerate(barang_list, 1):
                 barang = dict(barang_row)
 
@@ -321,25 +324,20 @@ class PrintHandler:
                         except Exception:
                             return default
                 
-                    # ===== PERUBAHAN DI SINI =====
-                    # Format date - use 'tanggal' column (DATE) instead of 'assigned_at' (TIMESTAMP)
+                    # Format date - use 'tanggal' column (DATE)
                     tanggal = safe_barang_get('tanggal', datetime.now())
                     
                     # Parse string to datetime if needed
                     if isinstance(tanggal, str):
                         try:
-                            # Try DATE format first (YYYY-MM-DD)
                             tanggal = datetime.strptime(tanggal, '%Y-%m-%d')
                         except:
                             try:
-                                # Fallback to TIMESTAMP format
                                 tanggal = datetime.strptime(tanggal, '%Y-%m-%d %H:%M:%S')
                             except:
                                 tanggal = datetime.now()
                     
-                    # Format for display (dd-MMM, e.g., 01-Jan)
                     formatted_date = tanggal.strftime('%d-%b') if isinstance(tanggal, datetime) else '-'
-                    # ===== AKHIR PERUBAHAN =====
                     
                     pengirim = str(safe_barang_get('sender_name', '-'))
                     penerima = str(safe_barang_get('receiver_name', '-'))
@@ -352,7 +350,6 @@ class PrintHandler:
                     l = safe_barang_get('lebar_barang', '-')
                     t = safe_barang_get('tinggi_barang', '-')
                     
-                    # Remove commas from dimension values if they exist
                     if str(p) != '-':
                         p = str(p).replace(',', '')
                     if str(l) != '-':
@@ -368,6 +365,13 @@ class PrintHandler:
                     satuan = str(safe_barang_get('satuan', safe_barang_get('unit', 'pcs')))
                     unit_price = safe_barang_get('harga_per_unit', safe_barang_get('unit_price', 0))
                     total_harga = safe_barang_get('total_harga', 0)
+                    
+                    # ===== CRITICAL: Get pajak flag =====
+                    pajak_flag = safe_barang_get('pajak', 0)
+                    try:
+                        pajak_flag = int(pajak_flag) if pajak_flag not in [None, '', '-'] else 0
+                    except:
+                        pajak_flag = 0
                 
                     # Format values
                     m3_val = float(m3) if m3 not in [None, '', '-'] else 0
@@ -376,35 +380,62 @@ class PrintHandler:
                     unit_price_val = float(unit_price) if unit_price not in [None, '', '-'] else 0
                     harga_val = float(total_harga) if total_harga not in [None, '', '-'] else 0
                     
+                    # M3 dan Ton dikali dengan colli
+                    m3_total = m3_val * colli_val if colli_val > 0 else m3_val
+                    ton_total = ton_val * colli_val if colli_val > 0 else ton_val
+                    
                     # Add to totals
                     try:
-                        total_m3 += float(m3) if m3 not in [None, '', '-'] else 0
-                        total_ton += float(ton) if ton not in [None, '', '-'] else 0
+                        total_m3 += m3_total
+                        total_ton += ton_total
                         total_colli += int(colli) if colli not in [None, '', '-'] else 0
                         total_nilai += float(total_harga) if total_harga not in [None, '', '-'] else 0
                     except (ValueError, TypeError):
                         pass
                     
-                    # Track receiver changes for tax calculation
+                    # ===== TRACK RECEIVER CHANGES - HANYA UNTUK BARANG DENGAN PAJAK = 1 =====
                     if current_receiver is None:
                         # First item
                         current_receiver = penerima
-                        current_receiver_subtotal = harga_val
-                        print(f"  Starting new receiver group: '{penerima}' with Rp {harga_val:,.0f}")
+                        current_receiver_subtotal = harga_val if pajak_flag == 1 else 0
+                        current_receiver_start = i
+                        
+                        if pajak_flag == 1:
+                            print(f"  [{i}] 🏁 Starting group: '{penerima}' | Taxable item: Rp {harga_val:,.0f}")
+                        else:
+                            print(f"  [{i}] 🏁 Starting group: '{penerima}' | Non-taxable item (pajak=0)")
+                        
                     elif current_receiver != penerima:
-                        # Receiver changed - insert tax rows for previous receiver
-                        print(f"\n  Receiver changed from '{current_receiver}' (subtotal: Rp {current_receiver_subtotal:,.0f}) to '{penerima}'")
-                        current_row = insert_tax_rows_for_receiver_manual(current_receiver, current_receiver_subtotal, current_row)
-                        # Reset for new receiver
+                        # Receiver changed
+                        print(f"\n  [{i}] ═══ RECEIVER CHANGED ═══")
+                        print(f"      From: '{current_receiver}' → To: '{penerima}'")
+                        print(f"      Taxable subtotal for '{current_receiver}': Rp {current_receiver_subtotal:,.0f}")
+                        
+                        # Save completed group
+                        receiver_groups.append((current_receiver, current_receiver_subtotal, current_receiver_start, i-1))
+                        
+                        # Insert tax rows for previous receiver
+                        current_row = insert_tax_rows_for_receiver(current_receiver, current_receiver_subtotal, current_row)
+                        
+                        # Start new receiver group
                         current_receiver = penerima
-                        current_receiver_subtotal = harga_val
-                        print(f"  Starting new receiver group: '{penerima}' with Rp {harga_val:,.0f}")
+                        current_receiver_subtotal = harga_val if pajak_flag == 1 else 0
+                        current_receiver_start = i
+                        
+                        if pajak_flag == 1:
+                            print(f"      Starting new group: '{penerima}' | Taxable item: Rp {harga_val:,.0f}")
+                        else:
+                            print(f"      Starting new group: '{penerima}' | Non-taxable item (pajak=0)")
+                        
                     else:
-                        # Same receiver - accumulate
-                        current_receiver_subtotal += harga_val
-                        print(f"  Same receiver '{penerima}': adding Rp {harga_val:,.0f}, subtotal now: Rp {current_receiver_subtotal:,.0f}")
+                        # Same receiver - ONLY add to subtotal if pajak = 1
+                        if pajak_flag == 1:
+                            current_receiver_subtotal += harga_val
+                            print(f"  [{i}] ✓ Same receiver '{penerima}' | Taxable +Rp {harga_val:,.0f} | Subtotal: Rp {current_receiver_subtotal:,.0f}")
+                        else:
+                            print(f"  [{i}] ⊘ Same receiver '{penerima}' | Non-taxable Rp {harga_val:,.0f} (pajak=0) | Subtotal: Rp {current_receiver_subtotal:,.0f}")
                     
-                    # GROUPING LOGIC
+                    # GROUPING LOGIC for display
                     display_date = formatted_date
                     display_pengirim = pengirim
                     display_penerima = penerima
@@ -423,14 +454,14 @@ class PrintHandler:
                     # Fill row data
                     row_data = [
                         display_date, display_pengirim, display_penerima, nama_barang,
-                        kubikasi, m3_val, ton_val, colli_val, satuan,
+                        kubikasi, m3_total, ton_total, colli_val, satuan,
                         door, unit_price_val, harga_val
                     ]
                 
                     for col, value in enumerate(row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
                         cell.font = small_font
-                        ws.row_dimensions[current_row].height = 8
+                        ws.row_dimensions[current_row].height = 25
                     
                         if col == 1:
                             cell.alignment = center_align
@@ -445,23 +476,33 @@ class PrintHandler:
                 
                     current_row += 1
                     
-                    # Check if this is the last item
-                    is_last_item = (i == len(barang_list))
-                    
-                    # If last item, insert tax for current receiver
-                    if is_last_item:
-                        print(f"\n  Last item - inserting final tax for '{current_receiver}'")
-                        current_row = insert_tax_rows_for_receiver_manual(current_receiver, current_receiver_subtotal, current_row)
-                
                 except Exception as e:
                     print(f"Error processing barang {i}: {e}")
                     continue
+            
+            # Insert tax for the last receiver group
+            if current_receiver is not None:
+                print(f"\n  ═══ PROCESSING LAST GROUP ═══")
+                print(f"      Receiver: '{current_receiver}'")
+                print(f"      Final taxable subtotal: Rp {current_receiver_subtotal:,.0f}")
+                
+                receiver_groups.append((current_receiver, current_receiver_subtotal, current_receiver_start, len(barang_list)))
+                current_row = insert_tax_rows_for_receiver(current_receiver, current_receiver_subtotal, current_row)
+        
+            # Summary of receiver groups
+            print(f"\n=== RECEIVER GROUPS SUMMARY ===")
+            for receiver, subtotal, start, end in receiver_groups:
+                print(f"  {receiver}: Items {start}-{end} | Taxable Subtotal: Rp {subtotal:,.0f}")
+            print(f"  Total PPN: Rp {total_ppn_all:,.0f}")
+            print(f"  Total PPH: Rp {total_pph_all:,.0f}")
+            print("=" * 60)
         
             # Total row
             for col in range(1, 13):
                 cell = ws.cell(row=current_row, column=col)
                 cell.border = thin_border
                 cell.font = table_header_font
+                ws.row_dimensions[current_row].height = 20
             
                 if col == 1:
                     cell.value = "TOTAL"
@@ -478,7 +519,8 @@ class PrintHandler:
                     cell.value = total_colli
                     cell.alignment = right_align
                 elif col == 12:
-                    cell.value = total_nilai + total_ppn_all + total_pph_all
+                    # PPH23 dikurangkan, PPN ditambahkan
+                    cell.value = total_nilai + total_ppn_all - total_pph_all
                     cell.number_format = '#,##0'
                     cell.alignment = right_align
         
@@ -516,7 +558,8 @@ class PrintHandler:
                 total_biaya_surabaya = safe_sum_costs(costs_surabaya)
                 total_biaya_samarinda = safe_sum_costs(costs_destinasi)
                 total_biaya = total_biaya_surabaya + total_biaya_samarinda
-                profit_lcl = (total_nilai + total_ppn_all + total_pph_all) - total_biaya
+                # PPH23 dikurangkan dari total nilai, PPN ditambahkan
+                profit_lcl = (total_nilai + total_ppn_all - total_pph_all) - total_biaya
                 
                 # BIAYA SURABAYA SECTION
                 if costs_surabaya:
@@ -529,6 +572,7 @@ class PrintHandler:
                     ws[f'L{current_row}'].font = profit_header_font
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].border = thin_border
+                    ws.row_dimensions[current_row].height = 20
                     current_row += 1
                     
                     for cost_name, cost_value in costs_surabaya.items():
@@ -555,13 +599,15 @@ class PrintHandler:
                         ws[f'L{current_row}'].font = profit_font
                         ws[f'L{current_row}'].alignment = right_align
                         ws[f'L{current_row}'].number_format = '#,##0'
+                        ws.row_dimensions[current_row].height = 18
                         current_row += 1
 
                     ws[f'L{current_row}'] = total_biaya_surabaya
-                    ws[f'L{current_row}'].font = Font(name='Arial', size=8, bold=True)
+                    ws[f'L{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].number_format = '#,##0'
                     ws[f'L{current_row}'].border = thin_border
+                    ws.row_dimensions[current_row].height = 20
                     current_row += 2
                 
                 # BIAYA DESTINASI SECTION
@@ -576,6 +622,7 @@ class PrintHandler:
                     ws[f'L{current_row}'].font = profit_header_font
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].border = thin_border
+                    ws.row_dimensions[current_row].height = 20
                     current_row += 1
                     
                     for cost_name, cost_value in costs_destinasi.items():
@@ -602,13 +649,15 @@ class PrintHandler:
                         ws[f'L{current_row}'].font = profit_font
                         ws[f'L{current_row}'].alignment = right_align
                         ws[f'L{current_row}'].number_format = '#,##0'
+                        ws.row_dimensions[current_row].height = 18
                         current_row += 1
                     
                     ws[f'L{current_row}'] = total_biaya_samarinda
-                    ws[f'L{current_row}'].font = Font(name='Arial', size=8, bold=True)
+                    ws[f'L{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].number_format = '#,##0'
                     ws[f'L{current_row}'].border = thin_border
+                    ws.row_dimensions[current_row].height = 20
                     current_row += 2
                 
                 # PROFIT CALCULATION
@@ -616,29 +665,30 @@ class PrintHandler:
                     ws[f'A{current_row}'] = "PROFIT LCL"
                     ws[f'L{current_row}'] = profit_lcl
                     ws.merge_cells(f'A{current_row}:K{current_row}')
-                    ws[f'A{current_row}'].font = Font(name='Arial', size=10, bold=True)
+                    ws[f'A{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
                     ws[f'A{current_row}'].alignment = left_align
                     ws[f'A{current_row}'].border = thin_border
-                    ws[f'L{current_row}'].font = Font(name='Arial', size=10, bold=True)
+                    ws[f'L{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].number_format = '#,##0'
                     ws[f'L{current_row}'].border = thin_border
+                    ws.row_dimensions[current_row].height = 20
                     current_row += 2
         
             # AUTO-ADJUST Column widths
             estimated_widths = [
-                8,   # Tgl
-                20,  # Pengirim
-                20,  # Penerima  
-                25,  # Nama Barang
-                12,  # Kubikasi
-                8,   # M3
-                8,   # Ton
-                6,   # Col
-                8,   # Satuan
-                10,  # Door
-                12,  # Unit Price
-                12   # Price
+                10,  # Tgl
+                25,  # Pengirim (diperbesar)
+                25,  # Penerima  
+                35,  # Nama Barang (diperbesar)
+                18,  # Kubikasi (diperbesar)
+                10,  # M3
+                10,  # Ton
+                8,   # Col
+                10,  # Satuan
+                12,  # Door
+                14,  # Unit Price
+                14   # Price
             ]
             
             for i, width in enumerate(estimated_widths, 1):
@@ -656,13 +706,14 @@ class PrintHandler:
                     ws.row_breaks.append(break_row)
         
             # Save file
-            filename = f"Invoice_Container_{container_id}_Manual_Tax_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            self._save_excel_file(wb, filename, "INVOICE CONTAINER WITH MANUAL TAX")
+            filename = f"Invoice_Container_{container_id}_TaxFiltered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            self._save_excel_file(wb, filename, "INVOICE CONTAINER WITH TAX FILTERING")
         
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat Excel invoice: {str(e)}")
             print(f"Full error: {traceback.format_exc()}")
-           
+            
+                           
     def _get_container_costs(self, container_id, location):
         """Get container costs from database by location (SURABAYA or SAMARINDA)"""
         try:
@@ -1182,268 +1233,330 @@ class PrintHandler:
             messagebox.showerror("Error", f"Gagal membuat Excel packing list: {str(e)}")
             print(f"Full error: {traceback.format_exc()}")
             
-    def print_customer_packing_list_pdf(self, container_id, filter_criteria=None):
-        """Generate PDF packing list with signature support"""
-        print(f"[DEBUG] PrintHandler.print_customer_packing_list_pdf called")
-        print(f"[DEBUG] container_id: {container_id}, filter_criteria: {filter_criteria}")
+    def print_customer_packing_list_pdf(self, container_ids, filter_criteria=None):
+        """
+        Generate PDF packing list - SAME LOGIC as Invoice (by JOA and RECEIVER)
         
-        self.pdf_generator.generate_pdf_packing_list_with_signature(container_id, filter_criteria)
-    
-    def show_sender_receiver_selection_dialog_pdf(self, container_id):
-        """Enhanced dialog for selecting sender-receiver combinations - inline implementation"""
-        print(f"[DEBUG] show_sender_receiver_selection_dialog_pdf called")
-        
+        Args:
+            container_ids: Can be single int or list of ints
+        """
         try:
-            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+            # Convert single ID to list
+            if isinstance(container_ids, (int, str)):
+                container_ids = [int(container_ids)]
+            elif not isinstance(container_ids, list):
+                container_ids = list(container_ids)
             
-            if not container_barang:
-                messagebox.showwarning("Peringatan", "Container kosong!")
-                return
+            print(f"\n{'='*60}")
+            print(f"[PACKING LIST PDF] Processing {len(container_ids)} container(s)")
+            print(f"{'='*60}\n")
             
-            combinations = set()
-            for barang in container_barang:
-                if hasattr(barang, 'keys'):
-                    sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else '-'
-                    receiver = barang['receiver_name'] if 'receiver_name' in barang.keys() and barang['receiver_name'] else '-'
-                else:
-                    sender = barang.get('sender_name', '-')
-                    receiver = barang.get('receiver_name', '-')
-                combinations.add((sender, receiver))
-            
-            combinations = sorted(list(combinations))
-            print(f"[DEBUG] Found {len(combinations)} combinations")
-            
-            if not combinations:
-                messagebox.showwarning("Peringatan", "Tidak ada data pengirim-penerima!")
-                return
-            
-            if len(combinations) == 1:
-                sender, receiver = combinations[0]
-                filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
-                self.print_customer_packing_list_pdf(container_id, filter_criteria)
-                return
-            
-            try:
-                dialog = tk.Toplevel()
-                dialog.title("Pilih Kombinasi PDF")
-                dialog.geometry("600x500")
-                dialog.resizable(False, False)
-                dialog.grab_set()
-                dialog.transient()
-                
-                dialog.geometry("+%d+%d" % (dialog.winfo_screenwidth()//2 - 300, 
-                                            dialog.winfo_screenheight()//2 - 250))
-                
-                selected_combinations = []
-                dialog_result = {"cancelled": True}
-                
-                main_frame = ttk.Frame(dialog)
-                main_frame.pack(fill='both', expand=True, padx=20, pady=20)
-                
-                title_label = ttk.Label(main_frame, 
-                                        text=f"Ditemukan {len(combinations)} kombinasi pengirim-penerima:",
-                                        font=('Arial', 12, 'bold'))
-                title_label.pack(pady=(0, 15))
-                
-                instruction_label = ttk.Label(main_frame,
-                                            text="Pilih kombinasi yang ingin dibuat PDF-nya:",
-                                            font=('Arial', 10))
-                instruction_label.pack(pady=(0, 10))
-                
-                scroll_frame = ttk.Frame(main_frame)
-                scroll_frame.pack(fill='both', expand=True, pady=(0, 15))
-                
-                canvas = tk.Canvas(scroll_frame, height=250)
-                scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
-                scrollable_frame = ttk.Frame(canvas)
-                
-                scrollable_frame.bind(
-                    "<Configure>",
-                    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-                )
-                
-                canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-                canvas.configure(yscrollcommand=scrollbar.set)
-                
-                canvas.pack(side="left", fill="both", expand=True)
-                scrollbar.pack(side="right", fill="y")
-                
-                checkbox_vars = []
-                for i, (sender, receiver) in enumerate(combinations):
-                    var = tk.BooleanVar()
-                    checkbox_vars.append(var)
-                    
-                    cb_text = f"{sender} → {receiver}"
-                    checkbox = ttk.Checkbutton(scrollable_frame, 
-                                                text=cb_text,
-                                                variable=var)
-                    checkbox.pack(anchor='w', pady=3, padx=15)
-                
-                select_frame = ttk.Frame(main_frame)
-                select_frame.pack(fill='x', pady=(0, 15))
-                
-                def select_all():
-                    for var in checkbox_vars:
-                        var.set(True)
-                
-                def deselect_all():
-                    for var in checkbox_vars:
-                        var.set(False)
-                
-                ttk.Button(select_frame, text="Pilih Semua", 
-                            command=select_all).pack(side='left', padx=(0, 10))
-                ttk.Button(select_frame, text="Hapus Semua", 
-                            command=deselect_all).pack(side='left')
-                
-                info_label = ttk.Label(main_frame,
-                                        text="Tip: Pilih beberapa kombinasi untuk membuat PDF terpisah untuk masing-masing",
-                                        font=('Arial', 8),
-                                        foreground='blue')
-                info_label.pack(pady=(10, 0))
-                
-                button_frame = ttk.Frame(main_frame)
-                button_frame.pack(fill='x', pady=(20, 0))
-                
-                def on_create_pdf():
-                    selected_count = sum(var.get() for var in checkbox_vars)
-                    if selected_count == 0:
-                        messagebox.showwarning("Peringatan", "Pilih minimal satu kombinasi!")
-                        return
-                    
-                    selected_combinations.clear()
-                    for i, var in enumerate(checkbox_vars):
-                        if var.get():
-                            selected_combinations.append(combinations[i])
-                    
-                    dialog_result["cancelled"] = False
-                    dialog.destroy()
-                
-                def on_cancel():
-                    dialog_result["cancelled"] = True
-                    dialog.destroy()
-                
-                ttk.Button(button_frame, text="Buat PDF Terpilih", 
-                            command=on_create_pdf).pack(side='left', padx=(0, 10))
-                ttk.Button(button_frame, text="Batal", 
-                            command=on_cancel).pack(side='right')
-                
-                dialog.bind("<Return>", lambda e: on_create_pdf())
-                dialog.bind("<Escape>", lambda e: on_cancel())
-                
-                print("[DEBUG] Enhanced dialog created, waiting for user input...")
-                
-                dialog.wait_window()
-                
-                if not dialog_result["cancelled"] and selected_combinations:
-                    print(f"[DEBUG] User selected {len(selected_combinations)} combinations")
-                    
-                    for sender, receiver in selected_combinations:
-                        filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
-                        print(f"[DEBUG] Creating PDF for: {sender} -> {receiver}")
-                        self.print_customer_packing_list_pdf(container_id, filter_criteria)
-                    
-                    messagebox.showinfo("Selesai", 
-                                        f"Berhasil membuat {len(selected_combinations)} file PDF!")
-                else:
-                    print("[DEBUG] User cancelled or no selection made")
-                    
-            except Exception as dialog_error:
-                print(f"[ERROR] Enhanced dialog error: {dialog_error}")
-                print(f"[ERROR] Traceback: {traceback.format_exc()}")
-                
-        except Exception as e:
-            print(f"[ERROR] Error in combination selection: {e}")
-            print(f"[ERROR] Traceback: {traceback.format_exc()}")
-            messagebox.showerror("Error", f"Error: {str(e)}")            
-            
-    def print_container_invoice_pdf(self, container_id):
-        """Generate and export container invoice to PDF with receiver selection"""
-        try:
-            container = self.db.get_container_by_id(container_id)
-            if not container:
-                messagebox.showerror("Error", "Container tidak ditemukan!")
-                return
-        
-            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
-        
-            if not container_barang:
-                messagebox.showwarning("Peringatan", "Container kosong, tidak ada yang akan diprint!")
-                return
-        
-            self.show_receiver_selection_dialog_for_invoice_pdf(container_id)
-        
-        except Exception as e:
-            messagebox.showerror("Error", f"Gagal membuat invoice PDF: {str(e)}")
+            # Collect data grouped by JOA and RECEIVER ONLY (same as invoice)
+            joa_receiver_groups = {}
+            container_info = {}
+            all_barang = []   # inisialisasi sebelum loop
 
-    def show_receiver_selection_dialog_for_invoice_pdf(self, container_id):
-        """Show dialog to select receiver for invoice PDF"""
+            for container_id in container_ids:
+                try:
+                    container = self.db.get_container_by_id(container_id)
+                    if not container:
+                        print(f"[ERROR] Container {container_id} tidak ditemukan!")
+                        continue
+                    
+                    container_info[container_id] = container
+                    
+                    ref_joa = container.get('ref_joa', '') or f'NO_JOA_{container_id}'
+                    
+                    if ref_joa not in joa_receiver_groups:
+                        joa_receiver_groups[ref_joa] = {}
+                    
+                    container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+                    if not container_barang:
+                        print(f"[WARNING] Container {container_id} kosong!")
+                        continue
+
+                    # Convert sqlite3.Row → dict + inject container_id
+                    container_barang = [{**dict(b), "container_id": container_id} for b in container_barang]
+
+                    # ➕ Kumpulin ke all_barang
+                    all_barang.extend(container_barang)
+
+                    # Extract receivers only
+                    for barang in container_barang:
+                        receiver = barang.get('receiver_name', '-') if barang.get('receiver_name') else '-'
+                        if receiver not in joa_receiver_groups[ref_joa]:
+                            joa_receiver_groups[ref_joa][receiver] = set()
+                        joa_receiver_groups[ref_joa][receiver].add(container_id)
+
+                except Exception as e:
+                    print(f"[ERROR] Error collecting data: {e}")
+                    continue
+                
+                
+            if not joa_receiver_groups:
+                messagebox.showwarning("Peringatan", "Tidak ada data yang dapat diproses!")
+                return
+            
+            # Convert to dialog format
+            joa_groups = {}
+            for ref_joa, receivers in joa_receiver_groups.items():
+                joa_groups[ref_joa] = {}
+                for receiver, container_set in receivers.items():
+                    container_list = sorted(list(container_set))
+                    joa_groups[ref_joa][("ALL_SENDERS", receiver)] = container_list
+            
+            # Show selection dialog - USE CUSTOM PACKING LIST DIALOG
+            selected = self.show_joa_grouped_packing_list_dialog(
+                joa_groups, 
+                container_info,
+                len(container_ids) > 1
+            )
+            
+            if not selected:
+                print("[INFO] User cancelled")
+                return
+            
+            # Merge by receiver only
+            merged_by_receiver = {}
+            
+            for key, container_ids_for_pdf in selected.items():
+                ref_joa, sender, receiver = key
+                merge_key = (ref_joa, receiver)
+                
+                if merge_key not in merged_by_receiver:
+                    merged_by_receiver[merge_key] = set()
+                merged_by_receiver[merge_key].update(container_ids_for_pdf)
+            
+            print(f"\n{'='*60}")
+            print(f"[MERGED] {len(merged_by_receiver)} Packing List PDFs will be created")
+            print(f"{'='*60}\n")
+            
+            total_pdfs = 0
+            
+            for merge_key, container_ids_set in merged_by_receiver.items():
+                ref_joa, receiver = merge_key
+                container_ids_for_pdf = sorted(list(container_ids_set))
+                
+                # Filter: get ALL senders for this receiver
+                filter_criteria = {'receiver_name': receiver}
+                
+                try:
+                    print(f"[PDF] COMBINED PACKING LIST: JOA={ref_joa} | Receiver={receiver} | Containers: {container_ids_for_pdf}")
+                    # Generate combined packing list PDF
+                    self.pdf_generator.generate_combined_pdf_packing_list(
+                        container_ids_for_pdf, ref_joa, filter_criteria, all_barang
+                    )
+                    
+                except Exception as pdf_error:
+                    print(f"[ERROR] Failed PDF: {pdf_error}")
+                    import traceback
+                    print(traceback.format_exc())
+            
+            if total_pdfs > 0:
+                messagebox.showinfo("Selesai", 
+                    f"✅ Berhasil membuat {total_pdfs} file Packing List PDF!\n"
+                    f"💡 Setiap PDF berisi semua pengirim untuk penerima yang sama")
+            
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] {e}")
+            print(traceback.print_exc())
+            messagebox.showerror("Error", f"Error: {str(e)}")
+
+       
+    def print_container_invoice_pdf(self, container_ids):
+        """
+        Generate and export container invoice to PDF with receiver selection
+        Groups by REF JOA and RECEIVER - ONE PDF per receiver (combines all senders)
+        
+        Args:
+            container_ids: Can be single int or list of ints
+        """
         try:
-            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+            # Convert single ID to list
+            if isinstance(container_ids, (int, str)):
+                container_ids = [int(container_ids)]
+            elif not isinstance(container_ids, list):
+                container_ids = list(container_ids)
             
-            if not container_barang:
-                messagebox.showwarning("Peringatan", "Container kosong!")
+            print(f"\n{'='*60}")
+            print(f"[INVOICE PDF] Processing {len(container_ids)} container(s)")
+            print(f"{'='*60}\n")
+            
+            # Collect data grouped by JOA and RECEIVER ONLY (same as packing list)
+            joa_receiver_groups = {}
+            container_info = {}
+            all_barang = []   # inisialisasi sebelum loop
+
+            for container_id in container_ids:
+                try:
+                    container = self.db.get_container_by_id(container_id)
+                    if not container:
+                        print(f"[ERROR] Container {container_id} tidak ditemukan!")
+                        continue
+                    
+                    container_info[container_id] = container
+                    
+                    ref_joa = container.get('ref_joa', '') or f'NO_JOA_{container_id}'
+                    
+                    if ref_joa not in joa_receiver_groups:
+                        joa_receiver_groups[ref_joa] = {}
+                    
+                    container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+                    if not container_barang:
+                        print(f"[WARNING] Container {container_id} kosong!")
+                        continue
+
+                    # Convert sqlite3.Row → dict + inject container_id
+                    container_barang = [{**dict(b), "container_id": container_id} for b in container_barang]
+
+                    # ➕ Kumpulin ke all_barang
+                    all_barang.extend(container_barang)
+
+                    # Extract receivers only
+                    for barang in container_barang:
+                        receiver = barang.get('receiver_name', '-') if barang.get('receiver_name') else '-'
+                        if receiver not in joa_receiver_groups[ref_joa]:
+                            joa_receiver_groups[ref_joa][receiver] = set()
+                        joa_receiver_groups[ref_joa][receiver].add(container_id)
+
+                except Exception as e:
+                    print(f"[ERROR] Error collecting data: {e}")
+                    continue
+                
+                
+            if not joa_receiver_groups:
+                messagebox.showwarning("Peringatan", "Tidak ada data yang dapat diproses!")
                 return
             
-            combinations = set()
-            for barang in container_barang:
-                if hasattr(barang, 'keys'):
-                    sender = barang['sender_name'] if 'sender_name' in barang.keys() and barang['sender_name'] else '-'
-                    receiver = barang['receiver_name'] if 'receiver_name' in barang.keys() and barang['receiver_name'] else '-'
-                else:
-                    sender = barang.get('sender_name', '-')
-                    receiver = barang.get('receiver_name', '-')
-                combinations.add((sender, receiver))
+            # Convert to dialog format
+            joa_groups = {}
+            for ref_joa, receivers in joa_receiver_groups.items():
+                joa_groups[ref_joa] = {}
+                for receiver, container_set in receivers.items():
+                    container_list = sorted(list(container_set))
+                    joa_groups[ref_joa][("ALL_SENDERS", receiver)] = container_list
             
-            combinations = sorted(list(combinations))
-            print(f"[DEBUG] Found {len(combinations)} combinations for invoice PDF")
+            # Show selection dialog
+            selected = self.show_joa_grouped_invoice_dialog(
+                joa_groups, 
+                container_info,
+                len(container_ids) > 1
+            )
             
-            if not combinations:
-                messagebox.showwarning("Peringatan", "Tidak ada data pengirim-penerima!")
+            if not selected:
+                print("[INFO] User cancelled")
                 return
             
-            if len(combinations) == 1:
-                sender, receiver = combinations[0]
-                filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
-                self.pdf_generator.generate_pdf_invoice_with_tax(container_id, filter_criteria)
-                return
+            # Merge by receiver only
+            merged_by_receiver = {}
             
+            for key, container_ids_for_pdf in selected.items():
+                ref_joa, sender, receiver = key
+                merge_key = (ref_joa, receiver)
+                
+                if merge_key not in merged_by_receiver:
+                    merged_by_receiver[merge_key] = set()
+                merged_by_receiver[merge_key].update(container_ids_for_pdf)
+            
+            print(f"\n{'='*60}")
+            print(f"[MERGED] {len(merged_by_receiver)} Invoice PDFs will be created")
+            print(f"{'='*60}\n")
+            
+            total_pdfs = 0
+            
+            for merge_key, container_ids_set in merged_by_receiver.items():
+                ref_joa, receiver = merge_key
+                container_ids_for_pdf = sorted(list(container_ids_set))
+                
+                # Filter: get ALL senders for this receiver
+                filter_criteria = {'receiver_name': receiver}
+                
+                try:
+                    print(f"[PDF] COMBINED INVOICE: JOA={ref_joa} | Receiver={receiver} | Containers: {container_ids_for_pdf}")
+                    # Generate combined invoice PDF with all_barang
+                    self.pdf_generator.generate_combined_pdf_invoice_with_tax(
+                        container_ids_for_pdf, ref_joa, filter_criteria, all_barang
+                    )
+                    total_pdfs += 1
+                    
+                except Exception as pdf_error:
+                    print(f"[ERROR] Failed PDF: {pdf_error}")
+                    import traceback
+                    print(traceback.format_exc())
+            
+            if total_pdfs > 0:
+                messagebox.showinfo("Selesai", 
+                    f"✅ Berhasil membuat {total_pdfs} file Invoice PDF!\n"
+                    f"💡 Setiap PDF berisi semua pengirim untuk penerima yang sama")
+            
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] {e}")
+            print(traceback.format_exc())
+            messagebox.showerror("Error", f"Error: {str(e)}")
+        
+    def show_joa_grouped_invoice_dialog(self, joa_groups, container_info, is_batch):
+        """
+        Show dialog with JOA grouping for invoice selection - GROUPED BY RECEIVER ONLY
+        
+        Args:
+            joa_groups: dict {ref_joa: {(sender, receiver): [container_ids]}}
+            container_info: dict {container_id: container_data}
+            is_batch: bool
+        
+        Returns:
+            dict {(ref_joa, sender, receiver): [container_ids]} or None
+        """
+        try:
             dialog = tk.Toplevel()
-            dialog.title("Pilih Penerima untuk Invoice PDF")
-            dialog.geometry("600x500")
-            dialog.resizable(False, False)
+            
+            if is_batch:
+                title = f"Pilih Penerima - {len(container_info)} Containers (Grouped by JOA)"
+            else:
+                container_id = list(container_info.keys())[0]
+                title = f"Pilih Penerima - Container ID {container_id}"
+            
+            dialog.title(title)
+            dialog.geometry("900x700")
+            dialog.resizable(True, True)
             dialog.grab_set()
             dialog.transient()
             
-            dialog.geometry("+%d+%d" % (dialog.winfo_screenwidth()//2 - 300, 
-                                        dialog.winfo_screenheight()//2 - 250))
+            # Center dialog
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - 450
+            y = (dialog.winfo_screenheight() // 2) - 350
+            dialog.geometry(f"900x700+{x}+{y}")
             
-            selected_combinations = []
+            selected_data = {}
             dialog_result = {"cancelled": True}
             
+            # Main frame
             main_frame = ttk.Frame(dialog)
             main_frame.pack(fill='both', expand=True, padx=20, pady=20)
             
-            title_label = ttk.Label(main_frame, 
-                                    text=f"Pilih Penerima untuk Invoice PDF",
-                                    font=('Arial', 12, 'bold'))
-            title_label.pack(pady=(0, 15))
+            # Title
+            title_label = ttk.Label(main_frame, text=title, font=('Arial', 14, 'bold'))
+            title_label.pack(pady=(0, 10))
             
-            instruction_label = ttk.Label(main_frame,
-                                        text="Pilih kombinasi yang ingin dibuat Invoice PDF-nya:",
-                                        font=('Arial', 10))
-            instruction_label.pack(pady=(0, 10))
+            # Instruction
+            instruction = "✨ Containers dengan REF JOA yang sama akan digabung dalam satu PDF\n"
+            instruction += "📋 Pilih PENERIMA untuk dibuat Invoice PDF:"
             
+            ttk.Label(main_frame, text=instruction, font=('Arial', 10), 
+                    justify='center').pack(pady=(0, 10))
+            
+            # Scrollable frame
             scroll_frame = ttk.Frame(main_frame)
             scroll_frame.pack(fill='both', expand=True, pady=(0, 15))
             
-            canvas = tk.Canvas(scroll_frame, height=250)
+            canvas = tk.Canvas(scroll_frame)
             scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
             scrollable_frame = ttk.Frame(canvas)
             
-            scrollable_frame.bind(
-                "<Configure>",
-                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-            )
+            scrollable_frame.bind("<Configure>", 
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
             
             canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
             canvas.configure(yscrollcommand=scrollbar.set)
@@ -1451,52 +1564,155 @@ class PrintHandler:
             canvas.pack(side="left", fill="both", expand=True)
             scrollbar.pack(side="right", fill="y")
             
-            checkbox_vars = []
-            for i, (sender, receiver) in enumerate(combinations):
-                var = tk.BooleanVar()
-                checkbox_vars.append(var)
-                
-                cb_text = f"{sender} → {receiver}"
-                checkbox = ttk.Checkbutton(scrollable_frame, 
-                                            text=cb_text,
-                                            variable=var)
-                checkbox.pack(anchor='w', pady=3, padx=15)
+            # Create checkboxes grouped by JOA - GROUP BY RECEIVER ONLY
+            checkbox_data = []  # [(var, ref_joa, receiver, all_combinations_for_receiver)]
             
+            sorted_joas = sorted(joa_groups.keys())
+            
+            for joa_idx, ref_joa in enumerate(sorted_joas):
+                # JOA Header
+                joa_frame = ttk.LabelFrame(scrollable_frame, 
+                                        text=f"📌 REF JOA: {ref_joa}",
+                                        padding=10)
+                joa_frame.pack(fill='x', pady=10, padx=10)
+                
+                combinations = joa_groups[ref_joa]
+                
+                # GROUP BY RECEIVER - merge all senders for same receiver
+                receiver_groups = {}  # {receiver: [(sender, receiver, container_ids), ...]}
+                
+                for combination, container_ids in combinations.items():
+                    sender, receiver = combination
+                    if receiver not in receiver_groups:
+                        receiver_groups[receiver] = []
+                    receiver_groups[receiver].append((sender, receiver, container_ids))
+                
+                sorted_receivers = sorted(receiver_groups.keys())
+                
+                for receiver in sorted_receivers:
+                    all_combinations_for_receiver = receiver_groups[receiver]
+                    
+                    var = tk.BooleanVar()
+                    
+                    # Combination frame
+                    combo_frame = ttk.Frame(joa_frame)
+                    combo_frame.pack(fill='x', pady=5, padx=5)
+                    
+                    # Main checkbox - SHOW RECEIVER ONLY
+                    cb_text = f"{receiver}"
+                    # Use tk.Checkbutton instead of ttk for font support
+                    checkbox = tk.Checkbutton(combo_frame, text=cb_text, variable=var, 
+                                            font=('Arial', 10, 'bold'),
+                                            bg='white', activebackground='white',
+                                            relief='flat', borderwidth=0)
+                    checkbox.pack(anchor='w')
+                    
+                    # Show all senders for this receiver
+                    all_senders = [s for s, r, _ in all_combinations_for_receiver]
+                    if len(all_senders) > 0:
+                        sender_text = f"   📤 Dari: {', '.join(sorted(set(all_senders)))}"
+                        sender_label = ttk.Label(combo_frame, text=sender_text, 
+                                            font=('Arial', 8), foreground='blue')
+                        sender_label.pack(anchor='w', padx=(20, 0))
+                    
+                    # Container details
+                    all_container_ids = []
+                    for _, _, cids in all_combinations_for_receiver:
+                        all_container_ids.extend(cids)
+                    all_container_ids = list(set(all_container_ids))  # unique
+                    
+                    container_names = []
+                    for cid in all_container_ids:
+                        if cid in container_info:
+                            container_names.append(
+                                container_info[cid].get('container', f'ID {cid}')
+                            )
+                    
+                    if len(all_container_ids) > 1:
+                        info_text = f"   📦 {len(all_container_ids)} Containers akan DIGABUNG: {', '.join(container_names)}"
+                        color = 'green'
+                    else:
+                        info_text = f"   📦 Container: {container_names[0]}"
+                        color = 'gray'
+                    
+                    info_label = ttk.Label(combo_frame, text=info_text, 
+                                        font=('Arial', 8), foreground=color)
+                    info_label.pack(anchor='w', padx=(20, 0))
+                    
+                    # Store: var, ref_joa, receiver, all combinations for this receiver
+                    checkbox_data.append((var, ref_joa, receiver, all_combinations_for_receiver))
+            
+            # Select buttons
             select_frame = ttk.Frame(main_frame)
-            select_frame.pack(fill='x', pady=(0, 15))
+            select_frame.pack(fill='x', pady=(0, 10))
             
             def select_all():
-                for var in checkbox_vars:
+                for var, _, _, _ in checkbox_data:
                     var.set(True)
             
             def deselect_all():
-                for var in checkbox_vars:
+                for var, _, _, _ in checkbox_data:
                     var.set(False)
             
             ttk.Button(select_frame, text="Pilih Semua", 
-                        command=select_all).pack(side='left', padx=(0, 10))
+                    command=select_all).pack(side='left', padx=(0, 10))
             ttk.Button(select_frame, text="Hapus Semua", 
-                        command=deselect_all).pack(side='left')
+                    command=deselect_all).pack(side='left')
             
-            info_label = ttk.Label(main_frame,
-                                    text="Tip: Pilih beberapa kombinasi untuk membuat Invoice PDF terpisah",
-                                    font=('Arial', 8),
-                                    foreground='blue')
-            info_label.pack(pady=(10, 0))
+            # Info label
+            info_text = "💡 Tip: Container dengan JOA sama akan otomatis digabung dalam 1 PDF per penerima"
+            ttk.Label(main_frame, text=info_text, font=('Arial', 8), 
+                    foreground='blue').pack(pady=(0, 10))
             
+            # Summary label
+            summary_label = ttk.Label(main_frame, text="", font=('Arial', 10, 'bold'))
+            summary_label.pack(pady=(0, 10))
+            
+            def update_summary():
+                selected_count = sum(var.get() for var, _, _, _ in checkbox_data)
+                total_pdfs = sum(1 for var, _, _, _ in checkbox_data if var.get())
+                
+                # Count total unique containers
+                all_container_ids = set()
+                for var, _, _, all_combos in checkbox_data:
+                    if var.get():
+                        for _, _, cids in all_combos:
+                            all_container_ids.update(cids)
+                
+                summary_text = f"📊 Terpilih: {selected_count} penerima\n"
+                summary_text += f"📄 {total_pdfs} PDF akan dibuat dari {len(all_container_ids)} container(s)"
+                summary_label.config(text=summary_text)
+            
+            # Bind checkbox changes
+            for var, _, _, _ in checkbox_data:
+                var.trace('w', lambda *args: update_summary())
+            
+            update_summary()
+            
+            # Action buttons
             button_frame = ttk.Frame(main_frame)
-            button_frame.pack(fill='x', pady=(20, 0))
+            button_frame.pack(fill='x', pady=(10, 0))
             
-            def on_create_invoice_pdf():
-                selected_count = sum(var.get() for var in checkbox_vars)
+            def on_create():
+                selected_count = sum(var.get() for var, _, _, _ in checkbox_data)
                 if selected_count == 0:
-                    messagebox.showwarning("Peringatan", "Pilih minimal satu kombinasi!")
+                    messagebox.showwarning("Peringatan", "Pilih minimal satu penerima!")
                     return
                 
-                selected_combinations.clear()
-                for i, var in enumerate(checkbox_vars):
+                selected_data.clear()
+                # For each selected receiver, include ALL combinations (all senders)
+                for var, ref_joa, receiver, all_combinations_for_receiver in checkbox_data:
                     if var.get():
-                        selected_combinations.append(combinations[i])
+                        # Each combination (sender, receiver, container_ids) needs to be added
+                        for sender, recv, container_ids in all_combinations_for_receiver:
+                            key = (ref_joa, sender, receiver)
+                            if key not in selected_data:
+                                selected_data[key] = []
+                            selected_data[key].extend(container_ids)
+                        
+                        # Remove duplicates in container_ids
+                        for key in selected_data:
+                            selected_data[key] = list(set(selected_data[key]))
                 
                 dialog_result["cancelled"] = False
                 dialog.destroy()
@@ -1505,32 +1721,681 @@ class PrintHandler:
                 dialog_result["cancelled"] = True
                 dialog.destroy()
             
-            ttk.Button(button_frame, text="Buat Invoice PDF", 
-                        command=on_create_invoice_pdf).pack(side='left', padx=(0, 10))
-            ttk.Button(button_frame, text="Batal", 
-                        command=on_cancel).pack(side='right')
+            ttk.Button(button_frame, text="✅ Buat Invoice PDF", 
+                    command=on_create).pack(side='left', padx=(0, 10))
+            ttk.Button(button_frame, text="❌ Batal", 
+                    command=on_cancel).pack(side='right')
             
-            dialog.bind("<Return>", lambda e: on_create_invoice_pdf())
+            # Keyboard bindings
+            dialog.bind("<Return>", lambda e: on_create())
             dialog.bind("<Escape>", lambda e: on_cancel())
             
-            print("[DEBUG] Invoice PDF dialog created, waiting for user input...")
+            # Mouse wheel scrolling
+            def on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             
+            canvas.bind_all("<MouseWheel>", on_mousewheel)
+            
+            print(f"[DIALOG] Showing receiver-grouped selection: {len(checkbox_data)} receivers in {len(sorted_joas)} JOA groups")
             dialog.wait_window()
             
-            if not dialog_result["cancelled"] and selected_combinations:
-                print(f"[DEBUG] User selected {len(selected_combinations)} combinations for invoice PDF")
-                
-                for sender, receiver in selected_combinations:
-                    filter_criteria = {'sender_name': sender, 'receiver_name': receiver}
-                    print(f"[DEBUG] Creating Invoice PDF for: {sender} -> {receiver}")
-                    self.pdf_generator.generate_pdf_invoice_with_tax(container_id, filter_criteria)
-                
-                messagebox.showinfo("Selesai", 
-                                    f"Berhasil membuat {len(selected_combinations)} file Invoice PDF!")
-            else:
-                print("[DEBUG] User cancelled or no selection made")
-                
+            canvas.unbind_all("<MouseWheel>")
+            
+            if dialog_result["cancelled"]:
+                return None
+            
+            return selected_data
+            
         except Exception as e:
-            print(f"[ERROR] Error in invoice PDF selection: {e}")
-            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            import traceback
+            print(f"[ERROR] Dialog error: {e}")
+            print(traceback.format_exc())
             messagebox.showerror("Error", f"Error: {str(e)}")
+            return None
+    
+    def show_joa_grouped_packing_list_dialog(self, joa_groups, container_info, is_batch):
+        """
+        Show dialog with JOA grouping for PACKING LIST selection - GROUPED BY RECEIVER ONLY
+        Same structure as invoice dialog but with Packing List specific text
+        
+        Args:
+            joa_groups: dict {ref_joa: {(sender, receiver): [container_ids]}}
+            container_info: dict {container_id: container_data}
+            is_batch: bool
+        
+        Returns:
+            dict {(ref_joa, sender, receiver): [container_ids]} or None
+        """
+        try:
+            dialog = tk.Toplevel()
+            
+            if is_batch:
+                title = f"Pilih Penerima - {len(container_info)} Containers (Grouped by JOA)"
+            else:
+                container_id = list(container_info.keys())[0]
+                title = f"Pilih Penerima - Container ID {container_id}"
+            
+            dialog.title(title)
+            dialog.geometry("900x700")
+            dialog.resizable(True, True)
+            dialog.grab_set()
+            dialog.transient()
+            
+            # Center dialog
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - 450
+            y = (dialog.winfo_screenheight() // 2) - 350
+            dialog.geometry(f"900x700+{x}+{y}")
+            
+            selected_data = {}
+            dialog_result = {"cancelled": True}
+            
+            # Main frame
+            main_frame = ttk.Frame(dialog)
+            main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+            
+            # Title
+            title_label = ttk.Label(main_frame, text=title, font=('Arial', 14, 'bold'))
+            title_label.pack(pady=(0, 10))
+            
+            # Instruction - CHANGED TO PACKING LIST
+            instruction = "✨ Containers dengan REF JOA yang sama akan digabung dalam satu PDF\n"
+            instruction += "📋 Pilih PENERIMA untuk dibuat Packing List PDF:"
+            
+            ttk.Label(main_frame, text=instruction, font=('Arial', 10), 
+                    justify='center').pack(pady=(0, 10))
+            
+            # Scrollable frame
+            scroll_frame = ttk.Frame(main_frame)
+            scroll_frame.pack(fill='both', expand=True, pady=(0, 15))
+            
+            canvas = tk.Canvas(scroll_frame)
+            scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind("<Configure>", 
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Create checkboxes grouped by JOA - GROUP BY RECEIVER ONLY
+            checkbox_data = []
+            
+            sorted_joas = sorted(joa_groups.keys())
+            
+            for joa_idx, ref_joa in enumerate(sorted_joas):
+                # JOA Header
+                joa_frame = ttk.LabelFrame(scrollable_frame, 
+                                        text=f"📌 REF JOA: {ref_joa}",
+                                        padding=10)
+                joa_frame.pack(fill='x', pady=10, padx=10)
+                
+                combinations = joa_groups[ref_joa]
+                
+                # GROUP BY RECEIVER - merge all senders for same receiver
+                receiver_groups = {}
+                
+                for combination, container_ids in combinations.items():
+                    sender, receiver = combination
+                    if receiver not in receiver_groups:
+                        receiver_groups[receiver] = []
+                    receiver_groups[receiver].append((sender, receiver, container_ids))
+                
+                sorted_receivers = sorted(receiver_groups.keys())
+                
+                for receiver in sorted_receivers:
+                    all_combinations_for_receiver = receiver_groups[receiver]
+                    
+                    var = tk.BooleanVar()
+                    
+                    # Combination frame
+                    combo_frame = ttk.Frame(joa_frame)
+                    combo_frame.pack(fill='x', pady=5, padx=5)
+                    
+                    # Main checkbox - SHOW RECEIVER ONLY
+                    cb_text = f"{receiver}"
+                    checkbox = tk.Checkbutton(combo_frame, text=cb_text, variable=var, 
+                                            font=('Arial', 10, 'bold'),
+                                            bg='white', activebackground='white',
+                                            relief='flat', borderwidth=0)
+                    checkbox.pack(anchor='w')
+                    
+                    # Show all senders for this receiver
+                    all_senders = [s for s, r, _ in all_combinations_for_receiver]
+                    if len(all_senders) > 0:
+                        sender_text = f"   📤 Dari: {', '.join(sorted(set(all_senders)))}"
+                        sender_label = ttk.Label(combo_frame, text=sender_text, 
+                                            font=('Arial', 8), foreground='blue')
+                        sender_label.pack(anchor='w', padx=(20, 0))
+                    
+                    # Container details
+                    all_container_ids = []
+                    for _, _, cids in all_combinations_for_receiver:
+                        all_container_ids.extend(cids)
+                    all_container_ids = list(set(all_container_ids))
+                    
+                    container_names = []
+                    for cid in all_container_ids:
+                        if cid in container_info:
+                            container_names.append(
+                                container_info[cid].get('container', f'ID {cid}')
+                            )
+                    
+                    if len(all_container_ids) > 1:
+                        info_text = f"   📦 {len(all_container_ids)} Containers akan DIGABUNG: {', '.join(container_names)}"
+                        color = 'green'
+                    else:
+                        info_text = f"   📦 Container: {container_names[0]}"
+                        color = 'gray'
+                    
+                    info_label = ttk.Label(combo_frame, text=info_text, 
+                                        font=('Arial', 8), foreground=color)
+                    info_label.pack(anchor='w', padx=(20, 0))
+                    
+                    checkbox_data.append((var, ref_joa, receiver, all_combinations_for_receiver))
+            
+            # Select buttons
+            select_frame = ttk.Frame(main_frame)
+            select_frame.pack(fill='x', pady=(0, 10))
+            
+            def select_all():
+                for var, _, _, _ in checkbox_data:
+                    var.set(True)
+            
+            def deselect_all():
+                for var, _, _, _ in checkbox_data:
+                    var.set(False)
+            
+            ttk.Button(select_frame, text="Pilih Semua", 
+                    command=select_all).pack(side='left', padx=(0, 10))
+            ttk.Button(select_frame, text="Hapus Semua", 
+                    command=deselect_all).pack(side='left')
+            
+            # Info label
+            info_text = "💡 Tip: Container dengan JOA sama akan otomatis digabung dalam 1 PDF per penerima"
+            ttk.Label(main_frame, text=info_text, font=('Arial', 8), 
+                    foreground='blue').pack(pady=(0, 10))
+            
+            # Summary label
+            summary_label = ttk.Label(main_frame, text="", font=('Arial', 10, 'bold'))
+            summary_label.pack(pady=(0, 10))
+            
+            def update_summary():
+                selected_count = sum(var.get() for var, _, _, _ in checkbox_data)
+                total_pdfs = sum(1 for var, _, _, _ in checkbox_data if var.get())
+                
+                all_container_ids = set()
+                for var, _, _, all_combos in checkbox_data:
+                    if var.get():
+                        for _, _, cids in all_combos:
+                            all_container_ids.update(cids)
+                
+                summary_text = f"📊 Terpilih: {selected_count} penerima\n"
+                summary_text += f"📄 {total_pdfs} PDF akan dibuat dari {len(all_container_ids)} container(s)"
+                summary_label.config(text=summary_text)
+            
+            # Bind checkbox changes
+            for var, _, _, _ in checkbox_data:
+                var.trace('w', lambda *args: update_summary())
+            
+            update_summary()
+            
+            # Action buttons
+            button_frame = ttk.Frame(main_frame)
+            button_frame.pack(fill='x', pady=(10, 0))
+            
+            def on_create():
+                selected_count = sum(var.get() for var, _, _, _ in checkbox_data)
+                if selected_count == 0:
+                    messagebox.showwarning("Peringatan", "Pilih minimal satu penerima!")
+                    return
+                
+                selected_data.clear()
+                for var, ref_joa, receiver, all_combinations_for_receiver in checkbox_data:
+                    if var.get():
+                        for sender, recv, container_ids in all_combinations_for_receiver:
+                            key = (ref_joa, sender, receiver)
+                            if key not in selected_data:
+                                selected_data[key] = []
+                            selected_data[key].extend(container_ids)
+                        
+                        for key in selected_data:
+                            selected_data[key] = list(set(selected_data[key]))
+                
+                dialog_result["cancelled"] = False
+                dialog.destroy()
+            
+            def on_cancel():
+                dialog_result["cancelled"] = True
+                dialog.destroy()
+            
+            # CHANGED BUTTON TEXT TO PACKING LIST
+            ttk.Button(button_frame, text="✅ Buat Packing List PDF", 
+                    command=on_create).pack(side='left', padx=(0, 10))
+            ttk.Button(button_frame, text="❌ Batal", 
+                    command=on_cancel).pack(side='right')
+            
+            # Keyboard bindings
+            dialog.bind("<Return>", lambda e: on_create())
+            dialog.bind("<Escape>", lambda e: on_cancel())
+            
+            # Mouse wheel scrolling
+            def on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            canvas.bind_all("<MouseWheel>", on_mousewheel)
+            
+            print(f"[DIALOG] Showing packing list receiver-grouped selection: {len(checkbox_data)} receivers in {len(sorted_joas)} JOA groups")
+            dialog.wait_window()
+            
+            canvas.unbind_all("<MouseWheel>")
+            
+            if dialog_result["cancelled"]:
+                return None
+            
+            return selected_data
+            
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] Dialog error: {e}")
+            print(traceback.format_exc())
+            messagebox.showerror("Error", f"Error: {str(e)}")
+            return None
+    
+    def show_unified_invoice_selection_dialog(self, all_combinations, container_info, is_batch):
+        """
+        Show unified dialog for selecting sender-receiver combinations across multiple containers
+        
+        Args:
+            all_combinations: dict {(sender, receiver): [container_ids]}
+            container_info: dict {container_id: container_data}
+            is_batch: bool, whether processing multiple containers
+        
+        Returns:
+            dict {(sender, receiver): [container_ids]} or None if cancelled
+        """
+        try:
+            dialog = tk.Toplevel()
+            
+            if is_batch:
+                title = f"Pilih Kombinasi - {len(container_info)} Containers"
+            else:
+                container_id = list(container_info.keys())[0]
+                title = f"Pilih Penerima - Container ID {container_id}"
+            
+            dialog.title(title)
+            dialog.geometry("800x600")
+            dialog.resizable(False, False)
+            dialog.grab_set()
+            dialog.transient()
+            
+            # Center dialog
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - 400
+            y = (dialog.winfo_screenheight() // 2) - 300
+            dialog.geometry(f"800x600+{x}+{y}")
+            
+            selected_data = {}
+            dialog_result = {"cancelled": True}
+            
+            # Main frame
+            main_frame = ttk.Frame(dialog)
+            main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+            
+            # Title
+            title_label = ttk.Label(main_frame, text=title, font=('Arial', 14, 'bold'))
+            title_label.pack(pady=(0, 10))
+            
+            # Instruction
+            if is_batch:
+                instruction = "Pilih kombinasi Pengirim → Penerima untuk dibuat Invoice PDF-nya:"
+            else:
+                instruction = "Pilih kombinasi yang ingin dibuat Invoice PDF-nya:"
+            
+            ttk.Label(main_frame, text=instruction, font=('Arial', 10)).pack(pady=(0, 10))
+            
+            # Scrollable frame
+            scroll_frame = ttk.Frame(main_frame)
+            scroll_frame.pack(fill='both', expand=True, pady=(0, 15))
+            
+            canvas = tk.Canvas(scroll_frame)
+            scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind("<Configure>", 
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Create checkboxes with container info
+            checkbox_data = []  # [(var, combination, container_ids)]
+            
+            sorted_combinations = sorted(all_combinations.keys())
+            
+            for idx, combination in enumerate(sorted_combinations):
+                sender, receiver = combination
+                container_ids = all_combinations[combination]
+                
+                var = tk.BooleanVar()
+                
+                # Create frame for each combination
+                combo_frame = ttk.Frame(scrollable_frame)
+                combo_frame.pack(fill='x', pady=5, padx=10)
+                
+                # Main checkbox
+                cb_text = f"{sender} → {receiver}"
+                checkbox = ttk.Checkbutton(combo_frame, text=cb_text, variable=var)
+                checkbox.pack(anchor='w')
+                
+                # Container info (if batch and multiple containers have this combo)
+                if is_batch and len(container_ids) > 1:
+                    container_names = []
+                    for cid in container_ids:
+                        if cid in container_info:
+                            container_names.append(
+                                container_info[cid].get('container', f'ID {cid}')
+                            )
+                    
+                    info_text = f"   📦 Containers: {', '.join(container_names)}"
+                    info_label = ttk.Label(combo_frame, text=info_text, 
+                                        font=('Arial', 8), foreground='gray')
+                    info_label.pack(anchor='w', padx=(20, 0))
+                
+                checkbox_data.append((var, combination, container_ids))
+            
+            # Select buttons
+            select_frame = ttk.Frame(main_frame)
+            select_frame.pack(fill='x', pady=(0, 10))
+            
+            def select_all():
+                for var, _, _ in checkbox_data:
+                    var.set(True)
+            
+            def deselect_all():
+                for var, _, _ in checkbox_data:
+                    var.set(False)
+            
+            ttk.Button(select_frame, text="Pilih Semua", 
+                    command=select_all).pack(side='left', padx=(0, 10))
+            ttk.Button(select_frame, text="Hapus Semua", 
+                    command=deselect_all).pack(side='left')
+            
+            # Info label
+            if is_batch:
+                info_text = f"💡 Tip: Setiap kombinasi akan dibuat PDF terpisah untuk setiap container"
+            else:
+                info_text = "💡 Tip: Pilih beberapa kombinasi untuk membuat Invoice PDF terpisah"
+            
+            ttk.Label(main_frame, text=info_text, font=('Arial', 8), 
+                    foreground='blue').pack(pady=(0, 10))
+            
+            # Summary label
+            summary_label = ttk.Label(main_frame, text="", font=('Arial', 9, 'bold'))
+            summary_label.pack(pady=(0, 10))
+            
+            def update_summary():
+                selected_count = sum(var.get() for var, _, _ in checkbox_data)
+                total_pdfs = sum(
+                    len(container_ids) for var, _, container_ids in checkbox_data 
+                    if var.get()
+                )
+                summary_label.config(
+                    text=f"📊 Terpilih: {selected_count} kombinasi → {total_pdfs} PDF akan dibuat"
+                )
+            
+            # Bind checkbox changes to update summary
+            for var, _, _ in checkbox_data:
+                var.trace('w', lambda *args: update_summary())
+            
+            update_summary()
+            
+            # Action buttons
+            button_frame = ttk.Frame(main_frame)
+            button_frame.pack(fill='x', pady=(10, 0))
+            
+            def on_create():
+                selected_count = sum(var.get() for var, _, _ in checkbox_data)
+                if selected_count == 0:
+                    messagebox.showwarning("Peringatan", "Pilih minimal satu kombinasi!")
+                    return
+                
+                selected_data.clear()
+                for var, combination, container_ids in checkbox_data:
+                    if var.get():
+                        selected_data[combination] = container_ids
+                
+                dialog_result["cancelled"] = False
+                dialog.destroy()
+            
+            def on_cancel():
+                dialog_result["cancelled"] = True
+                dialog.destroy()
+            
+            ttk.Button(button_frame, text="✅ Buat Invoice PDF", 
+                    command=on_create).pack(side='left', padx=(0, 10))
+            ttk.Button(button_frame, text="❌ Batal", 
+                    command=on_cancel).pack(side='right')
+            
+            # Keyboard bindings
+            dialog.bind("<Return>", lambda e: on_create())
+            dialog.bind("<Escape>", lambda e: on_cancel())
+            
+            print(f"[DIALOG] Showing unified selection: {len(checkbox_data)} combinations")
+            dialog.wait_window()
+            
+            if dialog_result["cancelled"]:
+                return None
+            
+            return selected_data
+            
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] Dialog error: {e}")
+            print(traceback.format_exc())
+            messagebox.showerror("Error", f"Error: {str(e)}")
+            return None       
+        
+    def show_unified_invoice_selection_dialog(self, all_combinations, container_info, is_batch):
+        """
+        Show unified dialog for selecting sender-receiver combinations across multiple containers
+        
+        Args:
+            all_combinations: dict {(sender, receiver): [container_ids]}
+            container_info: dict {container_id: container_data}
+            is_batch: bool, whether processing multiple containers
+        
+        Returns:
+            dict {(sender, receiver): [container_ids]} or None if cancelled
+        """
+        try:
+            dialog = tk.Toplevel()
+            
+            if is_batch:
+                title = f"Pilih Kombinasi - {len(container_info)} Containers"
+            else:
+                container_id = list(container_info.keys())[0]
+                title = f"Pilih Penerima - Container ID {container_id}"
+            
+            dialog.title(title)
+            dialog.geometry("800x600")
+            dialog.resizable(False, False)
+            dialog.grab_set()
+            dialog.transient()
+            
+            # Center dialog
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - 400
+            y = (dialog.winfo_screenheight() // 2) - 300
+            dialog.geometry(f"800x600+{x}+{y}")
+            
+            selected_data = {}
+            dialog_result = {"cancelled": True}
+            
+            # Main frame
+            main_frame = ttk.Frame(dialog)
+            main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+            
+            # Title
+            title_label = ttk.Label(main_frame, text=title, font=('Arial', 14, 'bold'))
+            title_label.pack(pady=(0, 10))
+            
+            # Instruction
+            if is_batch:
+                instruction = "Pilih kombinasi Pengirim → Penerima untuk dibuat Invoice PDF-nya:"
+            else:
+                instruction = "Pilih kombinasi yang ingin dibuat Invoice PDF-nya:"
+            
+            ttk.Label(main_frame, text=instruction, font=('Arial', 10)).pack(pady=(0, 10))
+            
+            # Scrollable frame
+            scroll_frame = ttk.Frame(main_frame)
+            scroll_frame.pack(fill='both', expand=True, pady=(0, 15))
+            
+            canvas = tk.Canvas(scroll_frame)
+            scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind("<Configure>", 
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Create checkboxes with container info
+            checkbox_data = []  # [(var, combination, container_ids)]
+            
+            sorted_combinations = sorted(all_combinations.keys())
+            
+            for idx, combination in enumerate(sorted_combinations):
+                sender, receiver = combination
+                container_ids = all_combinations[combination]
+                
+                var = tk.BooleanVar()
+                
+                # Create frame for each combination
+                combo_frame = ttk.Frame(scrollable_frame)
+                combo_frame.pack(fill='x', pady=5, padx=10)
+                
+                # Main checkbox
+                cb_text = f"{sender} → {receiver}"
+                checkbox = ttk.Checkbutton(combo_frame, text=cb_text, variable=var)
+                checkbox.pack(anchor='w')
+                
+                # Container info (if batch and multiple containers have this combo)
+                if is_batch and len(container_ids) > 1:
+                    container_names = []
+                    for cid in container_ids:
+                        if cid in container_info:
+                            container_names.append(
+                                container_info[cid].get('container', f'ID {cid}')
+                            )
+                    
+                    info_text = f"   📦 Containers: {', '.join(container_names)}"
+                    info_label = ttk.Label(combo_frame, text=info_text, 
+                                        font=('Arial', 8), foreground='gray')
+                    info_label.pack(anchor='w', padx=(20, 0))
+                
+                checkbox_data.append((var, combination, container_ids))
+            
+            # Select buttons
+            select_frame = ttk.Frame(main_frame)
+            select_frame.pack(fill='x', pady=(0, 10))
+            
+            def select_all():
+                for var, _, _ in checkbox_data:
+                    var.set(True)
+            
+            def deselect_all():
+                for var, _, _ in checkbox_data:
+                    var.set(False)
+            
+            ttk.Button(select_frame, text="Pilih Semua", 
+                    command=select_all).pack(side='left', padx=(0, 10))
+            ttk.Button(select_frame, text="Hapus Semua", 
+                    command=deselect_all).pack(side='left')
+            
+            # Info label
+            if is_batch:
+                info_text = f"💡 Tip: Setiap kombinasi akan dibuat PDF terpisah untuk setiap container"
+            else:
+                info_text = "💡 Tip: Pilih beberapa kombinasi untuk membuat Invoice PDF terpisah"
+            
+            ttk.Label(main_frame, text=info_text, font=('Arial', 8), 
+                    foreground='blue').pack(pady=(0, 10))
+            
+            # Summary label
+            summary_label = ttk.Label(main_frame, text="", font=('Arial', 9, 'bold'))
+            summary_label.pack(pady=(0, 10))
+            
+            def update_summary():
+                selected_count = sum(var.get() for var, _, _ in checkbox_data)
+                total_pdfs = sum(
+                    len(container_ids) for var, _, container_ids in checkbox_data 
+                    if var.get()
+                )
+                summary_label.config(
+                    text=f"📊 Terpilih: {selected_count} kombinasi → {total_pdfs} PDF akan dibuat"
+                )
+            
+            # Bind checkbox changes to update summary
+            for var, _, _ in checkbox_data:
+                var.trace('w', lambda *args: update_summary())
+            
+            update_summary()
+            
+            # Action buttons
+            button_frame = ttk.Frame(main_frame)
+            button_frame.pack(fill='x', pady=(10, 0))
+            
+            def on_create():
+                selected_count = sum(var.get() for var, _, _ in checkbox_data)
+                if selected_count == 0:
+                    messagebox.showwarning("Peringatan", "Pilih minimal satu kombinasi!")
+                    return
+                
+                selected_data.clear()
+                for var, combination, container_ids in checkbox_data:
+                    if var.get():
+                        selected_data[combination] = container_ids
+                
+                dialog_result["cancelled"] = False
+                dialog.destroy()
+            
+            def on_cancel():
+                dialog_result["cancelled"] = True
+                dialog.destroy()
+            
+            ttk.Button(button_frame, text="✅ Buat Invoice PDF", 
+                    command=on_create).pack(side='left', padx=(0, 10))
+            ttk.Button(button_frame, text="❌ Batal", 
+                    command=on_cancel).pack(side='right')
+            
+            # Keyboard bindings
+            dialog.bind("<Return>", lambda e: on_create())
+            dialog.bind("<Escape>", lambda e: on_cancel())
+            
+            print(f"[DIALOG] Showing unified selection: {len(checkbox_data)} combinations")
+            dialog.wait_window()
+            
+            if dialog_result["cancelled"]:
+                return None
+            
+            return selected_data
+            
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] Dialog error: {e}")
+            print(traceback.format_exc())
+            messagebox.showerror("Error", f"Error: {str(e)}")
+            return None

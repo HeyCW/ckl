@@ -19,7 +19,46 @@ class KapalWindow:
         
         # Entry widgets untuk form
         self.entries = {}
-        self.create_window()    
+        self.create_window()
+    
+    def get_scale_factor(self):
+        """Calculate scale factor based on screen size"""
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        # Base scale on 1920x1080 as reference
+        width_scale = screen_width / 1920
+        height_scale = screen_height / 1080
+        
+        # Use average and clamp between 0.7 and 1.2
+        scale = (width_scale + height_scale) / 2
+        return max(0.7, min(1.2, scale))
+    
+    def scaled_font(self, base_size):
+        """Return scaled font size"""
+        scale = self.get_scale_factor()
+        return max(8, int(base_size * scale))
+    
+    def on_window_resize(self, event):
+        """Handle window resize to adjust column widths"""
+        if hasattr(self, 'tree') and event.widget == self.window:
+            try:
+                window_width = self.window.winfo_width()
+                available_width = window_width - 100
+                
+                # Proportional widths for kapal columns
+                self.tree.column('ID', width=int(available_width * 0.04))
+                self.tree.column('Feeder', width=int(available_width * 0.12))
+                self.tree.column('ETD Sub', width=int(available_width * 0.10))
+                self.tree.column('Party', width=int(available_width * 0.12))
+                self.tree.column('CLS', width=int(available_width * 0.10))
+                self.tree.column('Open', width=int(available_width * 0.10))
+                self.tree.column('Full', width=int(available_width * 0.10))
+                self.tree.column('Destination', width=int(available_width * 0.15))
+                self.tree.column('Created', width=int(available_width * 0.085))
+                self.tree.column('Updated', width=int(available_width * 0.085))
+            except:
+                pass
         
     def show_window(self):
         """Show kapal management window"""
@@ -36,16 +75,30 @@ class KapalWindow:
         return True
     
     def create_window(self):
-        """Create and configure the main kapal window"""
+        """Create and configure the main kapal window with responsive design"""
         try:
             # Create new window
             self.window = tk.Toplevel(self.parent)
-            self.window.title("Kelola Data Kapal")
+            self.window.title("🚢 Kelola Data Kapal")
+            
+            # Get screen dimensions
+            screen_width = self.window.winfo_screenwidth()
+            screen_height = self.window.winfo_screenheight()
+            
+            # Adaptive window size
+            window_width = min(int(screen_width * 0.85), 1400)
+            window_height = min(int(screen_height * 0.85), 850)
+            
+            self.window.geometry(f"{window_width}x{window_height}")
+            self.window.configure(bg='#ecf0f1')
             self.window.transient(self.parent)
             self.window.grab_set()
             
-            # Set window properties
+            # Resizable
+            self.window.minsize(1000, 600)
             self.window.resizable(True, True)
+            
+            # Set window properties
             self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
             
             try:
@@ -53,10 +106,7 @@ class KapalWindow:
                 icon_image = Image.open("assets/logo.jpg")
                 icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
                 icon_photo = ImageTk.PhotoImage(icon_image)
-                
-                # Set sebagai window icon
                 self.window.iconphoto(False, icon_photo)
-                
             except Exception as e:
                 print(f"Icon tidak ditemukan: {e}")
             
@@ -64,8 +114,8 @@ class KapalWindow:
             self.center_window()
             
             # Create main container
-            main_frame = ttk.Frame(self.window)
-            main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            main_frame = tk.Frame(self.window, bg='#ecf0f1')
+            main_frame.pack(fill='both', expand=True, padx=20, pady=20)
             
             # Create header
             self.create_header(main_frame)
@@ -85,6 +135,9 @@ class KapalWindow:
             # Focus on first entry
             if 'feeder' in self.entries:
                 self.entries['feeder'].focus()
+            
+            # Bind resize event
+            self.window.bind('<Configure>', self.on_window_resize)
                 
             logger.info("Kapal window created successfully")
             
@@ -104,26 +157,39 @@ class KapalWindow:
             logger.error(f"Error closing kapal window: {e}")
     
     def center_window(self):
-        """Center window on parent"""
+        """Center window with boundary checks"""
         self.window.update_idletasks()
+        
         parent_x = self.parent.winfo_x()
         parent_y = self.parent.winfo_y()
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
         
-        # Ubah ukuran di sini
-        window_width = 1400  # dari 1400
-        window_height = 850  # dari 800
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        
+        window_width = min(int(screen_width * 0.85), 1400)
+        window_height = min(int(screen_height * 0.85), 850)
         
         x = parent_x + (parent_width // 2) - (window_width // 2)
         y = parent_y + (parent_height // 2) - (window_height // 2) - 50
         
+        if x + window_width > screen_width:
+            x = screen_width - window_width - 20
+        if x < 0:
+            x = 20
+        if y + window_height > screen_height:
+            y = screen_height - window_height - 50
+        if y < 0:
+            y = 20
+        
         self.window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-    
+        self.window.lift()
+        self.window.focus_force()
     
     def create_header(self, parent):
-        """Create header frame with title"""
-        header_frame = tk.Frame(parent, bg='#28a745', height=80)  # Green header like in the image
+        """Create header frame with title and responsive font"""
+        header_frame = tk.Frame(parent, bg='#e62222', height=80)
         header_frame.pack(fill='x', side='top')
         header_frame.pack_propagate(False)
         
@@ -138,27 +204,30 @@ class KapalWindow:
         # Icon label (using ship emoji)
         icon_label = tk.Label(
             title_frame,
-            text="🚢",  # Ship emoji
-            font=('Segoe UI', 20),
+            text="🚢",
+            font=('Segoe UI', self.scaled_font(20)),
             bg='#e62222',
             fg='white'
         )
         icon_label.pack(side='left', padx=(0, 10))
         
-        # Title label
+        # Title label with responsive font
         title_label = tk.Label(
             title_frame,
             text="KELOLA DATA KAPAL",
-            font=('Segoe UI', 16, 'bold'),
+            font=('Segoe UI', self.scaled_font(16), 'bold'),
             bg='#e62222',
             fg='white'
         )
         title_label.pack(side='left')
     
     def create_form_frame(self, parent):
-        """Create form for data entry"""
+        """Create form for data entry with responsive fonts"""
         form_frame = ttk.LabelFrame(parent, text="Data Kapal", padding="10")
-        form_frame.pack(fill='x', pady=(0, 10))
+        form_frame.pack(fill='x', pady=(10, 10))
+        
+        # Style for labels with responsive font
+        label_font = ('Arial', self.scaled_font(10), 'bold')
         
         # Define fields
         fields = [
@@ -173,13 +242,21 @@ class KapalWindow:
         
         # Create form fields
         for label_text, field_name, row, col in fields:
-            ttk.Label(form_frame, text=f"{label_text}:").grid(
-                row=row, column=col, sticky='w', padx=(0, 5), pady=5
+            label = tk.Label(
+                form_frame, 
+                text=f"{label_text}:",
+                font=label_font,
+                bg='#ecf0f1'
             )
+            label.grid(row=row, column=col, sticky='w', padx=(0, 5), pady=5)
             
             if field_name in ['etd_sub', 'cls', 'open', 'full']:
                 # Date entry with placeholder text
-                entry = ttk.Entry(form_frame, width=15)
+                entry = tk.Entry(
+                    form_frame, 
+                    width=15,
+                    font=('Arial', self.scaled_font(10))
+                )
                 entry.grid(row=row, column=col+1, sticky='ew', padx=(0, 20), pady=5)
                 # Add placeholder text
                 entry.insert(0, "YYYY-MM-DD")
@@ -187,7 +264,11 @@ class KapalWindow:
                 # Bind events for placeholder behavior
                 self.setup_date_placeholder(entry)
             else:
-                entry = ttk.Entry(form_frame, width=20)
+                entry = tk.Entry(
+                    form_frame, 
+                    width=20,
+                    font=('Arial', self.scaled_font(10))
+                )
                 entry.grid(row=row, column=col+1, sticky='ew', padx=(0, 20), pady=5)
             
             self.entries[field_name] = entry
@@ -201,9 +282,8 @@ class KapalWindow:
             form_frame.columnconfigure(i, weight=1)
     
     def create_styled_button(self, parent, text, command, bg_color, hover_color=None):
-        """Create a styled button with custom colors"""
+        """Create a styled button with custom colors and responsive font"""
         if hover_color is None:
-            # Create a slightly darker hover color
             hover_color = self.darken_color(bg_color)
         
         button = tk.Button(
@@ -212,7 +292,7 @@ class KapalWindow:
             command=command,
             bg=bg_color,
             fg='white',
-            font=('Segoe UI', 9, 'bold'),
+            font=('Segoe UI', self.scaled_font(9), 'bold'),
             relief='flat',
             borderwidth=0,
             padx=20,
@@ -254,16 +334,16 @@ class KapalWindow:
     
     def create_buttons_frame(self, parent):
         """Create buttons for CRUD operations"""
-        btn_frame = ttk.Frame(parent)
+        btn_frame = tk.Frame(parent, bg='#ecf0f1')
         btn_frame.pack(fill='x', pady=(0, 10))
         
         # Button configurations with icons and colors
         buttons = [
-            ("+ Tambah", self.add_kapal, "#FF8C42"),      # Orange
-            ("🗂 Bersihkan", self.clear_form, "#8A9BA8"),  # Gray  
-            ("✏ Edit Kapal", self.update_kapal, "#5DADE2"), # Blue
-            ("🗑 Hapus Kapal", self.delete_kapal, "#E74C3C"), # Red
-            ("↻ Refresh", self.load_data, "#9C27B0")       # Purple
+            ("+ Tambah", self.add_kapal, "#FF8C42"),
+            ("🗂 Bersihkan", self.clear_form, "#8A9BA8"),
+            ("✏ Edit Kapal", self.update_kapal, "#5DADE2"),
+            ("🗑 Hapus Kapal", self.delete_kapal, "#E74C3C"),
+            ("↻ Refresh", self.load_data, "#9C27B0")
         ]
         
         for text, command, color in buttons:
@@ -271,42 +351,47 @@ class KapalWindow:
             btn.pack(side='left', padx=5)
     
     def create_treeview_frame(self, parent):
-        """Create treeview to display data"""
+        """Create treeview to display data with responsive design"""
         tree_frame = ttk.LabelFrame(parent, text="Daftar Kapal", padding="10")
         tree_frame.pack(fill='both', expand=True)
         
-        # Create treeview with scrollbars
-        tree_container = ttk.Frame(tree_frame)
+        # Create tree container
+        tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
-        
-        # Scrollbars
-        v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical')
-        h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal')
         
         # Define columns
         columns = ('ID', 'Feeder', 'ETD Sub', 'Party', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
 
-        # Create PaginatedTreeView instead of regular TreeView
+        # Create PaginatedTreeView
         self.tree = PaginatedTreeView(
             parent=tree_container,
             columns=columns,
             show='headings',
-            height=15,  # Adjust height as needed
-            items_per_page=20  # Show 20 kapal per page
+            height=15,
+            items_per_page=20
         )
 
-        # Configure column headings and widths
-        column_widths = {
-            'ID': 50, 'Feeder': 100, 'ETD Sub': 90, 'Party': 100,
-            'CLS': 90, 'Open': 90, 'Full': 90, 'Destination': 150,
-            'Created': 130, 'Updated': 130
+        # Configure column headings and responsive widths
+        window_width = self.window.winfo_width()
+        
+        column_configs = {
+            'ID': ('ID', max(40, int(window_width * 0.03))),
+            'Feeder': ('Feeder', max(100, int(window_width * 0.10))),
+            'ETD Sub': ('ETD Sub', max(90, int(window_width * 0.08))),
+            'Party': ('Party', max(100, int(window_width * 0.10))),
+            'CLS': ('CLS', max(90, int(window_width * 0.08))),
+            'Open': ('Open', max(90, int(window_width * 0.08))),
+            'Full': ('Full', max(90, int(window_width * 0.08))),
+            'Destination': ('Destination', max(150, int(window_width * 0.12))),
+            'Created': ('Created', max(120, int(window_width * 0.10))),
+            'Updated': ('Updated', max(120, int(window_width * 0.10)))
         }
 
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=column_widths.get(col, 100), minwidth=50)
+        for col, (heading_text, width) in column_configs.items():
+            self.tree.heading(col, text=heading_text)
+            self.tree.column(col, width=width, minwidth=50)
 
-        # Pack PaginatedTreeView (sudah include scrollbar dan pagination)
+        # Pack PaginatedTreeView
         self.tree.pack(fill='both', expand=True)
 
         # Bind selection event
@@ -459,7 +544,7 @@ class KapalWindow:
                     
                     # Add to formatted data with kapal_id as iid
                     formatted_data.append({
-                        'iid': str(row[0]) if row[0] else '',  # kapal_id as iid
+                        'iid': str(row[0]) if row[0] else '',
                         'values': tuple(formatted_row)
                     })
             
