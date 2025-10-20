@@ -139,6 +139,50 @@ class BarangWindow:
         # Bind resize event
         self.window.bind('<Configure>', self.on_window_resize)
         
+    def auto_calculate_volume(self, event=None):
+        """Auto-calculate volume (m³) based on dimensions (P x L x T)"""
+        try:
+            # Get dimension values
+            panjang_str = self.panjang_entry.get().strip()
+            lebar_str = self.lebar_entry.get().strip()
+            tinggi_str = self.tinggi_entry.get().strip()
+            
+            # Check if all dimensions are filled
+            if not panjang_str or not lebar_str or not tinggi_str:
+                return  # Don't calculate if any field is empty
+            
+            # Skip if any field contains '-' or non-numeric
+            if panjang_str == '-' or lebar_str == '-' or tinggi_str == '-':
+                return
+            
+            # Convert to float
+            panjang = float(panjang_str)
+            lebar = float(lebar_str)
+            tinggi = float(tinggi_str)
+            
+            # Validate positive numbers
+            if panjang <= 0 or lebar <= 0 or tinggi <= 0:
+                return  # Don't calculate if any dimension is zero or negative
+            
+            # Calculate volume in m³
+            # Formula: (P x L x T) / 1,000,000 (karena dimensi dalam cm, convert ke m³)
+            volume_m3 = (panjang * lebar * tinggi) / 1000000
+            
+            # Update m3_entry dengan hasil perhitungan
+            # Format dengan 4 desimal untuk akurasi
+            self.m3_entry.delete(0, tk.END)
+            self.m3_entry.insert(0, f"{volume_m3:.4f}")
+            
+            # Ubah background menjadi hijau muda untuk menandakan auto-calculated
+            self.m3_entry.config(bg='#e8f5e9')
+            
+        except ValueError:
+            # If conversion fails (non-numeric input), do nothing
+            pass
+        except Exception as e:
+            # Log error but don't show to user during typing
+            print(f"Error calculating volume: {e}")
+        
         
     def create_manual_tab(self, parent):
         """Create manual input tab with scrollable content"""
@@ -243,6 +287,10 @@ class BarangWindow:
         tk.Label(dim_frame, text="Tinggi (cm):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
         self.tinggi_entry = tk.Entry(dim_frame, font=('Arial', 10), width=10)
         self.tinggi_entry.pack(side='left', padx=5)
+        
+        self.panjang_entry.bind('<KeyRelease>', self.auto_calculate_volume)
+        self.lebar_entry.bind('<KeyRelease>', self.auto_calculate_volume)
+        self.tinggi_entry.bind('<KeyRelease>', self.auto_calculate_volume)
         
         # Other fields frame
         other_frame = tk.Frame(form_frame, bg='#ecf0f1')

@@ -73,7 +73,6 @@ class PrintHandler:
         
             # Define optimized styles - ALL TIMES NEW ROMAN SIZE 12
             header_font = Font(name='Times New Roman', size=12, bold=True)
-            company_font = Font(name='Times New Roman', size=12, bold=True)
             normal_font = Font(name='Times New Roman', size=12)
             small_font = Font(name='Times New Roman', size=12)
             table_header_font = Font(name='Times New Roman', size=12, bold=True)
@@ -102,7 +101,7 @@ class PrintHandler:
                 except:
                     return default
         
-            # Header section - COMPACT
+            # Header section
             current_row = 1
         
             # Title
@@ -113,7 +112,7 @@ class PrintHandler:
             ws.row_dimensions[current_row].height = 20
             current_row += 1
         
-            # Company info - UPDATED
+            # Company info
             ws.merge_cells(f'A{current_row}:L{current_row}')
             ws[f'A{current_row}'] = "PT. CAHAYA KARUNIA LOGISTIK | Jl Teluk Bone Selatan No 05 | Phone: 031-60166017"
             ws[f'A{current_row}'].font = normal_font
@@ -121,7 +120,7 @@ class PrintHandler:
             ws.row_dimensions[current_row].height = 18
             current_row += 2
         
-            # Container information - 3 columns layout
+            # Container information
             container_info = [
                 ("Container No", safe_get('container')),
                 ("Feeder", safe_get('feeder')),
@@ -165,11 +164,10 @@ class PrintHandler:
         
             current_row += 1
         
-            # Get tax information by receiver and container
+            # Get tax information
             print("\n=== GETTING TAX INFORMATION BY RECEIVER ===")
             tax_summary = {}
             try:
-                # Get all unique receivers first
                 receivers = set()
                 for barang_row in barang_list:
                     barang = dict(barang_row)
@@ -177,7 +175,6 @@ class PrintHandler:
                     if receiver:
                         receivers.add(receiver)
                 
-                # Get aggregated tax info for each receiver in this container
                 for receiver in receivers:
                     tax_query = """
                         SELECT 
@@ -202,7 +199,6 @@ class PrintHandler:
                             'pph_amount': row['total_pph_amount'] or 0,
                             'has_tax': True
                         }
-                        print(f"  {receiver}: PPN {tax_summary[receiver]['ppn_rate']:.1f}% = Rp {tax_summary[receiver]['ppn_amount']:,.0f}, PPH {tax_summary[receiver]['pph_rate']:.1f}% = Rp {tax_summary[receiver]['pph_amount']:,.0f}")
                     else:
                         tax_summary[receiver] = {
                             'ppn_rate': 0,
@@ -211,7 +207,6 @@ class PrintHandler:
                             'pph_amount': 0,
                             'has_tax': False
                         }
-                        print(f"  {receiver}: No tax records found")
                         
             except Exception as e:
                 print(f"Error getting tax info: {e}")
@@ -221,11 +216,9 @@ class PrintHandler:
                     if receiver and receiver not in tax_summary:
                         tax_summary[receiver] = {'ppn_rate': 0, 'pph_rate': 0, 'ppn_amount': 0, 'pph_amount': 0, 'has_tax': False}
             
-            print("\n=== PROCESSING ITEMS ===")
             print(f"Total items: {len(barang_list)}")
-            print("=" * 60)
         
-            # Table data with GROUPING
+            # Table data
             total_m3 = 0
             total_ton = 0
             total_colli = 0
@@ -235,18 +228,15 @@ class PrintHandler:
             previous_pengirim = None
             previous_penerima = None
             
-            # Variables for tax row insertion
             total_ppn_all = 0
             total_pph_all = 0
             
-            # Track receiver groups for tax calculation
-            # PENTING: Hanya hitung barang dengan pajak = 1
             receiver_groups = []
             current_receiver = None
             current_receiver_subtotal = 0
             current_receiver_start = 0
             
-            # Function to insert tax rows for a receiver
+            # Function to insert tax rows
             def insert_tax_rows_for_receiver(receiver, subtotal, current_row):
                 nonlocal total_ppn_all, total_pph_all
                 
@@ -257,18 +247,11 @@ class PrintHandler:
                 if not tax_data['has_tax'] or (tax_data['ppn_rate'] == 0 and tax_data['pph_rate'] == 0):
                     return current_row
                 
-                # Skip tax calculation if subtotal is 0 or negative
                 if subtotal <= 0:
-                    print(f"  ⚠ Skipping tax for {receiver}: Subtotal is {subtotal}")
                     return current_row
                 
-                # Calculate tax based on subtotal (only from items with pajak=1)
                 ppn_amount = subtotal * (tax_data['ppn_rate'] / 100)
                 pph_amount = subtotal * (tax_data['pph_rate'] / 100)
-                
-                print(f"  ✓ Inserting tax for '{receiver}': Taxable Subtotal Rp {subtotal:,.0f}")
-                print(f"    - PPN {tax_data['ppn_rate']:.1f}% = Rp {ppn_amount:,.0f}")
-                print(f"    - PPH {tax_data['pph_rate']:.1f}% = Rp {pph_amount:,.0f}")
                 
                 # Add PPN row
                 if tax_data['ppn_rate'] > 0:
@@ -290,9 +273,9 @@ class PrintHandler:
                     total_ppn_all += ppn_amount
                     current_row += 1
                 
-                # Add PPH row - WITH MINUS SIGN
+                # Add PPH row
                 if tax_data['pph_rate'] > 0:
-                    pph_row_data = ['', '', '', f"PPH {23}", '', '', '', '', '', '', '', -pph_amount]  # NEGATIVE VALUE
+                    pph_row_data = ['', '', '', f"PPH 23", '', '', '', '', '', '', '', -pph_amount]
                     
                     for col, value in enumerate(pph_row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
@@ -324,10 +307,8 @@ class PrintHandler:
                         except Exception:
                             return default
                 
-                    # Format date - use 'tanggal' column (DATE)
                     tanggal = safe_barang_get('tanggal', datetime.now())
                     
-                    # Parse string to datetime if needed
                     if isinstance(tanggal, str):
                         try:
                             tanggal = datetime.strptime(tanggal, '%Y-%m-%d')
@@ -342,11 +323,8 @@ class PrintHandler:
                     pengirim = str(safe_barang_get('sender_name', '-'))
                     penerima = str(safe_barang_get('receiver_name', '-'))
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
-                    
-                    # FIX: Door type to uppercase
                     door = str(safe_barang_get('door_type', safe_barang_get('alamat_tujuan', '-')))[:10].upper()
 
-                    # Format dimensions
                     p = safe_barang_get('panjang_barang', '-')
                     l = safe_barang_get('lebar_barang', '-')
                     t = safe_barang_get('tinggi_barang', '-')
@@ -367,25 +345,21 @@ class PrintHandler:
                     unit_price = safe_barang_get('harga_per_unit', safe_barang_get('unit_price', 0))
                     total_harga = safe_barang_get('total_harga', 0)
                     
-                    # ===== CRITICAL: Get pajak flag =====
                     pajak_flag = safe_barang_get('pajak', 0)
                     try:
                         pajak_flag = int(pajak_flag) if pajak_flag not in [None, '', '-'] else 0
                     except:
                         pajak_flag = 0
                 
-                    # Format values
                     m3_val = float(m3) if m3 not in [None, '', '-'] else 0
                     ton_val = float(ton) if ton not in [None, '', '-'] else 0
                     colli_val = int(colli) if colli not in [None, '', '-'] else 0
                     unit_price_val = float(unit_price) if unit_price not in [None, '', '-'] else 0
                     harga_val = float(total_harga) if total_harga not in [None, '', '-'] else 0
                     
-                    # M3 dan Ton dikali dengan colli
                     m3_total = m3_val * colli_val if colli_val > 0 else m3_val
                     ton_total = ton_val * colli_val if colli_val > 0 else ton_val
                     
-                    # Add to totals
                     try:
                         total_m3 += m3_total
                         total_ton += ton_total
@@ -394,49 +368,22 @@ class PrintHandler:
                     except (ValueError, TypeError):
                         pass
                     
-                    # ===== TRACK RECEIVER CHANGES - HANYA UNTUK BARANG DENGAN PAJAK = 1 =====
+                    # Track receiver changes
                     if current_receiver is None:
-                        # First item
                         current_receiver = penerima
                         current_receiver_subtotal = harga_val if pajak_flag == 1 else 0
                         current_receiver_start = i
-                        
-                        if pajak_flag == 1:
-                            print(f"  [{i}] 🏁 Starting group: '{penerima}' | Taxable item: Rp {harga_val:,.0f}")
-                        else:
-                            print(f"  [{i}] 🏁 Starting group: '{penerima}' | Non-taxable item (pajak=0)")
-                        
                     elif current_receiver != penerima:
-                        # Receiver changed
-                        print(f"\n  [{i}] ═══ RECEIVER CHANGED ═══")
-                        print(f"      From: '{current_receiver}' → To: '{penerima}'")
-                        print(f"      Taxable subtotal for '{current_receiver}': Rp {current_receiver_subtotal:,.0f}")
-                        
-                        # Save completed group
                         receiver_groups.append((current_receiver, current_receiver_subtotal, current_receiver_start, i-1))
-                        
-                        # Insert tax rows for previous receiver
                         current_row = insert_tax_rows_for_receiver(current_receiver, current_receiver_subtotal, current_row)
-                        
-                        # Start new receiver group
                         current_receiver = penerima
                         current_receiver_subtotal = harga_val if pajak_flag == 1 else 0
                         current_receiver_start = i
-                        
-                        if pajak_flag == 1:
-                            print(f"      Starting new group: '{penerima}' | Taxable item: Rp {harga_val:,.0f}")
-                        else:
-                            print(f"      Starting new group: '{penerima}' | Non-taxable item (pajak=0)")
-                        
                     else:
-                        # Same receiver - ONLY add to subtotal if pajak = 1
                         if pajak_flag == 1:
                             current_receiver_subtotal += harga_val
-                            print(f"  [{i}] ✓ Same receiver '{penerima}' | Taxable +Rp {harga_val:,.0f} | Subtotal: Rp {current_receiver_subtotal:,.0f}")
-                        else:
-                            print(f"  [{i}] ⊘ Same receiver '{penerima}' | Non-taxable Rp {harga_val:,.0f} (pajak=0) | Subtotal: Rp {current_receiver_subtotal:,.0f}")
                     
-                    # GROUPING LOGIC for display
+                    # Grouping logic
                     display_date = formatted_date
                     display_pengirim = pengirim
                     display_penerima = penerima
@@ -481,22 +428,10 @@ class PrintHandler:
                     print(f"Error processing barang {i}: {e}")
                     continue
             
-            # Insert tax for the last receiver group
+            # Insert tax for last receiver
             if current_receiver is not None:
-                print(f"\n  ═══ PROCESSING LAST GROUP ═══")
-                print(f"      Receiver: '{current_receiver}'")
-                print(f"      Final taxable subtotal: Rp {current_receiver_subtotal:,.0f}")
-                
                 receiver_groups.append((current_receiver, current_receiver_subtotal, current_receiver_start, len(barang_list)))
                 current_row = insert_tax_rows_for_receiver(current_receiver, current_receiver_subtotal, current_row)
-        
-            # Summary of receiver groups
-            print(f"\n=== RECEIVER GROUPS SUMMARY ===")
-            for receiver, subtotal, start, end in receiver_groups:
-                print(f"  {receiver}: Items {start}-{end} | Taxable Subtotal: Rp {subtotal:,.0f}")
-            print(f"  Total PPN: Rp {total_ppn_all:,.0f}")
-            print(f"  Total PPH: Rp {total_pph_all:,.0f}")
-            print("=" * 60)
         
             # Total row
             for col in range(1, 13):
@@ -520,14 +455,13 @@ class PrintHandler:
                     cell.value = total_colli
                     cell.alignment = right_align
                 elif col == 12:
-                    # PPH23 dikurangkan, PPN ditambahkan
                     cell.value = total_nilai + total_ppn_all - total_pph_all
                     cell.number_format = '#,##0'
                     cell.alignment = right_align
         
             current_row += 3
         
-            # PROFIT CALCULATION SECTION
+            # PROFIT CALCULATION SECTION WITH BORDERS
             try:
                 costs_surabaya = self._get_container_costs(container_id, 'Surabaya')
                 costs_destinasi = self._get_container_costs(container_id, container.get('destination', 'Samarinda'))
@@ -559,28 +493,29 @@ class PrintHandler:
                 total_biaya_surabaya = safe_sum_costs(costs_surabaya)
                 total_biaya_samarinda = safe_sum_costs(costs_destinasi)
                 total_biaya = total_biaya_surabaya + total_biaya_samarinda
-                # PPH23 dikurangkan dari total nilai, PPN ditambahkan
                 profit_lcl = (total_nilai + total_ppn_all - total_pph_all) - total_biaya
                 
-                # BIAYA SURABAYA SECTION
+                # BIAYA SURABAYA SECTION WITH BORDERS
                 if costs_surabaya:
+                    # Header - Apply border to ALL cells before merging
+                    for col in range(1, 12):  # A=1 to K=11
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.border = thin_border
+                    
                     ws[f'A{current_row}'] = "Biaya Surabaya"
-                    ws[f'L{current_row}'] = "Cost (Rp)"
                     ws.merge_cells(f'A{current_row}:K{current_row}')
                     ws[f'A{current_row}'].font = profit_header_font
                     ws[f'A{current_row}'].alignment = left_align
-                    ws[f'A{current_row}'].border = thin_border
+                    
+                    ws[f'L{current_row}'] = "Cost (Rp)"
                     ws[f'L{current_row}'].font = profit_header_font
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].border = thin_border
                     ws.row_dimensions[current_row].height = 20
                     current_row += 1
                     
+                    # Detail rows
                     for cost_name, cost_value in costs_surabaya.items():
-                        ws[f'A{current_row}'] = cost_name
-                        ws[f'A{current_row}'].font = profit_font
-                        ws[f'A{current_row}'].alignment = left_align
-                        
                         try:
                             if isinstance(cost_value, (tuple, list)) and len(cost_value) >= 2:
                                 cost_desc = str(cost_value[1])
@@ -592,45 +527,81 @@ class PrintHandler:
                             cost_desc = ""
                             cost_amount = 0
 
+                        # Cell A
+                        ws[f'A{current_row}'] = cost_name
+                        ws[f'A{current_row}'].font = profit_font
+                        ws[f'A{current_row}'].alignment = left_align
+                        ws[f'A{current_row}'].border = thin_border
+
+                        # Cell B-K - Apply border to ALL cells BEFORE merging
+                        for col in range(2, 12):  # B=2 to K=11
+                            cell = ws.cell(row=current_row, column=col)
+                            cell.border = thin_border
+                        
+                        # Now merge and set content
+                        ws.merge_cells(f'B{current_row}:K{current_row}')
                         ws[f'B{current_row}'] = cost_desc
                         ws[f'B{current_row}'].font = profit_font
                         ws[f'B{current_row}'].alignment = left_align
 
+                        # Cell L
                         ws[f'L{current_row}'] = cost_amount
                         ws[f'L{current_row}'].font = profit_font
                         ws[f'L{current_row}'].alignment = right_align
                         ws[f'L{current_row}'].number_format = '#,##0'
+                        ws[f'L{current_row}'].border = thin_border
+                        
                         ws.row_dimensions[current_row].height = 18
                         current_row += 1
 
+                    # Total Surabaya
+                    # Apply border to ALL cells before merging
+                    for col in range(1, 12):  # A=1 to K=11
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.border = thin_border
+                    
+                    ws.merge_cells(f'A{current_row}:K{current_row}')
+                    ws[f'A{current_row}'] = "Total Biaya Surabaya"
+                    ws[f'A{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
+                    ws[f'A{current_row}'].alignment = right_align
+                    
                     ws[f'L{current_row}'] = total_biaya_surabaya
                     ws[f'L{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].number_format = '#,##0'
                     ws[f'L{current_row}'].border = thin_border
                     ws.row_dimensions[current_row].height = 20
-                    current_row += 2
+                    current_row += 1
+                    
+                    # Add empty row with bottom border untuk spacing
+                    for col in range(1, 13):  # A=1 to L=12
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.border = Border(bottom=Side(style='thin'))
+                    current_row += 1
                 
-                # BIAYA DESTINASI SECTION
+                # BIAYA DESTINASI SECTION WITH BORDERS
                 if costs_destinasi:
                     destination_name = container.get('destination', 'Destinasi')
+                    
+                    # Header - Apply border to ALL cells before merging
+                    for col in range(1, 12):  # A=1 to K=11
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.border = thin_border
+                    
                     ws[f'A{current_row}'] = f"Biaya {destination_name}"
-                    ws[f'L{current_row}'] = "Cost (Rp)"
                     ws.merge_cells(f'A{current_row}:K{current_row}')
                     ws[f'A{current_row}'].font = profit_header_font
                     ws[f'A{current_row}'].alignment = left_align
-                    ws[f'A{current_row}'].border = thin_border
+                    
+                    ws[f'L{current_row}'] = "Cost (Rp)"
                     ws[f'L{current_row}'].font = profit_header_font
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].border = thin_border
                     ws.row_dimensions[current_row].height = 20
                     current_row += 1
                     
+                    # Detail rows
                     for cost_name, cost_value in costs_destinasi.items():
-                        ws[f'A{current_row}'] = cost_name
-                        ws[f'A{current_row}'].font = profit_font
-                        ws[f'A{current_row}'].alignment = left_align
-                        
                         try:
                             if isinstance(cost_value, (tuple, list)) and len(cost_value) >= 2:
                                 cost_desc = str(cost_value[1])
@@ -642,16 +613,43 @@ class PrintHandler:
                             cost_desc = ""
                             cost_amount = 0
 
+                        # Cell A
+                        ws[f'A{current_row}'] = cost_name
+                        ws[f'A{current_row}'].font = profit_font
+                        ws[f'A{current_row}'].alignment = left_align
+                        ws[f'A{current_row}'].border = thin_border
+
+                        # Cell B-K - Apply border to ALL cells BEFORE merging
+                        for col in range(2, 12):  # B=2 to K=11
+                            cell = ws.cell(row=current_row, column=col)
+                            cell.border = thin_border
+                        
+                        # Now merge and set content
+                        ws.merge_cells(f'B{current_row}:K{current_row}')
                         ws[f'B{current_row}'] = cost_desc
                         ws[f'B{current_row}'].font = profit_font
                         ws[f'B{current_row}'].alignment = left_align
 
+                        # Cell L
                         ws[f'L{current_row}'] = cost_amount
                         ws[f'L{current_row}'].font = profit_font
                         ws[f'L{current_row}'].alignment = right_align
                         ws[f'L{current_row}'].number_format = '#,##0'
+                        ws[f'L{current_row}'].border = thin_border
+                        
                         ws.row_dimensions[current_row].height = 18
                         current_row += 1
+                    
+                    # Total Destinasi
+                    # Apply border to ALL cells before merging
+                    for col in range(1, 12):  # A=1 to K=11
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.border = thin_border
+                    
+                    ws.merge_cells(f'A{current_row}:K{current_row}')
+                    ws[f'A{current_row}'] = f"Total Biaya {destination_name}"
+                    ws[f'A{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
+                    ws[f'A{current_row}'].alignment = right_align
                     
                     ws[f'L{current_row}'] = total_biaya_samarinda
                     ws[f'L{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
@@ -661,14 +659,19 @@ class PrintHandler:
                     ws.row_dimensions[current_row].height = 20
                     current_row += 2
                 
-                # PROFIT CALCULATION
+                # PROFIT CALCULATION WITH BORDERS
                 if costs_surabaya or costs_destinasi:
+                    # Apply border to ALL cells before merging
+                    for col in range(1, 12):  # A=1 to K=11
+                        cell = ws.cell(row=current_row, column=col)
+                        cell.border = thin_border
+                    
                     ws[f'A{current_row}'] = "PROFIT LCL"
-                    ws[f'L{current_row}'] = profit_lcl
                     ws.merge_cells(f'A{current_row}:K{current_row}')
                     ws[f'A{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
                     ws[f'A{current_row}'].alignment = left_align
-                    ws[f'A{current_row}'].border = thin_border
+                    
+                    ws[f'L{current_row}'] = profit_lcl
                     ws[f'L{current_row}'].font = Font(name='Times New Roman', size=12, bold=True)
                     ws[f'L{current_row}'].alignment = right_align
                     ws[f'L{current_row}'].number_format = '#,##0'
@@ -679,10 +682,10 @@ class PrintHandler:
             # AUTO-ADJUST Column widths
             estimated_widths = [
                 10,  # Tgl
-                25,  # Pengirim (diperbesar)
+                25,  # Pengirim
                 25,  # Penerima  
-                35,  # Nama Barang (diperbesar)
-                18,  # Kubikasi (diperbesar)
+                35,  # Nama Barang
+                18,  # Kubikasi
                 10,  # M3
                 10,  # Ton
                 8,   # Col
@@ -707,14 +710,14 @@ class PrintHandler:
                     ws.row_breaks.append(break_row)
         
             # Save file
-            filename = f"Invoice_Container_{container_id}_TaxFiltered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            self._save_excel_file(wb, filename, "INVOICE CONTAINER WITH TAX FILTERING")
+            filename = f"Invoice_Container_{container_id}_WithBorders_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            self._save_excel_file(wb, filename, "INVOICE CONTAINER WITH BORDERS")
         
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat Excel invoice: {str(e)}")
             print(f"Full error: {traceback.format_exc()}")
-            
-                           
+        
+               
     def _get_container_costs(self, container_id, location):
         """Get container costs from database by location (SURABAYA or SAMARINDA)"""
         try:
