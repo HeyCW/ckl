@@ -46,7 +46,7 @@ class PrintHandler:
            
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat invoice: {str(e)}")
-            
+               
    
     def _generate_excel_invoice_optimized(self, container, barang_list, container_id):
         """Generate Excel invoice document optimized for A4 printing with profit calculation and tax as separate rows"""
@@ -113,9 +113,9 @@ class PrintHandler:
             ws.row_dimensions[current_row].height = 20
             current_row += 1
         
-            # Company info
+            # Company info - UPDATED
             ws.merge_cells(f'A{current_row}:L{current_row}')
-            ws[f'A{current_row}'] = "CV. CAHAYA KARUNIA | Jl. Teluk Raya Selatan No. 6 Surabaya | Phone: 031-60166017"
+            ws[f'A{current_row}'] = "PT. CAHAYA KARUNIA LOGISTIK | Jl Teluk Bone Selatan No 05 | Phone: 031-60166017"
             ws[f'A{current_row}'].font = normal_font
             ws[f'A{current_row}'].alignment = center_align
             ws.row_dimensions[current_row].height = 18
@@ -290,9 +290,9 @@ class PrintHandler:
                     total_ppn_all += ppn_amount
                     current_row += 1
                 
-                # Add PPH row
+                # Add PPH row - WITH MINUS SIGN
                 if tax_data['pph_rate'] > 0:
-                    pph_row_data = ['', '', '', f"PPH {tax_data['pph_rate']:.1f}%", '', '', '', '', '', '', '', pph_amount]
+                    pph_row_data = ['', '', '', f"PPH {23}", '', '', '', '', '', '', '', -pph_amount]  # NEGATIVE VALUE
                     
                     for col, value in enumerate(pph_row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
@@ -343,7 +343,8 @@ class PrintHandler:
                     penerima = str(safe_barang_get('receiver_name', '-'))
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
                     
-                    door = str(safe_barang_get('door_type', safe_barang_get('alamat_tujuan', '-')))[:10]
+                    # FIX: Door type to uppercase
+                    door = str(safe_barang_get('door_type', safe_barang_get('alamat_tujuan', '-')))[:10].upper()
 
                     # Format dimensions
                     p = safe_barang_get('panjang_barang', '-')
@@ -713,6 +714,29 @@ class PrintHandler:
             messagebox.showerror("Error", f"Gagal membuat Excel invoice: {str(e)}")
             print(f"Full error: {traceback.format_exc()}")
             
+                           
+    def _get_container_costs(self, container_id, location):
+        """Get container costs from database by location (SURABAYA or SAMARINDA)"""
+        try:
+            result = self.db.execute("""
+                SELECT description, cost_description, cost 
+                FROM container_delivery_costs 
+                WHERE container_id = ? AND delivery = ?
+                ORDER BY id
+            """, (container_id, location))
+            
+            costs_dict = {}
+            for row in result:
+                key = row['description']
+                value = (float(row['cost']), row['cost_description'])
+                costs_dict[key] = value
+            
+            return costs_dict if costs_dict else None
+            
+        except Exception as e:
+            print(f"Error getting container costs: {e}")
+            return None
+  
                            
     def _get_container_costs(self, container_id, location):
         """Get container costs from database by location (SURABAYA or SAMARINDA)"""

@@ -4,7 +4,7 @@ import sys
 import os
 from PIL import Image, ImageTk
 
-def main():
+def main():         
     try:
         print("🚀 Starting application...")
         

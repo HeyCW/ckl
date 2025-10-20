@@ -346,7 +346,7 @@ class PDFPackingListGenerator:
             # ========================================
             
             # Logo and Title Row
-            logo_path = "assets/logo-cklogistik.png"
+            logo_path = "assets/logo-cklogistik.jpg"
             if logo_path and os.path.exists(logo_path):
                 try:
                     logo_img = Image(logo_path, width=4*cm, height=1.2*cm)
@@ -420,13 +420,14 @@ class PDFPackingListGenerator:
             else:
                 formatted_etd = datetime.now().strftime('%d/%m/%Y')
             
-            # Customer info table - MATCH Invoice format exactly
+            destination = safe_get('destination')
+            destination_upper = destination.upper() if destination != '-' else destination
+            
             customer_data = [
-                ['Bill To (Nama Customer)', ':', receiver_name, '', 'Invoice Number', ':', invoice_number],
+                ['Bill To (Nama Customer)', ':', receiver, '', 'Invoice Number', ':', invoice_number],
                 ['', '', '', '', '', '', ''],
-                ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', '', '', ''],
-                ['Destination (Tujuan)', ':', safe_get('destination'), '', 'Tanggal (ETD)', ':', formatted_etd],
-                ['Party (Volume)', ':', f"{safe_get('party')} m3", '', '', '', ''],
+                ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', 'Tanggal (ETD)', ':', formatted_etd],  
+                ['Destination (Tujuan)', ':', destination_upper, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
             ]
             
             customer_table = Table(customer_data, colWidths=[4*cm, 0.3*cm, 5*cm, 1*cm, 3.5*cm, 0.3*cm, 4.9*cm])
@@ -945,38 +946,34 @@ class PDFPackingListGenerator:
             # ========================================
             # HEADER: Logo (kiri) + Company Info (tengah) + Title (kanan)
             # ========================================
-            logo_path = "assets/logo-cklogistik.png"
+            logo_path = "assets/logo-cklogistik.jpg"
             if logo_path and os.path.exists(logo_path):
                 try:
-                    # Logo: 4.5cm x 1.5cm
-                    logo_img = Image(logo_path, width=4.5*cm, height=1.5*cm)
+                    # LOGO TETAP BESAR
+                    logo_img = Image(logo_path, width=6*cm, height=3*cm)
                     
-                    # Company info di tengah
+                    # TULISAN PERUSAHAAN DI SEBELAH KANAN LOGO
                     company_text = "Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
-                    
-                    # Title di kanan
                     title_para = Paragraph("SALES INVOICE", title_style)
                     
+                    # SUSUNAN: Logo | Company Text | Title (3 kolom)
                     header_data = [[logo_img, company_para, title_para]]
-                    header_table = Table(header_data, colWidths=[5*cm, 7.5*cm, 6*cm])
+                    header_table = Table(header_data, colWidths=[6.5*cm, 6*cm, 6*cm])
                     header_table.setStyle(TableStyle([
-                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
                         ('ALIGN', (1, 0), (1, 0), 'LEFT'),
                         ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
                         ('LEFTPADDING', (0, 0), (-1, -1), 0),
                         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                        ('TOPPADDING', (0, 0), (-1, -1), 0),
-                        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
                     ]))
                     
                 except Exception as logo_error:
                     print(f"[ERROR] Logo error: {logo_error}")
-                    # Fallback tanpa logo
                     company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
-                    title_para = Paragraph("SALES INVOICE", title_style)
+                    title_para = Paragraph("PACKING LISTS", title_style)
                     header_data = [[company_para, title_para]]
                     header_table = Table(header_data, colWidths=[10*cm, 8*cm])
                     header_table.setStyle(TableStyle([
@@ -986,12 +983,10 @@ class PDFPackingListGenerator:
                         ('LEFTPADDING', (0, 0), (-1, -1), 0),
                         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                     ]))
-                    
             else:
-                # Tanpa logo file
                 company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                 company_para = Paragraph(company_text, company_info_style)
-                title_para = Paragraph("SALES INVOICE", title_style)
+                title_para = Paragraph("PACKING LISTS", title_style)
                 header_data = [[company_para, title_para]]
                 header_table = Table(header_data, colWidths=[10*cm, 8*cm])
                 header_table.setStyle(TableStyle([
@@ -1027,7 +1022,7 @@ class PDFPackingListGenerator:
             
             month_roman = current_month_roman.get(datetime.now().month, "IX")
             year = datetime.now().year
-            base_invoice = f"CKL/SUB/{month_roman}/{year}/JOA-{ref_joa}"
+            base_invoice = f"{ref_joa}"
             
             if invoice_suffix:
                 invoice_number = f"{base_invoice} {invoice_suffix}"
@@ -1053,15 +1048,19 @@ class PDFPackingListGenerator:
             if filter_criteria:
                 receiver = filter_criteria.get('receiver_name', '')
                 
+                # Get destination and make uppercase
+                destination = safe_get('destination')
+                destination_upper = destination.upper() if destination != '-' else destination
+                
                 customer_data = [
                     ['Bill To (Nama Customer)', ':', receiver, '', 'Invoice Number', ':', invoice_number],
                     ['', '', '', '', '', '', ''],
-                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', '', '', ''],
-                    ['Destination (Tujuan)', ':', safe_get('destination'), '', 'Tanggal (ETD)', ':', formatted_etd],
-                    ['REF JOA', ':', ref_joa, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
+                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', 'Tanggal (ETD)', ':', formatted_etd],  
+                    ['Destination (Tujuan)', ':', destination_upper, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
                 ]
                 
-                customer_table = Table(customer_data, colWidths=[4.5*cm, 0.3*cm, 5*cm, 1*cm, 3.5*cm, 0.3*cm, 4.9*cm])
+                # Adjusted column widths - kecilkan kolom kiri, besarkan kolom kanan untuk invoice number
+                customer_table = Table(customer_data, colWidths=[4*cm, 0.3*cm, 4.5*cm, 0.8*cm, 3.2*cm, 0.3*cm, 5.4*cm])
                 customer_table.setStyle(TableStyle([
                     ('FONTSIZE', (0, 0), (-1, -1), 10),
                     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -1150,7 +1149,7 @@ class PDFPackingListGenerator:
                 traceback.print_exc()
             
             # ========================================
-            # ITEMS TABLE WITH PRICING
+            # ITEMS TABLE WITH PRICING - DENGAN KOLOM PENGIRIM ✅
             # ========================================
             
             # Prepare data with container info
@@ -1175,10 +1174,11 @@ class PDFPackingListGenerator:
                     print(f"[ERROR] Processing barang: {e}")
                     continue
             
-            # Table header
+            # Table header - DENGAN KOLOM PENGIRIM ✅
             table_data = [[
                 'No.', 
                 'Container',
+                'Pengirim',      # ✅ KOLOM BARU
                 'Jenis Barang', 
                 'Kubikasi', 
                 'M3', 
@@ -1196,7 +1196,7 @@ class PDFPackingListGenerator:
             
             item_counter = 1
             
-            # Process each item
+            # Process each item - DENGAN KOLOM PENGIRIM ✅
             for item in items_with_container:
                 try:
                     barang = item['barang']
@@ -1209,15 +1209,16 @@ class PDFPackingListGenerator:
                         except Exception:
                             return default
                     
-                    # Jenis Barang (dengan pengirim)
+                    # Pengirim - AMBIL DATA PENGIRIM ✅
+                    pengirim_text = str(safe_barang_get('sender_name', '-'))
+                    pengirim = Paragraph(pengirim_text, item_text_style)
+                    
+                    # Jenis Barang (TANPA pengirim karena sudah ada kolom terpisah) ✅
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
                     jenis_barang = str(safe_barang_get('jenis_barang', '-'))
                     
-                    pengirim_text = str(safe_barang_get('sender_name', ''))
-                    if pengirim_text and pengirim_text != '-':
-                        combined_text = f"{pengirim_text}<br/>{nama_barang}"
-                    else:
-                        combined_text = f"{nama_barang}"
+                    # Hanya tampilkan nama barang dan jenis barang
+                    combined_text = f"{nama_barang}"
                     
                     if jenis_barang != '-' and jenis_barang != nama_barang:
                         combined_text += f"<br/><i>{jenis_barang}</i>"
@@ -1270,16 +1271,26 @@ class PDFPackingListGenerator:
                     except (ValueError, TypeError):
                         pass
                     
-                    # Format values
-                    m3_val = f"{total_m3_item:.3f}"
-                    ton_val = f"{total_ton_item:.3f}"
+                    # Format values - CONDITIONAL DECIMAL FORMATTING ✅
+                    if total_m3_item >= 1:
+                        m3_val = f"{total_m3_item:.0f}"  # Tanpa desimal jika >= 1
+                    else:
+                        m3_val = f"{total_m3_item:.3f}"  # 3 desimal jika < 1
+                    
+                    if total_ton_item >= 1:
+                        ton_val = f"{total_ton_item:.0f}"  # Tanpa desimal jika >= 1
+                    else:
+                        ton_val = f"{total_ton_item:.3f}"  # 3 desimal jika < 1
+                    
                     colli_val = f"{colli_int}"
                     unit_price_val = f"Rp {float(unit_price):,.0f}" if unit_price not in [None, '', '-'] else "Rp 0"
                     total_price_val = f"Rp {float(total_harga):,.0f}" if total_harga not in [None, '', '-'] else "Rp 0"
                     
+                    # Append row - DENGAN KOLOM PENGIRIM ✅
                     table_data.append([
                         str(item_counter), 
                         container_no,
+                        pengirim,           # ✅ KOLOM PENGIRIM
                         combined_jenis,
                         kubikasi,
                         m3_val,
@@ -1298,92 +1309,106 @@ class PDFPackingListGenerator:
             # ========================================
             # ADD TAX ROWS - HANYA JIKA has_tax = True ✅
             # ========================================
+            tax_row_count = 0  # Counter untuk track berapa baris pajak
             receiver = filter_criteria.get('receiver_name', '') if filter_criteria else ''
             if receiver in tax_summary and tax_summary[receiver]['has_tax']:
                 tax_data = tax_summary[receiver]
                 
-                # PPN row
+                # PPN row - DENGAN KOLOM PENGIRIM KOSONG ✅
                 if tax_data['ppn_amount'] > 0:
                     table_data.append([
-                        '', '', f"PPN {tax_data['ppn_rate']:.1f}%",
+                        '', '', '', f"PPN {tax_data['ppn_rate']:.1f}%",  # Kolom pengirim kosong
                         '', '', '', '', '', f"Rp {tax_data['ppn_amount']:,.0f}"
                     ])
                     total_price += tax_data['ppn_amount']
+                    tax_row_count += 1
                     print(f"[DEBUG] Added PPN row: Rp {tax_data['ppn_amount']:,.0f}")
                 
-                # PPH row
+                # PPH row (PPH 23) - DENGAN KOLOM PENGIRIM KOSONG ✅
                 if tax_data['pph_amount'] > 0:
                     table_data.append([
-                        '', '', f"PPH {tax_data['pph_rate']:.1f}%",
-                        '', '', '', '', '', f"Rp {tax_data['pph_amount']:,.0f}"
+                        '', '', '', f"PPH 23",  # Kolom pengirim kosong
+                        '', '', '', '', '', f"- Rp {tax_data['pph_amount']:,.0f}"
                     ])
                     total_price += tax_data['pph_amount']
+                    tax_row_count += 1
                     print(f"[DEBUG] Added PPH row: Rp {tax_data['pph_amount']:,.0f}")
             else:
                 print("[DEBUG] No tax rows added (has_tax = False)")
             
-            # Add total row
+            # Add total row - MERGE 5 KOLOM (termasuk pengirim) ✅
+            total_row_index = len(table_data)
+            
+            # Format total M3 dan Ton dengan conditional decimal ✅
+            total_m3_formatted = f"{total_m3:.0f}" if total_m3 >= 1 else f"{total_m3:.3f}"
+            total_ton_formatted = f"{total_ton:.0f}" if total_ton >= 1 else f"{total_ton:.3f}"
+            
             table_data.append([
-                'TOTAL', 
+                'TOTAL',  # Akan di-merge dengan 4 kolom berikutnya
                 '', 
                 '', 
                 '', 
-                f"{total_m3:.3f}",
-                f"{total_ton:.3f}", 
+                '',  # Kolom Pengirim kosong
+                total_m3_formatted,
+                total_ton_formatted, 
                 f"{total_colli:.0f}",
                 '',
                 f"Rp {total_price:,.0f}"
             ])
             
-            # Create table
+            # Create table - DENGAN LEBAR KOLOM DISESUAIKAN ✅
             items_table = Table(table_data, colWidths=[
-                1.5*cm,  # No
-                2.2*cm,  # Container
-                5.0*cm,  # Jenis Barang
-                2.8*cm,  # Kubikasi
-                1.5*cm,  # M3
-                1.5*cm,  # Ton
-                1.2*cm,  # Col
-                2.3*cm,  # Unit Price
-                2.5*cm   # Total Price
+                1.2*cm,  # No (dikurangi)
+                1.8*cm,  # Container (dikurangi)
+                2.5*cm,  # Pengirim ✅ BARU
+                3.5*cm,  # Jenis Barang (dikurangi karena tanpa pengirim)
+                2.5*cm,  # Kubikasi (dikurangi)
+                1.3*cm,  # M3 (dikurangi)
+                1.3*cm,  # Ton (dikurangi)
+                1.0*cm,  # Col (dikurangi)
+                2.0*cm,  # Unit Price (dikurangi)
+                2.4*cm   # Total Price
             ])
             
-            # Table styling
-            items_table.setStyle(TableStyle([
+            # Table styling - DENGAN INDEX KOLOM DISESUAIKAN ✅
+            style_list = [
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),  # Font lebih kecil karena lebih banyak kolom
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows
-                ('FONTSIZE', (0, 1), (-1, -2), 9),
-                ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
-                ('ALIGN', (0, 1), (1, -2), 'CENTER'),  # No & Container
-                ('ALIGN', (2, 1), (3, -2), 'LEFT'),    # Jenis Barang & Kubikasi
-                ('ALIGN', (4, 1), (-1, -2), 'RIGHT'),  # M3, Ton, Col, Prices
-                ('VALIGN', (0, 1), (-1, -2), 'TOP'),
+                ('FONTSIZE', (0, 1), (-1, total_row_index - 1), 8),  # Font lebih kecil
+                ('FONTNAME', (0, 1), (-1, total_row_index - 1), 'Helvetica'),
+                ('ALIGN', (0, 1), (1, total_row_index - 1), 'CENTER'),  # No & Container
+                ('ALIGN', (2, 1), (2, total_row_index - 1), 'LEFT'),    # Pengirim ✅
+                ('ALIGN', (3, 1), (4, total_row_index - 1), 'LEFT'),    # Jenis Barang & Kubikasi
+                ('ALIGN', (5, 1), (-1, total_row_index - 1), 'RIGHT'),  # M3, Ton, Col, Prices
+                ('VALIGN', (0, 1), (-1, total_row_index - 1), 'TOP'),
                 
-                # Total row
-                ('FONTSIZE', (0, -1), (-1, -1), 11),
-                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-                ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-                ('ALIGN', (0, -1), (3, -1), 'CENTER'),
-                ('ALIGN', (4, -1), (-1, -1), 'RIGHT'),
+                # Total row - MERGE 5 KOLOM (0-4, termasuk pengirim) ✅
+                ('SPAN', (0, total_row_index), (4, total_row_index)),  # ✅ Merge 5 kolom
+                ('FONTSIZE', (0, total_row_index), (-1, total_row_index), 10),
+                ('FONTNAME', (0, total_row_index), (-1, total_row_index), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, total_row_index), (-1, total_row_index), colors.lightgrey),
+                ('ALIGN', (0, total_row_index), (0, total_row_index), 'CENTER'),
+                ('ALIGN', (5, total_row_index), (-1, total_row_index), 'RIGHT'),
+                ('VALIGN', (0, total_row_index), (-1, total_row_index), 'MIDDLE'),
                 
                 # Borders
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 
-                # Padding
-                ('LEFTPADDING', (0, 0), (-1, -1), 5),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-                
-                ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.white]),
-            ]))
+                # Padding - dikurangi untuk fit lebih banyak kolom
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ]
+            
+            items_table.setStyle(TableStyle(style_list))
             
             story.append(items_table)
             story.append(Spacer(1, 20))
@@ -1429,7 +1454,7 @@ class PDFPackingListGenerator:
             print(f"[ERROR] Traceback: {traceback.format_exc()}")
             messagebox.showerror("Error", f"Failed to create combined PDF: {str(e)}")
             
-        
+             
     def generate_combined_pdf_packing_list(self, container_ids, ref_joa, filter_criteria=None, all_barang = []):
         """
         Generate combined PDF packing list for multiple containers - filter by RECEIVER ONLY
@@ -1645,18 +1670,22 @@ class PDFPackingListGenerator:
             # ========================================
             # HEADER: Logo + Company Info + Title
             # ========================================
-            logo_path = "assets/logo-cklogistik.png"
+            logo_path = "assets/logo-cklogistik.jpg"
             if logo_path and os.path.exists(logo_path):
                 try:
-                    logo_img = Image(logo_path, width=4*cm, height=1.2*cm)
+                    # LOGO TETAP BESAR
+                    logo_img = Image(logo_path, width=6*cm, height=3*cm)
+                    
+                    # TULISAN PERUSAHAAN DI SEBELAH KANAN LOGO
                     company_text = "Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
                     title_para = Paragraph("PACKING LISTS", title_style)
                     
+                    # SUSUNAN: Logo | Company Text | Title (3 kolom)
                     header_data = [[logo_img, company_para, title_para]]
-                    header_table = Table(header_data, colWidths=[4.5*cm, 7*cm, 7*cm])
+                    header_table = Table(header_data, colWidths=[6.5*cm, 6*cm, 6*cm])
                     header_table.setStyle(TableStyle([
-                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
                         ('ALIGN', (1, 0), (1, 0), 'LEFT'),
                         ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
@@ -1668,7 +1697,7 @@ class PDFPackingListGenerator:
                     print(f"[ERROR] Logo error: {logo_error}")
                     company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
-                    title_para = Paragraph("SALES INVOICE", title_style)
+                    title_para = Paragraph("PACKING LISTS", title_style)
                     header_data = [[company_para, title_para]]
                     header_table = Table(header_data, colWidths=[10*cm, 8*cm])
                     header_table.setStyle(TableStyle([
@@ -1681,7 +1710,7 @@ class PDFPackingListGenerator:
             else:
                 company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                 company_para = Paragraph(company_text, company_info_style)
-                title_para = Paragraph("SALES INVOICE", title_style)
+                title_para = Paragraph("PACKING LISTS", title_style)
                 header_data = [[company_para, title_para]]
                 header_table = Table(header_data, colWidths=[10*cm, 8*cm])
                 header_table.setStyle(TableStyle([
@@ -1712,7 +1741,7 @@ class PDFPackingListGenerator:
                                 7: "VII", 8: "VIII", 9: "IX", 10: "X", 11: "XI", 12: "XII"}
             month_roman = current_month_roman.get(datetime.now().month, "IX")
             year = datetime.now().year
-            base_invoice = f"CKL/SUB/{month_roman}/{year}/JOA-{ref_joa}"
+            base_invoice = f"{ref_joa}"
             
             if invoice_suffix:
                 invoice_number = f"{base_invoice} {invoice_suffix}"
@@ -1736,12 +1765,14 @@ class PDFPackingListGenerator:
             if filter_criteria:
                 receiver = filter_criteria.get('receiver_name', '')
                 
+                destination = safe_get('destination')
+                destination_upper = destination.upper() if destination != '-' else destination
+                
                 customer_data = [
                     ['Bill To (Nama Customer)', ':', receiver, '', 'Invoice Number', ':', invoice_number],
                     ['', '', '', '', '', '', ''],
-                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', '', '', ''],
-                    ['Destination (Tujuan)', ':', safe_get('destination'), '', 'Tanggal (ETD)', ':', formatted_etd],
-                    ['REF JOA', ':', ref_joa, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
+                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', 'Tanggal (ETD)', ':', formatted_etd],  
+                    ['Destination (Tujuan)', ':', destination_upper, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
                 ]
                 
                 customer_table = Table(customer_data, colWidths=[4*cm, 0.3*cm, 5*cm, 1*cm, 3.5*cm, 0.3*cm, 4.9*cm])
@@ -1763,7 +1794,7 @@ class PDFPackingListGenerator:
                 story.append(Spacer(1, 15))
             
             # ========================================
-            # ITEMS TABLE - DENGAN KOLOM CONTAINER
+            # ITEMS TABLE - DENGAN KOLOM CONTAINER DAN PENGIRIM
             # ========================================
             
             # Prepare data with container info
@@ -1788,10 +1819,11 @@ class PDFPackingListGenerator:
                     print(f"[ERROR] Processing barang: {e}")
                     continue
             
-            # Table header - DENGAN KOLOM CONTAINER
+            # Table header - TAMBAH KOLOM PENGIRIM
             table_data = [[
                 'No.', 
-                'Container',  # KOLOM BARU
+                'Container',
+                'Pengirim',
                 'Jenis Barang', 
                 'Kubikasi', 
                 'M3', 
@@ -1819,15 +1851,15 @@ class PDFPackingListGenerator:
                         except:
                             return default
                     
-                    # Jenis Barang (dengan pengirim)
+                    # Pengirim - KOLOM TERPISAH
+                    pengirim_text = str(safe_barang_get('sender_name', '-'))
+                    pengirim_para = Paragraph(pengirim_text, item_text_style)
+                    
+                    # Jenis Barang (TANPA pengirim karena sudah terpisah)
                     nama_barang = str(safe_barang_get('nama_barang', '-'))
                     jenis_barang = str(safe_barang_get('jenis_barang', '-'))
                     
-                    pengirim_text = str(safe_barang_get('sender_name', ''))
-                    if pengirim_text and pengirim_text != '-':
-                        combined_text = f"{pengirim_text}<br/>{nama_barang}"
-                    else:
-                        combined_text = f"{nama_barang}"
+                    combined_text = f"{nama_barang}"
                     
                     if jenis_barang != '-' and jenis_barang != nama_barang:
                         combined_text += f"<br/><i>{jenis_barang}</i>"
@@ -1850,27 +1882,48 @@ class PDFPackingListGenerator:
                     kubikasi = Paragraph(kubikasi_text, item_text_style)
                     
                     # Values
-                    
                     colli = safe_barang_get('colli_amount', 0)
-                    m3 = safe_barang_get('m3_barang', 0) * colli
-                    ton = safe_barang_get('ton_barang', 0) * colli
+                    m3_per_unit = safe_barang_get('m3_barang', 0)
+                    ton_per_unit = safe_barang_get('ton_barang', 0)
                     catatan = str(safe_barang_get('keterangan', safe_barang_get('notes', '')))
                     
+                    # Convert to float/int
                     try:
-                        total_m3 += float(m3) if m3 not in [None, '', '-'] else 0
-                        total_ton += float(ton) if ton not in [None, '', '-'] else 0
-                        total_colli += int(colli) if colli not in [None, '', '-'] else 0
+                        m3_float = float(m3_per_unit) if m3_per_unit not in [None, '', '-'] else 0
+                        ton_float = float(ton_per_unit) if ton_per_unit not in [None, '', '-'] else 0
+                        colli_int = int(colli) if colli not in [None, '', '-'] else 0
                     except (ValueError, TypeError):
-                        pass
+                        m3_float = 0
+                        ton_float = 0
+                        colli_int = 0
                     
-                    m3_val = f"{float(m3):.3f}" if m3 not in [None, '', '-'] else "0.000"
-                    ton_val = f"{float(ton):.3f}" if ton not in [None, '', '-'] else "0.000"
-                    colli_val = f"{int(colli):.2f}" if colli not in [None, '', '-'] else "0.00"
+                    # Calculate total per item
+                    total_m3_item = m3_float * colli_int
+                    total_ton_item = ton_float * colli_int
                     
-                    # Item row - DENGAN CONTAINER
+                    # Add to grand total
+                    total_m3 += total_m3_item
+                    total_ton += total_ton_item
+                    total_colli += colli_int
+                    
+                    # Format values - CONDITIONAL DECIMAL FORMATTING ✅
+                    if total_m3_item >= 1:
+                        m3_val = f"{total_m3_item:.0f}"  # Tanpa desimal jika >= 1
+                    else:
+                        m3_val = f"{total_m3_item:.3f}"  # 3 desimal jika < 1
+                    
+                    if total_ton_item >= 1:
+                        ton_val = f"{total_ton_item:.0f}"  # Tanpa desimal jika >= 1
+                    else:
+                        ton_val = f"{total_ton_item:.3f}"  # 3 desimal jika < 1
+                    
+                    colli_val = f"{colli_int:.0f}"
+                    
+                    # Item row - DENGAN KOLOM PENGIRIM
                     table_data.append([
                         str(item_counter),
-                        container_no,  # CONTAINER NUMBER
+                        container_no,
+                        pengirim_para,
                         combined_jenis,
                         kubikasi,
                         m3_val,
@@ -1885,28 +1938,33 @@ class PDFPackingListGenerator:
                     print(f"[ERROR] Item error: {e}")
                     continue
             
-            # TOTAL row
+            # TOTAL row - DENGAN CONDITIONAL DECIMAL FORMATTING ✅
+            total_m3_formatted = f"{total_m3:.0f}" if total_m3 >= 1 else f"{total_m3:.3f}"
+            total_ton_formatted = f"{total_ton:.0f}" if total_ton >= 1 else f"{total_ton:.3f}"
+            
             table_data.append([
                 'TOTAL',
-                '',  # Empty container cell
-                '',
-                '',
-                f"{total_m3:.3f}",
-                f"{total_ton:.3f}",
+                '',  # Will be merged
+                '',  # Will be merged
+                '',  # Will be merged
+                '',  # Will be merged
+                total_m3_formatted,
+                total_ton_formatted,
                 f"{total_colli:.0f}",
                 ''
             ])
             
-            # Create table - DENGAN KOLOM CONTAINER
+            # Create table - ADJUSTED COLUMN WIDTHS
             items_table = Table(table_data, colWidths=[
-                1.5*cm,  # No
-                2.2*cm,  # Container (KOLOM BARU)
-                5.5*cm,  # Jenis Barang
-                2.5*cm,  # Kubikasi
-                1.6*cm,  # M3
-                1.6*cm,  # Ton
-                1.3*cm,  # Col
-                3.5*cm   # Catatan
+                1.2*cm,  # No
+                2.0*cm,  # Container
+                2.5*cm,  # Pengirim (BARU)
+                4.5*cm,  # Jenis Barang
+                2.0*cm,  # Kubikasi
+                1.4*cm,  # M3
+                1.4*cm,  # Ton
+                1.2*cm,  # Col
+                3.0*cm   # Catatan
             ])
             
             # Table styling
@@ -1924,17 +1982,21 @@ class PDFPackingListGenerator:
                 ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
                 ('ALIGN', (0, 1), (0, -2), 'CENTER'),  # No
                 ('ALIGN', (1, 1), (1, -2), 'CENTER'),  # Container
-                ('ALIGN', (2, 1), (3, -2), 'LEFT'),    # Jenis Barang & Kubikasi
-                ('ALIGN', (4, 1), (6, -2), 'RIGHT'),   # M3, Ton, Col
-                ('ALIGN', (7, 1), (7, -2), 'LEFT'),    # Catatan
+                ('ALIGN', (2, 1), (2, -2), 'LEFT'),    # Pengirim
+                ('ALIGN', (3, 1), (4, -2), 'LEFT'),    # Jenis Barang & Kubikasi
+                ('ALIGN', (5, 1), (7, -2), 'RIGHT'),   # M3, Ton, Col
+                ('ALIGN', (8, 1), (8, -2), 'LEFT'),    # Catatan
                 ('VALIGN', (0, 1), (-1, -2), 'TOP'),
                 
                 # Total row
                 ('FONTSIZE', (0, -1), (-1, -1), 10),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
-                ('ALIGN', (0, -1), (3, -1), 'CENTER'),
-                ('ALIGN', (4, -1), (-1, -1), 'RIGHT'),
+                
+                # SPAN UNTUK TOTAL - MERGE 5 KOLOM PERTAMA
+                ('SPAN', (0, -1), (4, -1)),
+                ('ALIGN', (0, -1), (0, -1), 'CENTER'),  # TOTAL text centered
+                ('ALIGN', (5, -1), (-1, -1), 'RIGHT'),  # Numbers right aligned
                 
                 # Borders
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
