@@ -7,6 +7,7 @@ from src.views.customer_window import CustomerWindow
 from src.views.kapal_window import KapalWindow
 from src.views.pengirim_window import SenderWindow
 from src.views.report_window import ReportsWindow
+from src.views.job_order_window import JobOrderWindow
 from PIL import Image, ImageTk
 
 class MainWindow:
@@ -113,19 +114,6 @@ class MainWindow:
         row1_frame = tk.Frame(menu_frame, bg='#ecf0f1')
         row1_frame.pack(pady=20)
         
-        # Pengirim button
-        # customer_btn = tk.Button(
-        #     row1_frame,
-        #     text="👥\n\nDATA PENGIRIM\n\nTambah & Lihat Pengirim",
-        #     font=('Arial', 14, 'bold'),
-        #     bg="#f7e30c",
-        #     fg='white',
-        #     relief='flat',
-        #     width=20,
-        #     height=6,
-        #     command=self.show_pengirim_window
-        # )
-        # customer_btn.pack(side='left', padx=30)
         
         # Customer button
         customer_btn = tk.Button(
@@ -186,19 +174,20 @@ class MainWindow:
         )
         container_btn.pack(side='left', padx=30)
         
-        # # Reports button
-        # reports_btn = tk.Button(
-        #     row2_frame,
-        #     text="📋\n\nLAPORAN\n\nLihat Semua Data",
-        #     font=('Arial', 14, 'bold'),
-        #     bg='#9b59b6',
-        #     fg='white',
-        #     relief='flat',
-        #     width=20,
-        #     height=6,
-        #     command=self.show_reports_window
-        # )
-        # reports_btn.pack(side='left', padx=30)
+        # Job Order button
+        job_order_btn = tk.Button(
+            row2_frame,
+            text="📋\n\nDATA JOB ORDER\n\nLihat Job Order",
+            font=('Arial', 14, 'bold'),
+            bg="#8813dc",
+            fg='white',
+            relief='flat',
+            width=20,
+            height=6,
+            command=self.show_job_order_window
+        )
+        job_order_btn.pack(side='left', padx=30)
+        
     
     def show_customer_window(self):
         """Show customer management window"""
@@ -213,6 +202,14 @@ class MainWindow:
     #         SenderWindow(self.root, self.db)
     #     except Exception as e:
     #         messagebox.showerror("Error", f"Tidak dapat membuka window pengirim:\n{str(e)}")
+
+    def show_job_order_window(self):
+        """Show job order management window"""
+        try:
+            # Assuming JobOrderWindow is defined similarly to other windows
+            JobOrderWindow(self.root, self.db)
+        except Exception as e:
+            messagebox.showerror("Error", f"Tidak dapat membuka window job order:\n{str(e)}")
 
     def show_barang_window(self):
         """Show barang management window"""
