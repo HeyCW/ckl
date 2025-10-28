@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 from src.models.database import AppDatabase
@@ -47,36 +46,139 @@ class ContainerWindow:
                 available_width = window_width - 100
                 
                 # Adjust container tree columns
-                self.container_tree.column('ID', width=int(available_width * 0.05))
-                self.container_tree.column('Kapal', width=int(available_width * 0.20))
-                self.container_tree.column('Container', width=int(available_width * 0.20))
+                self.container_tree.column('ID', width=int(available_width * 0.04))
+                self.container_tree.column('Kapal', width=int(available_width * 0.18))
+                self.container_tree.column('Party', width=int(available_width * 0.15))
+                self.container_tree.column('Container', width=int(available_width * 0.18))
+                self.container_tree.column('Seal', width=int(available_width * 0.12))
                 self.container_tree.column('Ref JOA', width=int(available_width * 0.15))
-                self.container_tree.column('Items', width=int(available_width * 0.15))
+                self.container_tree.column('Items', width=int(available_width * 0.12))
+            except:
+                pass
+            
+    
+
+    def load_kapals(self):
+        """Load kapal options from the database - Format: Feeder"""
+        try:
+            # Query hanya ambil kapal_id dan feeder
+            kapals = self.db.execute("""
+                SELECT DISTINCT k.kapal_id, k.feeder
+                FROM kapals k 
+                ORDER BY k.feeder
+            """)
+            print(f"[DEBUG] Loaded {len(kapals)} kapals from DB")
+            
+            # Format sederhana: hanya nama feeder
+            kapal_options = []
+            for k in kapals:
+                kapal_id = k[0]
+                feeder = k[1]
+                # JANGAN akses k[2] karena tidak ada!
+                display_text = f"{feeder}"
+                kapal_options.append(display_text)
+            
+            # Simpan nilai saat ini sebelum update
+            current_value = self.kapal_combo.get()
+            
+            # Update dropdown values
+            self.kapal_combo['values'] = kapal_options
+            
+            # Restore nilai jika masih valid
+            if current_value and current_value in kapal_options:
+                self.kapal_combo.set(current_value)
+            
+            print(f"[DEBUG] Kapal combo updated with {len(kapal_options)} items")
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to load kapals: {e}")
+            messagebox.showerror("Database Error", f"Gagal memuat daftar kapal:\n{str(e)}")
+            return False
+    
+    def filter_kapal_dropdown(self):
+        """Filter dropdown kapal berdasarkan text yang diketik (autocomplete)"""
+        try:
+            typed_text = self.kapal_combo.get().strip()
+            
+            # Jika kosong, refresh dan tampilkan semua
+            if not typed_text:
+                self.refresh_kapal_dropdown()
+                return
+            
+            # Ambil semua kapal dari database
+            kapals = self.db.execute("""
+                SELECT DISTINCT k.kapal_id, k.feeder
+                FROM kapals k 
+                ORDER BY k.feeder
+            """)
+            
+            # Filter yang match dengan input user
+            filtered_options = []
+            for k in kapals:
+                kapal_id = k[0]
+                feeder = k[1]
+                display_text = f"{feeder}"
+                
+                # Cek apakah match dengan yang diketik (case-insensitive)
+                typed_lower = typed_text.lower()
+                if (typed_lower in display_text.lower() or 
+                    typed_lower in str(kapal_id) or 
+                    typed_lower in feeder.lower()):
+                    filtered_options.append(display_text)
+            
+            # Update dropdown dengan hasil filter
+            self.kapal_combo['values'] = filtered_options
+            
+            # PENTING: Buka dropdown untuk menampilkan hasil
+            if filtered_options:
+                # Pastikan dropdown terbuka
+                try:
+                    self.kapal_combo.event_generate('<Down>')
+                except:
+                    pass
+            
+            print(f"[DEBUG] Filter found {len(filtered_options)} matches for '{typed_text}'")
+            
+        except Exception as e:
+            print(f"[ERROR] Filter kapal dropdown: {e}")
+    
+    def refresh_kapal_dropdown(self):
+        """Refresh kapal dropdown dengan feedback visual"""
+        print("[DEBUG] Refreshing kapal dropdown...")
+        
+        # Simpan posisi cursor saat ini
+        current_position = self.kapal_combo.index(tk.INSERT) if self.kapal_combo.get() else 0
+        
+        # Load data kapal terbaru
+        success = self.load_kapals()
+        
+        # Restore cursor position jika ada text
+        if self.kapal_combo.get():
+            try:
+                self.kapal_combo.icursor(current_position)
             except:
                 pass
         
-        if hasattr(self, 'container_barang_tree') and event.widget == self.window:
-            try:
-                window_width = self.window.winfo_width()
-                available_width = window_width - 100
-                
-                # Adjust container-barang tree columns
-                self.container_barang_tree.column('Pengirim', width=int(available_width * 0.10))
-                self.container_barang_tree.column('Penerima', width=int(available_width * 0.10))
-                self.container_barang_tree.column('Nama', width=int(available_width * 0.12))
-                # ... dst untuk kolom lainnya
-            except:
-                pass
-
-    def load_kapals(self):
-        """Load kapal options from the database"""
-        try:
-            kapals = self.db.execute("SELECT feeder FROM kapals")
-            print(f"Loaded kapals: {kapals}")
-            kapals = [k[0] for k in kapals]
-            self.kapal_combo['values'] = kapals
-        except sqlite3.Error as e:
-            messagebox.showerror("Database Error", str(e))
+        # Visual feedback (optional - bisa dimatikan jika mengganggu)
+        # if success:
+        #     # Flash effect
+        #     original_bg = self.kapal_combo.cget('background')
+        #     self.kapal_combo.configure(background='#2ecc71')
+        #     self.kapal_combo.after(200, lambda: self.kapal_combo.configure(background=original_bg))
+        
+        return success
+    
+    def on_tab_changed(self, event):
+        """Event handler ketika tab berubah - refresh data"""
+        selected_tab = event.widget.select()
+        tab_text = event.widget.tab(selected_tab, "text")
+        print(f"[DEBUG] Tab changed to: {tab_text}")
+        
+        # Refresh kapal dropdown saat tab Container aktif
+        if "Container" in tab_text:
+            self.refresh_kapal_dropdown()
+            self.load_containers()
 
     def create_window(self):
         """Create container management window with responsive design"""
@@ -125,6 +227,9 @@ class ContainerWindow:
         self.notebook = ttk.Notebook(self.window)
         self.notebook.pack(fill='both', expand=True, padx=20, pady=20)
         
+        # Bind tab change event untuk auto-refresh
+        self.notebook.bind('<<NotebookTabChanged>>', self.on_tab_changed)
+        
         # Tab 1: Container Management
         container_frame = tk.Frame(self.notebook, bg='#ecf0f1')
         self.notebook.add(container_frame, text='🚢 Container')
@@ -150,7 +255,7 @@ class ContainerWindow:
         
         # Bind resize event
         self.window.bind('<Configure>', self.on_window_resize)
-    
+
     def create_container_tab(self, parent):
         """Create container management tab"""
         # Form frame
@@ -167,49 +272,130 @@ class ContainerWindow:
         )
         instruction_label.pack(pady=(0, 20))
         
-        # Row 1
+        # ============================================
+        # BARIS 1: Kapal | ETD | Container
+        # ============================================
         row1_frame = tk.Frame(form_frame, bg='#ecf0f1')
         row1_frame.pack(fill='x', pady=5)
         
         # Kapal (Dropdown)
-        tk.Label(row1_frame, text="Kapal:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        tk.Label(
+            row1_frame, 
+            text="Kapal:", 
+            font=('Arial', 10, 'bold'), 
+            bg='#ecf0f1',
+            width=10,
+            anchor='w'
+        ).pack(side='left', padx=(0, 5))
+        
         self.kapal_var = tk.StringVar()
         self.kapal_combo = ttk.Combobox(
             row1_frame,
             textvariable=self.kapal_var,
             font=('Arial', 10),
-            width=15,
+            width=22,
+            state='normal'
         )
+        self.kapal_combo.pack(side='left', padx=(0, 20))
         
-        self.kapal_combo.pack(side='left', padx=5)
-
+        # Bind event untuk auto-refresh dan auto-filter
+        self.kapal_combo.bind('<FocusIn>', lambda e: self.refresh_kapal_dropdown())  # Saat diklik
+        self.kapal_combo.bind('<KeyRelease>', self.on_kapal_keyrelease)  # Saat mengetik
+        
+        
+        # ETD (DatePicker)
+        tk.Label(
+            row1_frame, 
+            text="ETD:", 
+            font=('Arial', 10, 'bold'), 
+            bg='#ecf0f1',
+            width=10,
+            anchor='w'
+        ).pack(side='left', padx=(0, 5))
+        
+        self.etd_entry = DateEntry(
+            row1_frame,
+            font=('Arial', 10),
+            width=20,
+            background='#e67e22',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='yyyy-mm-dd'
+        )
+        self.etd_entry.pack(side='left', padx=(0, 20))
+        
         # Container
-        tk.Label(row1_frame, text="Container:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.container_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
-        self.container_entry.pack(side='left', padx=(5, 20))
+        tk.Label(
+            row1_frame, 
+            text="Container:", 
+            font=('Arial', 10, 'bold'), 
+            bg='#ecf0f1',
+            width=10,
+            anchor='w'
+        ).pack(side='left', padx=(0, 5))
+        
+        self.container_entry = tk.Entry(row1_frame, font=('Arial', 10), width=22)
+        self.container_entry.pack(side='left')
+        
+        # ============================================
+        # BARIS 2: Seal | Party | Ref JOA
+        # ============================================
+        row2_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        row2_frame.pack(fill='x', pady=5)
         
         # Seal
-        tk.Label(row1_frame, text="Seal:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.seal_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
-        self.seal_entry.pack(side='left', padx=(5, 20))
+        tk.Label(
+            row2_frame, 
+            text="Seal:", 
+            font=('Arial', 10, 'bold'), 
+            bg='#ecf0f1',
+            width=10,
+            anchor='w'
+        ).pack(side='left', padx=(0, 5))
+        
+        self.seal_entry = tk.Entry(row2_frame, font=('Arial', 10), width=22)
+        self.seal_entry.pack(side='left', padx=(0, 20))
+        
+        # Party
+        tk.Label(
+            row2_frame, 
+            text="Party:", 
+            font=('Arial', 10, 'bold'), 
+            bg='#ecf0f1',
+            width=10,
+            anchor='w'
+        ).pack(side='left', padx=(0, 5))
+        
+        self.party_entry = tk.Entry(row2_frame, font=('Arial', 10), width=20)
+        self.party_entry.pack(side='left', padx=(0, 20))
         
         # Ref JOA
-        tk.Label(row1_frame, text="Ref JOA:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        self.ref_joa_entry = tk.Entry(row1_frame, font=('Arial', 10), width=15)
-        self.ref_joa_entry.pack(side='left', padx=5)
+        tk.Label(
+            row2_frame, 
+            text="Ref JOA:", 
+            font=('Arial', 10, 'bold'), 
+            bg='#ecf0f1',
+            width=10,
+            anchor='w'
+        ).pack(side='left', padx=(0, 5))
         
-        # Buttons
+        self.ref_joa_entry = tk.Entry(row2_frame, font=('Arial', 10), width=22)
+        self.ref_joa_entry.pack(side='left')
+        
+        # ============================================
+        # BUTTONS - AKSI CONTAINER
+        # ============================================
         btn_frame = tk.Frame(form_frame, bg='#ecf0f1')
         btn_frame.pack(fill='x', pady=15)
         
         add_btn = tk.Button(
             btn_frame,
             text="➕ Tambah Container",
-            font=('Arial', 8, 'bold'),
+            font=('Arial', 10, 'bold'),
             bg='#e67e22',
             fg='white',
-            padx=10,
-            pady=5,
+            padx=15,
+            pady=8,
             command=self.add_container
         )
         add_btn.pack(side='left', padx=(0, 10))
@@ -217,11 +403,11 @@ class ContainerWindow:
         clear_btn = tk.Button(
             btn_frame,
             text="🗑️ Bersihkan",
-            font=('Arial', 8, 'bold'),
+            font=('Arial', 10, 'bold'),
             bg='#95a5a6',
             fg='white',
-            padx=10,
-            pady=5,
+            padx=15,
+            pady=8,
             command=self.clear_form
         )
         clear_btn.pack(side='left', padx=(0, 10))
@@ -229,11 +415,11 @@ class ContainerWindow:
         edit_btn = tk.Button(
             btn_frame,
             text="✏️ Edit Container",
-            font=('Arial', 8, 'bold'),
+            font=('Arial', 10, 'bold'),
             bg='#3498db',
             fg='white',
-            padx=10,
-            pady=5,
+            padx=15,
+            pady=8,
             command=self.edit_container
         )
         edit_btn.pack(side='left', padx=(0, 10))
@@ -241,33 +427,39 @@ class ContainerWindow:
         delete_btn = tk.Button(
             btn_frame,
             text="🗑️ Hapus Container",
-            font=('Arial', 8, 'bold'),
+            font=('Arial', 10, 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=10,
-            pady=5,
+            padx=15,
+            pady=8,
             command=self.delete_container
         )
-        delete_btn.pack(side='left')
+        delete_btn.pack(side='left', padx=(0, 10))
         
-        # Di bagian button yang sudah ada, tambahkan:
         summary_btn = tk.Button(
-            btn_frame,  # frame tempat button lain
+            btn_frame,
             text="📊 Lihat Summary",
-            font=('Arial', 8, 'bold'),
+            font=('Arial', 10, 'bold'),
             bg='#9b59b6',
             fg='white',
-            padx=10,
-            pady=5,
-            command=self.view_selected_container_summary  # method yang sudah ada
+            padx=15,
+            pady=8,
+            command=self.view_selected_container_summary
         )
-        summary_btn.pack(side='left', padx=5)
+        summary_btn.pack(side='left')
         
-        # Container list
+        # ============================================
+        # CONTAINER LIST
+        # ============================================
         list_frame = tk.Frame(parent, bg='#ecf0f1')
         list_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
         
-        tk.Label(list_frame, text="📋 DAFTAR CONTAINER", font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(anchor='w')
+        tk.Label(
+            list_frame, 
+            text="📋 DAFTAR CONTAINER", 
+            font=('Arial', 14, 'bold'), 
+            bg='#ecf0f1'
+        ).pack(anchor='w')
         
         # Treeview for container list
         tree_frame = tk.Frame(list_frame, bg='#ecf0f1')
@@ -277,7 +469,7 @@ class ContainerWindow:
         container_tree_container.pack(fill='both', expand=True)
         
         # Container columns
-        container_columns = ('ID', 'Kapal', 'Container', 'Ref JOA', 'Items')
+        container_columns = ('ID', 'Kapal', 'ETD', 'Party', 'Container', 'Seal', 'Ref JOA', 'Items')
 
         # Create PaginatedTreeView
         self.container_tree = PaginatedTreeView(
@@ -291,18 +483,24 @@ class ContainerWindow:
         # Configure headings
         self.container_tree.heading('ID', text='ID')
         self.container_tree.heading('Kapal', text='Kapal')
+        self.container_tree.heading('ETD', text='ETD')
+        self.container_tree.heading('Party', text='Party')
         self.container_tree.heading('Container', text='Container')
+        self.container_tree.heading('Seal', text='Seal')
         self.container_tree.heading('Ref JOA', text='Ref JOA')
         self.container_tree.heading('Items', text='Jumlah Barang')
 
         # Configure columns
         self.container_tree.column('ID', width=40)
-        self.container_tree.column('Kapal', width=120)
-        self.container_tree.column('Container', width=120)
-        self.container_tree.column('Ref JOA', width=100)
+        self.container_tree.column('Kapal', width=130)
+        self.container_tree.column('ETD', width=100)
+        self.container_tree.column('Party', width=100)
+        self.container_tree.column('Container', width=130)
+        self.container_tree.column('Seal', width=90)
+        self.container_tree.column('Ref JOA', width=110)
         self.container_tree.column('Items', width=100)
 
-        # Pack PaginatedTreeView (sudah include scrollbar dan pagination)
+        # Pack PaginatedTreeView
         self.container_tree.pack(fill='both', expand=True)
 
         # Bind double-click to view container details
@@ -311,9 +509,85 @@ class ContainerWindow:
         # Load existing containers
         self.load_containers()
         
-        # ADD PRINT BUTTONS HERE
-        self.add_print_buttons_to_container_tab(parent)  
+        # ============================================
+        # PRINT BUTTONS SECTION
+        # ============================================
+        self.add_print_buttons_to_container_tab(parent)
+      
+    
+    
+    def on_kapal_keyrelease(self, event=None):
+        """Handle ketika user mengetik di dropdown kapal"""
+        # Abaikan tombol navigasi
+        if event and event.keysym in ('Up', 'Down', 'Left', 'Right', 'Return', 'Tab'):
+            return
         
+        # Panggil filter dengan delay kecil untuk performa
+        if hasattr(self, '_filter_timer'):
+            self.window.after_cancel(self._filter_timer)
+        
+        self._filter_timer = self.window.after(300, self.filter_kapal_dropdown)
+        
+    
+    def add_print_buttons_to_container_tab(self, parent):
+        """Add print buttons to container tab"""
+        print_frame = tk.Frame(parent, bg='#ecf0f1')
+        print_frame.pack(fill='x', padx=20, pady=10)
+        
+        # Separator
+        separator = tk.Frame(print_frame, height=2, bg='#34495e')
+        separator.pack(fill='x', pady=(0, 10))
+        
+        tk.Label(
+            print_frame, 
+            text="📄 PRINT DOCUMENTS", 
+            font=('Arial', 12, 'bold'), 
+            bg='#ecf0f1'
+        ).pack(anchor='w', pady=(0, 10))
+        
+        btn_frame = tk.Frame(print_frame, bg='#ecf0f1')
+        btn_frame.pack(fill='x')
+        
+        # Print Invoice Container button
+        print_invoice_btn = tk.Button(
+            btn_frame,
+            text="🧾 Print Invoice Container",
+            font=('Arial', 10, 'bold'),
+            bg="#4bc23b",
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.print_selected_container_invoice
+        )
+        print_invoice_btn.pack(side='left', padx=(0, 10))
+        
+        # Print Invoice PDF button
+        print_invoice_pdf_btn = tk.Button(
+            btn_frame,
+            text="📄 Invoice PDF",
+            font=('Arial', 10, 'bold'),
+            bg="#f39c12",  # Orange
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.print_selected_container_invoice_pdf
+        )
+        print_invoice_pdf_btn.pack(side='left', padx=(0, 10))
+        
+        # Print Customer Packing List button
+        print_packing_btn = tk.Button(
+            btn_frame,
+            text="📋 Print Customer Packing List",
+            font=('Arial', 10, 'bold'),
+            bg="#1b9b0a",
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.print_selected_customer_packing_list
+        )
+        print_packing_btn.pack(side='left', padx=(0, 10))
+        
+             
     def add_print_buttons_to_container_tab(self, parent):
         """Add print buttons to container tab"""
         print_frame = tk.Frame(parent, bg='#ecf0f1')
@@ -5776,32 +6050,134 @@ class ContainerWindow:
                     self.on_container_select()
                     break
     
-    def add_container(self):
+    def validate_kapal_etd(self, kapal_id, etd):
+        """
+        Validasi STRICT apakah kombinasi kapal_id + etd ada di tabel kapals
+        
+        Args:
+            kapal_id (int): ID kapal
+            etd (str): ETD date dalam format YYYY-MM-DD
+        
+        Returns:
+            bool: True jika valid, False jika tidak ditemukan
+        """
         try:
-            self.db.execute_insert(
-                "INSERT INTO containers (kapal_feeder, container, seal, ref_joa) VALUES (?, ?, ?, ?)", 
-                (
-                    self.kapal_var.get(),
-                    self.container_entry.get(),
-                    self.seal_entry.get(),
-                    self.ref_joa_entry.get()
+            # Query untuk cek apakah kapal dengan ETD ini ada
+            result = self.db.execute_one("""
+                SELECT kapal_id, feeder, etd_sub 
+                FROM kapals 
+                WHERE kapal_id = ? AND etd_sub = ?
+            """, (kapal_id, etd))
+            
+            if result:
+                print(f"[VALID ✓] Kapal ID {kapal_id} dengan ETD {etd} ditemukan: {result[1]}")
+                return True
+            else:
+                print(f"[INVALID ✗] Kapal ID {kapal_id} dengan ETD {etd} TIDAK ditemukan!")
+                return False
+                
+        except Exception as e:
+            print(f"[ERROR] Validasi kapal ETD error: {e}")
+            return False
+    
+    def add_container(self):
+        """Add new container with flexible kapal input (support manual input)"""
+        try:
+            # Extract kapal_id
+            kapal_combo_value = self.kapal_var.get().strip()
+            
+            if not kapal_combo_value:
+                messagebox.showwarning("Validasi", "Pilih atau ketik nama kapal terlebih dahulu!")
+                return
+            
+            # Coba parse format: "ID - Nama Kapal" atau "ID - Nama Kapal (ETD)"
+            kapal_id = None
+            kapal_name = kapal_combo_value
+            
+            try:
+                # Jika format dropdown: "ID - Nama"
+                if ' - ' in kapal_combo_value:
+                    parts = kapal_combo_value.split(' - ')
+                    kapal_id = int(parts[0])
+                    kapal_name = parts[1].split('(')[0].strip()  # Buang ETD jika ada
+                else:
+                    # Coba parsing sebagai ID langsung
+                    try:
+                        kapal_id = int(kapal_combo_value)
+                        # Cari nama kapal dari database
+                        result = self.db.execute("SELECT feeder FROM kapals WHERE kapal_id = ?", (kapal_id,))
+                        if result:
+                            kapal_name = result[0][0]
+                        else:
+                            messagebox.showerror("Error", f"Kapal dengan ID {kapal_id} tidak ditemukan!")
+                            return
+                    except ValueError:
+                        # Input adalah nama kapal (input manual)
+                        # Cari di database berdasarkan nama
+                        result = self.db.execute("SELECT kapal_id FROM kapals WHERE feeder LIKE ?", (f"%{kapal_combo_value}%",))
+                        if result:
+                            kapal_id = result[0][0]
+                            kapal_name = kapal_combo_value
+                        else:
+                            messagebox.showwarning(
+                                "Kapal Tidak Ditemukan", 
+                                f"Kapal '{kapal_combo_value}' tidak ditemukan di database.\n\n"
+                                "Silakan tambahkan kapal ini terlebih dahulu di menu 'Kelola Kapal'."
+                            )
+                            return
+            except Exception as e:
+                messagebox.showerror("Error", f"Format kapal tidak valid!\n{str(e)}")
+                return
+            
+            # Get form values
+            etd = self.etd_entry.get()
+            party = self.party_entry.get().strip()
+            container = self.container_entry.get().strip()
+            seal = self.seal_entry.get().strip()
+            ref_joa = self.ref_joa_entry.get().strip()
+            
+            # Validasi container tidak boleh kosong
+            if not container:
+                messagebox.showwarning("Validasi", "Masukkan nomor container!")
+                return
+            
+            # ⚠️ VALIDASI STRICT - ETD HARUS VALID
+            if not self.validate_kapal_etd(kapal_id, etd):
+                # ERROR - TIDAK BOLEH LANJUT
+                messagebox.showerror(
+                    "❌ Error - Kapal dengan ETD Tidak Ditemukan",
+                    f"Kapal '{kapal_name}' dengan ETD '{etd}' tidak ditemukan di database!\n\n"
+                    f"Kemungkinan penyebab:\n"
+                    f"• ETD yang dipilih salah\n"
+                    f"• Data kapal dengan ETD ini belum diinput\n"
+                    f"• ETD di data kapal berbeda dengan yang Anda pilih\n\n"
+                    f"Silakan:\n"
+                    f"1. Cek kembali ETD yang benar\n"
+                    f"2. Atau tambahkan data kapal dengan ETD tersebut di menu Kelola Kapal"
                 )
+                return  # STOP - tidak bisa lanjut
+            
+            # Jika valid, INSERT container
+            self.db.execute_insert(
+                "INSERT INTO containers (kapal_id, etd, party, container, seal, ref_joa) VALUES (?, ?, ?, ?, ?, ?)", 
+                (kapal_id, etd, party, container, seal, ref_joa)
             )
+            
+            messagebox.showinfo("Sukses", "✅ Container berhasil ditambahkan!")
 
-            # Jika berhasil, refresh form & combo
+            # Refresh
             self.clear_form()
             self.load_containers()
-            self.load_container_combo()  # Refresh combo
+            self.load_container_combo()
             
             if self.refresh_callback:
                 self.refresh_callback()
 
-        except sqlite3.Error as e:
-            # Tampilkan pesan error ke user
+        except Exception as e:
             messagebox.showerror("Database Error", f"Gagal menambahkan container:\n{str(e)}")
      
     def edit_container(self):
-        """Edit selected container - opens dialog"""
+        """Edit selected container"""
         selection = self.container_tree.selection()
         if not selection:
             messagebox.showwarning("Peringatan", "Pilih container yang akan diedit!")
@@ -5810,8 +6186,22 @@ class ContainerWindow:
         item = self.container_tree.item(selection[0])
         container_id = item['values'][0]
         
-        # Get container data
-        container = self.db.get_container_by_id(container_id)
+        # Query dengan etd
+        container = self.db.execute_one("""
+            SELECT 
+                c.container_id,
+                c.kapal_id,
+                k.feeder as kapal_feeder,
+                c.etd,
+                c.party,
+                c.container,
+                c.seal,
+                c.ref_joa
+            FROM containers c
+            LEFT JOIN kapals k ON c.kapal_id = k.kapal_id
+            WHERE c.container_id = ?
+        """, (container_id,))
+        
         if not container:
             messagebox.showerror("Error", "Container tidak ditemukan!")
             return
@@ -5819,23 +6209,23 @@ class ContainerWindow:
         # Open edit dialog
         self.show_edit_container_dialog(container_id, container)
 
+
     def show_edit_container_dialog(self, container_id, container):
-        """Show container edit dialog with only feeder, container, seal, ref_joa"""
+        """Show container edit dialog with STRICT ETD validation"""
         try:
             edit_window = tk.Toplevel(self.window)
             edit_window.title(f"✏️ Edit Container - ID: {container_id}")
-            edit_window.geometry("600x400")
+            edit_window.geometry("650x550")
             edit_window.configure(bg='#ecf0f1')
             edit_window.transient(self.window)
             edit_window.grab_set()
 
             # Center dialog
             edit_window.update_idletasks()
-            x = self.window.winfo_x() + (self.window.winfo_width() // 2) - 300
-            y = self.window.winfo_y() + (self.window.winfo_height() // 2) - 200
-            edit_window.geometry(f"600x400+{x}+{y}")
+            x = self.window.winfo_x() + (self.window.winfo_width() // 2) - 325
+            y = self.window.winfo_y() + (self.window.winfo_height() // 2) - 275
+            edit_window.geometry(f"650x550+{x}+{y}")
 
-            # Helper
             def safe_get(value):
                 return str(value) if value is not None else ""
 
@@ -5853,74 +6243,178 @@ class ContainerWindow:
             form_frame = tk.Frame(edit_window, bg='#ffffff', relief='solid', bd=1)
             form_frame.pack(fill='both', expand=True, padx=20, pady=20)
 
-            # Dictionary to store entry widgets
-            entries = {}
+            # 1. Kapal (Dropdown)
+            row = tk.Frame(form_frame, bg='#ffffff')
+            row.pack(fill='x', pady=12, padx=20)
+            
+            tk.Label(row, text="Kapal:", font=('Arial', 11, 'bold'), 
+                    bg='#ffffff', width=15, anchor='w').pack(side='left')
+            
+            kapal_var = tk.StringVar()
+            kapal_combo = ttk.Combobox(row, textvariable=kapal_var, 
+                                    font=('Arial', 11), width=35, state='readonly')
+            kapal_combo.pack(side='left', padx=(10, 0))
+            
+            # Load kapal options
+            kapals = self.db.execute("SELECT kapal_id, feeder FROM kapals ORDER BY feeder")
+            kapal_options = [f"{k[0]} - {k[1]}" for k in kapals]
+            kapal_combo['values'] = kapal_options
+            
+            # Set current value
+            if container[1]:
+                current_kapal = f"{container[1]} - {container[2]}"
+                kapal_combo.set(current_kapal)
 
-            # Fields to show
-            fields = [
-                ('Feeder', 'kapal_feeder'),
-                ('Container', 'container'),
-                ('Seal', 'seal'),
-                ('Ref JOA', 'ref_joa')
-            ]
+            # 2. ETD
+            row = tk.Frame(form_frame, bg='#ffffff')
+            row.pack(fill='x', pady=12, padx=20)
+            
+            tk.Label(row, text="ETD:", font=('Arial', 11, 'bold'), 
+                    bg='#ffffff', width=15, anchor='w').pack(side='left')
+            
+            etd_entry = DateEntry(
+                row,
+                font=('Arial', 11),
+                width=33,
+                background='#e67e22',
+                foreground='white',
+                borderwidth=2,
+                date_pattern='yyyy-mm-dd'
+            )
+            etd_entry.pack(side='left', padx=(10, 0))
+            
+            # Set current date value
+            if container[3]:  # etd
+                try:
+                    from datetime import datetime
+                    date_obj = datetime.strptime(str(container[3]), '%Y-%m-%d').date()
+                    etd_entry.set_date(date_obj)
+                except:
+                    pass
 
-            for label_text, field_name in fields:
-                row = tk.Frame(form_frame, bg='#ffffff')
-                row.pack(fill='x', pady=8, padx=20)
+            # 3. Party
+            row = tk.Frame(form_frame, bg='#ffffff')
+            row.pack(fill='x', pady=12, padx=20)
+            
+            tk.Label(row, text="Party:", font=('Arial', 11, 'bold'), 
+                    bg='#ffffff', width=15, anchor='w').pack(side='left')
+            
+            party_entry = tk.Entry(row, font=('Arial', 11), width=35)
+            party_entry.pack(side='left', padx=(10, 0))
+            party_entry.insert(0, safe_get(container[4]))
 
-                tk.Label(row, text=f"{label_text}:", font=('Arial', 11, 'bold'), bg='#ffffff', width=15, anchor='w').pack(side='left')
-                entry = tk.Entry(row, font=('Arial', 11), width=30)
-                entry.pack(side='left', padx=(10, 0))
+            # 4. Container
+            row = tk.Frame(form_frame, bg='#ffffff')
+            row.pack(fill='x', pady=12, padx=20)
+            
+            tk.Label(row, text="Container:", font=('Arial', 11, 'bold'), 
+                    bg='#ffffff', width=15, anchor='w').pack(side='left')
+            
+            container_entry = tk.Entry(row, font=('Arial', 11), width=35)
+            container_entry.pack(side='left', padx=(10, 0))
+            container_entry.insert(0, safe_get(container[5]))
 
-                # Fill current value
-                if isinstance(container, dict):
-                    entry.insert(0, safe_get(container.get(field_name)))
-                else:
-                    entry.insert(0, safe_get(getattr(container, field_name, "")))
+            # 5. Seal
+            row = tk.Frame(form_frame, bg='#ffffff')
+            row.pack(fill='x', pady=12, padx=20)
+            
+            tk.Label(row, text="Seal:", font=('Arial', 11, 'bold'), 
+                    bg='#ffffff', width=15, anchor='w').pack(side='left')
+            
+            seal_entry = tk.Entry(row, font=('Arial', 11), width=35)
+            seal_entry.pack(side='left', padx=(10, 0))
+            seal_entry.insert(0, safe_get(container[6]))
 
-                entries[field_name] = entry
+            # 6. Ref JOA
+            row = tk.Frame(form_frame, bg='#ffffff')
+            row.pack(fill='x', pady=12, padx=20)
+            
+            tk.Label(row, text="Ref JOA:", font=('Arial', 11, 'bold'), 
+                    bg='#ffffff', width=15, anchor='w').pack(side='left')
+            
+            ref_joa_entry = tk.Entry(row, font=('Arial', 11), width=35)
+            ref_joa_entry.pack(side='left', padx=(10, 0))
+            ref_joa_entry.insert(0, safe_get(container[7]))
 
-            # Buttons
-            btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
-            btn_frame.pack(fill='x', pady=15, padx=20)
-
-            # Save function
+            # Save function with STRICT validation
             def save_container():
                 try:
-                    if not messagebox.askyesno("Konfirmasi Update", f"Simpan perubahan untuk container ID {container_id}?"):
+                    kapal_combo_value = kapal_var.get().strip()
+                    if not kapal_combo_value:
+                        messagebox.showwarning("Validasi", "Pilih kapal!")
+                        return
+                    
+                    kapal_id = int(kapal_combo_value.split(' - ')[0])
+                    kapal_name = kapal_combo_value.split(' - ')[1] if ' - ' in kapal_combo_value else 'Unknown'
+                    etd_value = etd_entry.get()
+                    
+                    container_value = container_entry.get().strip()
+                    if not container_value:
+                        messagebox.showwarning("Validasi", "Container tidak boleh kosong!")
+                        return
+                    
+                    # ⚠️ VALIDASI STRICT - TIDAK BOLEH LANJUT
+                    if not self.validate_kapal_etd(kapal_id, etd_value):
+                        messagebox.showerror(
+                            "❌ Error - Kapal dengan ETD Tidak Ditemukan",
+                            f"Kapal '{kapal_name}' dengan ETD '{etd_value}' tidak ditemukan di database!\n\n"
+                            f"Kemungkinan penyebab:\n"
+                            f"• ETD yang dipilih salah\n"
+                            f"• Data kapal dengan ETD ini belum diinput\n"
+                            f"• ETD di data kapal berbeda\n\n"
+                            f"Silakan:\n"
+                            f"1. Cek kembali ETD yang benar\n"
+                            f"2. Atau tambahkan data kapal dengan ETD tersebut"
+                        )
+                        return  # STOP - tidak bisa update
+                    
+                    if not messagebox.askyesno("Konfirmasi Update", 
+                            f"Simpan perubahan untuk container ID {container_id}?"):
                         return
 
+                    # UPDATE dengan etd
                     self.db.execute("""
                         UPDATE containers SET 
-                        kapal_feeder = ?, container = ?, seal = ?, ref_joa = ?, updated_at = CURRENT_TIMESTAMP
+                        kapal_id = ?, etd = ?, party = ?, container = ?, seal = ?, ref_joa = ?, 
+                        updated_at = CURRENT_TIMESTAMP
                         WHERE container_id = ?
                     """, (
-                        entries['kapal_feeder'].get().strip(),
-                        entries['container'].get().strip(),
-                        entries['seal'].get().strip(),
-                        entries['ref_joa'].get().strip(),
+                        kapal_id,
+                        etd_value,
+                        party_entry.get().strip(),
+                        container_value,
+                        seal_entry.get().strip(),
+                        ref_joa_entry.get().strip(),
                         container_id
                     ))
 
                     messagebox.showinfo("Sukses", "✅ Container berhasil diupdate!")
                     self.load_containers()
                     self.load_container_combo()
+                    
                     if self.refresh_callback:
                         self.refresh_callback()
+                        
                     edit_window.destroy()
 
                 except Exception as e:
                     messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e)}")
 
+            # Buttons
+            btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
+            btn_frame.pack(fill='x', pady=15, padx=20)
+
             tk.Button(btn_frame, text="💾 Simpan Perubahan", bg='#27ae60', fg='white',
-                    font=('Arial', 12, 'bold'), padx=20, pady=10, command=save_container).pack(side='left', padx=(0,10))
+                    font=('Arial', 12, 'bold'), padx=20, pady=10, 
+                    command=save_container).pack(side='left', padx=(0,10))
 
             tk.Button(btn_frame, text="❌ Tutup", bg='#e74c3c', fg='white',
-                    font=('Arial', 12, 'bold'), padx=20, pady=10, command=edit_window.destroy).pack(side='right')
+                    font=('Arial', 12, 'bold'), padx=20, pady=10, 
+                    command=edit_window.destroy).pack(side='right')
 
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat dialog edit: {str(e)}")
-
+        
     def is_valid_date_format(self, date_string):
         """Validate date format YYYY-MM-DD"""
         if not date_string:
@@ -5981,35 +6475,56 @@ class ContainerWindow:
     def clear_form(self):
         """Clear form fields"""
         self.container_entry.delete(0, tk.END)
+        self.party_entry.delete(0, tk.END)
         self.seal_entry.delete(0, tk.END)
         self.ref_joa_entry.delete(0, tk.END)
         
-        # Clear editing state
-        if hasattr(self, 'editing_container_id'):
-            delattr(self, 'editing_container_id')
+        # Reset date picker to today
+        from datetime import date
+        self.etd_entry.set_date(date.today())
         
+        if hasattr(self, 'editing_container_id'):
+            delattr(self, 'editing_container_id')  
     
     def load_containers(self):
-        """Load containers into PaginatedTreeView with item count"""
+        """Load containers into PaginatedTreeView"""
         try:
-            # Load containers from database
-            containers = self.db.get_all_containers()
+            # SELECT dengan etd
+            containers = self.db.execute("""
+                SELECT 
+                    c.container_id,
+                    c.kapal_id,
+                    k.feeder as kapal_feeder,
+                    c.etd,
+                    c.party,
+                    c.container,
+                    c.seal,
+                    c.ref_joa,
+                    c.created_at,
+                    c.updated_at
+                FROM containers c
+                LEFT JOIN kapals k ON c.kapal_id = k.kapal_id
+                ORDER BY c.container_id DESC
+            """)
             
             # Format data untuk PaginatedTreeView
             formatted_data = []
             
             for container in containers:
                 # Count barang in this container
-                container_barang = self.db.get_barang_in_container(container['container_id'])
+                container_barang = self.db.get_barang_in_container(container[0])
                 item_count = len(container_barang)
                 
                 formatted_data.append({
-                    'iid': str(container['container_id']),
+                    'iid': str(container[0]),
                     'values': (
-                        container['container_id'],
-                        container.get('kapal_feeder', '-'),
-                        container.get('container', '-'),
-                        container.get('ref_joa', '-'),
+                        container[0],  # container_id
+                        container[2] if container[2] else '-',  # kapal_feeder
+                        container[3] if container[3] else '-',  # etd
+                        container[4] if container[4] else '-',  # party
+                        container[5] if container[5] else '-',  # container
+                        container[6] if container[6] else '-',  # seal
+                        container[7] if container[7] else '-',  # ref_joa
                         f"{item_count} items"
                     )
                 })
@@ -6017,9 +6532,9 @@ class ContainerWindow:
             # Set data ke PaginatedTreeView
             self.container_tree.set_data(formatted_data)
             
-            print(f"Loaded {len(formatted_data)} containers with pagination")
+            print(f"Loaded {len(formatted_data)} containers")
             
         except Exception as e:
             print(f"Error loading containers: {e}")
             messagebox.showerror("Error", f"Gagal memuat daftar container: {str(e)}")
-
+            

@@ -54,7 +54,7 @@ def main():
                 
                 # Create main window content
                 print("🏠 Creating main window...")
-                app = MainWindow(root)
+                app = MainWindow(root, current_user=user_data)
                 print(f"   ✅ Main window created")
                 
                 # Ensure window is visible

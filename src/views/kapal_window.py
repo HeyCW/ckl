@@ -46,17 +46,17 @@ class KapalWindow:
                 window_width = self.window.winfo_width()
                 available_width = window_width - 100
                 
-                # Proportional widths for kapal columns
+                # ⚠️ UBAH: Hapus Party dari proporsi
+                # Proportional widths for kapal columns (TANPA Party)
                 self.tree.column('ID', width=int(available_width * 0.04))
-                self.tree.column('Feeder', width=int(available_width * 0.12))
-                self.tree.column('ETD Sub', width=int(available_width * 0.10))
-                self.tree.column('Party', width=int(available_width * 0.12))
-                self.tree.column('CLS', width=int(available_width * 0.10))
-                self.tree.column('Open', width=int(available_width * 0.10))
-                self.tree.column('Full', width=int(available_width * 0.10))
+                self.tree.column('Feeder', width=int(available_width * 0.15))
+                self.tree.column('ETD Sub', width=int(available_width * 0.12))
+                self.tree.column('CLS', width=int(available_width * 0.12))
+                self.tree.column('Open', width=int(available_width * 0.12))
+                self.tree.column('Full', width=int(available_width * 0.12))
                 self.tree.column('Destination', width=int(available_width * 0.15))
-                self.tree.column('Created', width=int(available_width * 0.085))
-                self.tree.column('Updated', width=int(available_width * 0.085))
+                self.tree.column('Created', width=int(available_width * 0.09))
+                self.tree.column('Updated', width=int(available_width * 0.09))
             except:
                 pass
         
@@ -229,14 +229,14 @@ class KapalWindow:
         # Style for labels with responsive font
         label_font = ('Arial', self.scaled_font(10), 'bold')
         
-        # Define fields
+        # ⚠️ UBAH: Hapus Party dari fields
+        # Define fields (TANPA Party)
         fields = [
             ("Feeder", "feeder", 0, 0),
             ("ETD Sub", "etd_sub", 0, 2),
-            ("Party", "party", 0, 4),
-            ("CLS", "cls", 1, 0),
-            ("Open", "open", 1, 2),
-            ("Full", "full", 1, 4),
+            ("CLS", "cls", 0, 4),
+            ("Open", "open", 1, 0),
+            ("Full", "full", 1, 2),
             ("Destination", "destination", 2, 0)
         ]
         
@@ -359,8 +359,9 @@ class KapalWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        # Define columns
-        columns = ('ID', 'Feeder', 'ETD Sub', 'Party', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
+        # ⚠️ UBAH: Hapus Party dari columns
+        # Define columns (TANPA Party)
+        columns = ('ID', 'Feeder', 'ETD Sub', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
 
         # Create PaginatedTreeView
         self.tree = PaginatedTreeView(
@@ -371,20 +372,19 @@ class KapalWindow:
             items_per_page=20
         )
 
-        # Configure column headings and responsive widths
+        # ⚠️ UBAH: Configure column headings tanpa Party
         window_width = self.window.winfo_width()
         
         column_configs = {
             'ID': ('ID', max(40, int(window_width * 0.03))),
-            'Feeder': ('Feeder', max(100, int(window_width * 0.10))),
-            'ETD Sub': ('ETD Sub', max(90, int(window_width * 0.08))),
-            'Party': ('Party', max(100, int(window_width * 0.10))),
-            'CLS': ('CLS', max(90, int(window_width * 0.08))),
-            'Open': ('Open', max(90, int(window_width * 0.08))),
-            'Full': ('Full', max(90, int(window_width * 0.08))),
-            'Destination': ('Destination', max(150, int(window_width * 0.12))),
-            'Created': ('Created', max(120, int(window_width * 0.10))),
-            'Updated': ('Updated', max(120, int(window_width * 0.10)))
+            'Feeder': ('Feeder', max(100, int(window_width * 0.12))),
+            'ETD Sub': ('ETD Sub', max(90, int(window_width * 0.10))),
+            'CLS': ('CLS', max(90, int(window_width * 0.10))),
+            'Open': ('Open', max(90, int(window_width * 0.10))),
+            'Full': ('Full', max(90, int(window_width * 0.10))),
+            'Destination': ('Destination', max(150, int(window_width * 0.15))),
+            'Created': ('Created', max(120, int(window_width * 0.15))),
+            'Updated': ('Updated', max(120, int(window_width * 0.15)))
         }
 
         for col, (heading_text, width) in column_configs.items():
@@ -396,7 +396,7 @@ class KapalWindow:
 
         # Bind selection event
         self.tree.bind('<<TreeviewSelect>>', self.on_item_select)
-    
+
     def add_kapal(self):
         """Add new kapal data"""
         try:
@@ -409,15 +409,16 @@ class KapalWindow:
                 messagebox.showerror("Error", "Feeder dan Destination wajib diisi!")
                 return
             
+            # ⚠️ UBAH: Query tanpa party
             query = '''
-                INSERT INTO kapals (feeder, etd_sub, party, cls, open, full, destination)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO kapals (feeder, etd_sub, cls, open, full, destination)
+                VALUES (?, ?, ?, ?, ?, ?)
             '''
             
+            # ⚠️ UBAH: Params tanpa party
             params = (
                 data['feeder'],
                 data['etd_sub'] if data['etd_sub'] else None,
-                data['party'],
                 data['cls'] if data['cls'] else None,
                 data['open'] if data['open'] else None,
                 data['full'] if data['full'] else None,
@@ -432,7 +433,7 @@ class KapalWindow:
         except Exception as e:
             logger.error(f"Error adding kapal: {e}")
             messagebox.showerror("Error", f"Gagal menambahkan data: {e}")
-    
+        
     def update_kapal(self):
         """Update selected kapal data"""
         if not self.selected_item:
@@ -452,17 +453,18 @@ class KapalWindow:
             # Get kapal_id from selected item
             kapal_id = self.tree.item(self.selected_item, 'values')[0]
             
+            # ⚠️ UBAH: Query tanpa party
             query = '''
                 UPDATE kapals 
-                SET feeder=?, etd_sub=?, party=?, cls=?, open=?, full=?, 
+                SET feeder=?, etd_sub=?, cls=?, open=?, full=?, 
                     destination=?, updated_at=CURRENT_TIMESTAMP
                 WHERE kapal_id=?
             '''
             
+            # ⚠️ UBAH: Params tanpa party
             params = (
                 data['feeder'],
                 data['etd_sub'] if data['etd_sub'] else None,
-                data['party'],
                 data['cls'] if data['cls'] else None,
                 data['open'] if data['open'] else None,
                 data['full'] if data['full'] else None,
@@ -478,7 +480,7 @@ class KapalWindow:
         except Exception as e:
             logger.error(f"Error updating kapal: {e}")
             messagebox.showerror("Error", f"Gagal mengupdate data: {e}")
-    
+
     def delete_kapal(self):
         """Delete selected kapal data"""
         if not self.selected_item:
@@ -512,9 +514,10 @@ class KapalWindow:
     def load_data(self):
         """Load all kapal data into PaginatedTreeView"""
         try:
-            # Fetch data from database
+            # ⚠️ UBAH: Query tanpa party
+            # Fetch data from database (TANPA party)
             query = """
-                SELECT kapal_id, feeder, etd_sub, party, cls, open, full,
+                SELECT kapal_id, feeder, etd_sub, cls, open, full,
                     destination, created_at, updated_at
                 FROM kapals
                 ORDER BY created_at DESC
@@ -530,7 +533,9 @@ class KapalWindow:
                     # Format dates for display
                     formatted_row = []
                     for i, value in enumerate(row):
-                        if i in [2, 4, 5, 6, 8, 9] and value:  # Date columns
+                        # ⚠️ UBAH: Adjust index untuk date columns (karena party dihapus)
+                        # Date columns: etd_sub(2), cls(3), open(4), full(5), created_at(7), updated_at(8)
+                        if i in [2, 3, 4, 5, 7, 8] and value:  # Date columns
                             try:
                                 if 'T' in str(value):  # DateTime format
                                     formatted_value = datetime.fromisoformat(str(value).replace('T', ' ')).strftime('%Y-%m-%d %H:%M')
@@ -601,8 +606,9 @@ class KapalWindow:
             self.selected_item = selected[0]
             values = self.tree.item(self.selected_item, 'values')
             
-            # Fill form with selected data
-            fields = ['feeder', 'etd_sub', 'party', 'cls', 'open', 'full', 'destination']
+            # ⚠️ UBAH: Fill form tanpa party
+            # Fill form with selected data (TANPA party)
+            fields = ['feeder', 'etd_sub', 'cls', 'open', 'full', 'destination']
             for i, field in enumerate(fields):
                 if field in self.entries:
                     self.entries[field].delete(0, tk.END)
@@ -613,6 +619,7 @@ class KapalWindow:
                         if field in ['etd_sub', 'cls', 'open', 'full'] and ' ' in str(value):
                             value = str(value).split(' ')[0]
                         self.entries[field].insert(0, str(value))
+                        
     
     def validate_date(self, date_string):
         """Validate date format"""

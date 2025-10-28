@@ -185,13 +185,12 @@ class SQLiteDatabase:
             raise
         
     def create_kapals_table(self):
-        """Create kapals table with error handling"""
+        """Create kapals table - TANPA field party"""
         query = '''
         CREATE TABLE IF NOT EXISTS kapals (
             kapal_id INTEGER PRIMARY KEY AUTOINCREMENT,
             feeder TEXT,
             etd_sub DATE,
-            party TEXT,
             cls DATE,
             open DATE,
             full DATE,
@@ -208,16 +207,19 @@ class SQLiteDatabase:
             raise
 
     def create_containers_table(self):
-        """Create containers table with error handling"""
+        """Create containers table dengan field etd"""
         query = '''
         CREATE TABLE IF NOT EXISTS containers (
             container_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kapal_feeder INTEGER,
-            container TEXT,
+            kapal_id INTEGER,
+            etd DATE,
+            party TEXT,
+            container TEXT NOT NULL,
             seal TEXT,
             ref_joa TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (kapal_id) REFERENCES kapals(kapal_id) ON DELETE SET NULL
         )
         '''
         try:
@@ -226,7 +228,7 @@ class SQLiteDatabase:
         except Exception as e:
             logger.error(f"Failed to create containers table: {e}")
             raise
-    
+        
     def create_barang_table(self):
         """Create barang table with error handling"""
         query = '''
@@ -259,8 +261,7 @@ class SQLiteDatabase:
             logger.info("Barang table created successfully")
         except Exception as e:
             logger.error(f"Failed to create barang table: {e}")
-            raise
-        
+            raise  
         
     def create_tax_table(self):
         """Create tax management table for tracking tax calculations"""
@@ -461,6 +462,20 @@ class SQLiteDatabase:
                 ''', ("admin", password_hash, "admin@example.com", "admin", 1))
                 
                 logger.info("Default admin user created: admin/admin123")
+                
+            owner_exists = self.execute_one(
+                "SELECT id FROM users WHERE username = ?",
+                ("owner",)
+            )
+            
+            if not owner_exists:
+                password_hash = hashlib.sha256("CKLogistik123.".encode()).hexdigest()
+                
+                self.execute('''
+                    INSERT INTO users (username, password, email, role, is_active)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', ("owner", password_hash, "owner@example.com", "owner", 1))
+
         except Exception as e:
             logger.error(f"Failed to create default admin user: {e}")
             # Don't raise here as this is not critical
@@ -754,15 +769,32 @@ class ContainerDatabase(SQLiteDatabase):
         
         try:
             container = self.execute_one(
-                """SELECT * FROM containers
-                JOIN kapals ON containers.kapal_feeder = kapals.feeder
-                WHERE container_id = ?""",
+                """SELECT 
+                    c.container_id,
+                    c.kapal_id,
+                    c.etd,
+                    c.party,
+                    c.container,
+                    c.seal,
+                    c.ref_joa,
+                    c.created_at,
+                    c.updated_at,
+                    k.feeder,
+                    k.etd_sub,
+                    k.cls,
+                    k.open,
+                    k.full,
+                    k.destination
+                FROM containers c
+                LEFT JOIN kapals k ON c.kapal_id = k.kapal_id
+                WHERE c.container_id = ?""",
                 (container_id,)
             )
             return dict(container) if container else None
         except Exception as e:
             logger.error(f"Failed to get container ID {container_id}: {e}")
             raise DatabaseError(f"Failed to retrieve container: {e}")
+        
 
 # Barang Management Methods
 class BarangDatabase(SQLiteDatabase):
@@ -1069,7 +1101,8 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
     def get_barang_in_container_with_colli_and_pricing(self, container_id):
         """Get all barang in a specific container with colli and pricing information"""
         try:
-            result = self.execute("""
+            result = self.execute(
+                """
                 SELECT
                     b.barang_id,
                     b.nama_barang,
@@ -1094,7 +1127,8 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                 JOIN customers s ON b.pengirim = s.customer_id
                 WHERE dc.container_id = ?
                 ORDER BY dc.assigned_at ASC 
-            """, (container_id,))
+            """,
+            (container_id,))
         
             logger.debug(f"Retrieved {len(result)} barang with pricing for container {container_id}")
             return result

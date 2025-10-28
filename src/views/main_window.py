@@ -8,12 +8,14 @@ from src.views.kapal_window import KapalWindow
 from src.views.pengirim_window import SenderWindow
 from src.views.report_window import ReportsWindow
 from src.views.job_order_window import JobOrderWindow
+from src.views.lifting_window import LiftingWindow
 from PIL import Image, ImageTk
 
 class MainWindow:
-    def __init__(self, root):
+    def __init__(self, root, current_user=None):
         self.root = root
         self.db = AppDatabase()
+        self.current_user = current_user  # Simpan info user yang login
         
         self.setup_main_window()
         self.create_main_interface()
@@ -56,6 +58,15 @@ class MainWindow:
         
         self.root.geometry(f"1000x700+{x}+{y}")
     
+    def is_owner(self):
+        """Check if current user strictly owner"""
+        if not self.current_user:
+            return False
+        
+        user_role = self.current_user.get('role', '').lower()
+        return user_role == 'owner'
+
+
     def create_main_interface(self):
         """Create main interface with big buttons and simple layout"""
         
@@ -64,10 +75,13 @@ class MainWindow:
         header_frame.pack(fill='x')
         header_frame.pack_propagate(False)
         
-        # Welcome message
+        # Welcome message dengan nama user
+        username = self.current_user.get('username', 'User') if self.current_user else 'User'
+        user_role = self.current_user.get('role', 'user') if self.current_user else 'user'
+        
         welcome_label = tk.Label(
             header_frame,
-            text="🏠 APLIKASI DATA SHIPPING",
+            text=f"🏠 APLIKASI DATA SHIPPING  |  👤 {username} ({user_role.upper()})",
             font=('Arial', 16, 'bold'),
             fg='white',
             bg='#2c3e50'
@@ -143,12 +157,8 @@ class MainWindow:
         )
         barang_btn.pack(side='left', padx=30)
         
-        # Row 2: Container and Reports
-        row2_frame = tk.Frame(menu_frame, bg='#ecf0f1')
-        row2_frame.pack(pady=(0, 20))
-        
         kapal_btn = tk.Button(
-            row2_frame,
+            row1_frame,
             text="🚢\n\nDATA KAPAL\n\nTambah & Lihat Kapal",
             font=('Arial', 14, 'bold'),
             bg="#e62222",
@@ -159,6 +169,12 @@ class MainWindow:
             command=self.show_kapal_window
         )
         kapal_btn.pack(side='left', padx=30)
+        
+        # Row 2: Container and Reports
+        row2_frame = tk.Frame(menu_frame, bg='#ecf0f1')
+        row2_frame.pack(pady=(0, 20))
+        
+        
 
         # Container button
         container_btn = tk.Button(
@@ -188,6 +204,21 @@ class MainWindow:
         )
         job_order_btn.pack(side='left', padx=30)
         
+        
+        # Lifting button - HANYA MUNCUL UNTUK OWNER
+        if self.is_owner():
+            lifting_btn = tk.Button(
+                row2_frame,
+                text="🚧\n\nDATA LIFTING\n\nTambah & Lihat Lifting",
+                font=('Arial', 14, 'bold'),
+                bg="#f39c12",
+                fg='white',
+                relief='flat',
+                width=20,
+                height=6,
+                command=self.show_lifting_window
+            )
+            lifting_btn.pack(side='left', padx=30)
     
     def show_customer_window(self):
         """Show customer management window"""
@@ -195,18 +226,26 @@ class MainWindow:
             CustomerWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}")
-            
-    # def show_pengirim_window(self):
-    #     """Show pengirim management window"""
-    #     try:
-    #         SenderWindow(self.root, self.db)
-    #     except Exception as e:
-    #         messagebox.showerror("Error", f"Tidak dapat membuka window pengirim:\n{str(e)}")
 
+    def show_lifting_window(self):
+        """Show lifting management window - OWNER ONLY"""
+        # Double check: Validasi role sebelum buka window
+        if not self.is_owner():
+            messagebox.showwarning(
+                "Akses Ditolak",
+                "⚠️ Maaf, menu Data Lifting hanya dapat diakses oleh Owner atau Admin.\n\n"
+                "Silakan hubungi administrator untuk mendapatkan akses."
+            )
+            return
+        
+        try:
+            LiftingWindow(self.root, self.db)
+        except Exception as e:
+            messagebox.showerror("Error", f"Tidak dapat membuka window lifting:\n{str(e)}")
+    
     def show_job_order_window(self):
         """Show job order management window"""
         try:
-            # Assuming JobOrderWindow is defined similarly to other windows
             JobOrderWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window job order:\n{str(e)}")
@@ -247,5 +286,12 @@ class MainWindow:
 # Usage example
 if __name__ == "__main__":
     root = tk.Tk()
-    app = MainWindow(root)
+    
+    # Contoh user yang login
+    # current_user = {'username': 'admin', 'role': 'owner'}  # Owner bisa akses
+    # current_user = {'username': 'user1', 'role': 'user'}   # User biasa tidak bisa
+    
+    current_user = {'username': 'admin', 'role': 'owner'}
+    
+    app = MainWindow(root, current_user=current_user)
     root.mainloop()
