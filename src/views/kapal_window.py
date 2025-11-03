@@ -4,6 +4,7 @@ from tkinter import font
 from datetime import datetime
 import logging
 from PIL import Image, ImageTk
+from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
 
@@ -46,7 +47,6 @@ class KapalWindow:
                 window_width = self.window.winfo_width()
                 available_width = window_width - 100
                 
-                # ⚠️ UBAH: Hapus Party dari proporsi
                 # Proportional widths for kapal columns (TANPA Party)
                 self.tree.column('ID', width=int(available_width * 0.04))
                 self.tree.column('Feeder', width=int(available_width * 0.15))
@@ -222,26 +222,26 @@ class KapalWindow:
         title_label.pack(side='left')
     
     def create_form_frame(self, parent):
-        """Create form for data entry with responsive fonts"""
+        """Create form for data entry with responsive fonts and DatePicker"""
         form_frame = ttk.LabelFrame(parent, text="Data Kapal", padding="10")
         form_frame.pack(fill='x', pady=(10, 10))
         
         # Style for labels with responsive font
         label_font = ('Arial', self.scaled_font(10), 'bold')
+        entry_font = ('Arial', self.scaled_font(10))
         
-        # ⚠️ UBAH: Hapus Party dari fields
         # Define fields (TANPA Party)
         fields = [
-            ("Feeder", "feeder", 0, 0),
-            ("ETD Sub", "etd_sub", 0, 2),
-            ("CLS", "cls", 0, 4),
-            ("Open", "open", 1, 0),
-            ("Full", "full", 1, 2),
-            ("Destination", "destination", 2, 0)
+            ("Feeder", "feeder", 0, 0, "text"),
+            ("ETD Sub", "etd_sub", 0, 2, "date"),
+            ("CLS", "cls", 0, 4, "date"),
+            ("Open", "open", 1, 0, "date"),
+            ("Full", "full", 1, 2, "date"),
+            ("Destination", "destination", 2, 0, "text")
         ]
         
         # Create form fields
-        for label_text, field_name, row, col in fields:
+        for label_text, field_name, row, col, field_type in fields:
             label = tk.Label(
                 form_frame, 
                 text=f"{label_text}:",
@@ -250,24 +250,27 @@ class KapalWindow:
             )
             label.grid(row=row, column=col, sticky='w', padx=(0, 5), pady=5)
             
-            if field_name in ['etd_sub', 'cls', 'open', 'full']:
-                # Date entry with placeholder text
-                entry = tk.Entry(
-                    form_frame, 
-                    width=15,
-                    font=('Arial', self.scaled_font(10))
+            if field_type == "date":
+                # DateEntry widget dengan format Indonesia
+                entry = DateEntry(
+                    form_frame,
+                    width=13,
+                    font=entry_font,
+                    background='#FF8C42',
+                    foreground='white',
+                    borderwidth=2,
+                    date_pattern='dd/mm/yyyy',  # Format Indonesia: Tanggal/Bulan/Tahun
+                    locale='id_ID',  # Locale Indonesia
+                    state='normal',
+                    showweeknumbers=False,
+                    firstweekday='monday'
                 )
                 entry.grid(row=row, column=col+1, sticky='ew', padx=(0, 20), pady=5)
-                # Add placeholder text
-                entry.insert(0, "YYYY-MM-DD")
-                entry.config(foreground='gray')
-                # Bind events for placeholder behavior
-                self.setup_date_placeholder(entry)
             else:
                 entry = tk.Entry(
                     form_frame, 
                     width=20,
-                    font=('Arial', self.scaled_font(10))
+                    font=entry_font
                 )
                 entry.grid(row=row, column=col+1, sticky='ew', padx=(0, 20), pady=5)
             
@@ -359,7 +362,6 @@ class KapalWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        # ⚠️ UBAH: Hapus Party dari columns
         # Define columns (TANPA Party)
         columns = ('ID', 'Feeder', 'ETD Sub', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
 
@@ -372,7 +374,7 @@ class KapalWindow:
             items_per_page=20
         )
 
-        # ⚠️ UBAH: Configure column headings tanpa Party
+        # Configure column headings tanpa Party
         window_width = self.window.winfo_width()
         
         column_configs = {
@@ -397,6 +399,30 @@ class KapalWindow:
         # Bind selection event
         self.tree.bind('<<TreeviewSelect>>', self.on_item_select)
 
+    def format_date_for_display(self, date_str):
+        """Convert database date format (YYYY-MM-DD) to Indonesian format (DD/MM/YYYY)"""
+        if not date_str or date_str == 'None':
+            return ''
+        try:
+            # Parse date dari database
+            date_obj = datetime.strptime(str(date_str).split(' ')[0], '%Y-%m-%d')
+            # Format ke Indonesia
+            return date_obj.strftime('%d/%m/%Y')
+        except:
+            return str(date_str)
+    
+    def format_date_for_database(self, date_str):
+        """Convert Indonesian format (DD/MM/YYYY) to database format (YYYY-MM-DD)"""
+        if not date_str or date_str == '':
+            return None
+        try:
+            # Parse dari format Indonesia
+            date_obj = datetime.strptime(date_str, '%d/%m/%Y')
+            # Format ke database
+            return date_obj.strftime('%Y-%m-%d')
+        except:
+            return None
+
     def add_kapal(self):
         """Add new kapal data"""
         try:
@@ -409,19 +435,19 @@ class KapalWindow:
                 messagebox.showerror("Error", "Feeder dan Destination wajib diisi!")
                 return
             
-            # ⚠️ UBAH: Query tanpa party
+            # Query tanpa party
             query = '''
                 INSERT INTO kapals (feeder, etd_sub, cls, open, full, destination)
                 VALUES (?, ?, ?, ?, ?, ?)
             '''
             
-            # ⚠️ UBAH: Params tanpa party
+            # Params tanpa party - konversi tanggal ke format database
             params = (
                 data['feeder'],
-                data['etd_sub'] if data['etd_sub'] else None,
-                data['cls'] if data['cls'] else None,
-                data['open'] if data['open'] else None,
-                data['full'] if data['full'] else None,
+                self.format_date_for_database(data['etd_sub']) if data['etd_sub'] else None,
+                self.format_date_for_database(data['cls']) if data['cls'] else None,
+                self.format_date_for_database(data['open']) if data['open'] else None,
+                self.format_date_for_database(data['full']) if data['full'] else None,
                 data['destination']
             )
             
@@ -453,7 +479,7 @@ class KapalWindow:
             # Get kapal_id from selected item
             kapal_id = self.tree.item(self.selected_item, 'values')[0]
             
-            # ⚠️ UBAH: Query tanpa party
+            # Query tanpa party
             query = '''
                 UPDATE kapals 
                 SET feeder=?, etd_sub=?, cls=?, open=?, full=?, 
@@ -461,13 +487,13 @@ class KapalWindow:
                 WHERE kapal_id=?
             '''
             
-            # ⚠️ UBAH: Params tanpa party
+            # Params tanpa party - konversi tanggal ke format database
             params = (
                 data['feeder'],
-                data['etd_sub'] if data['etd_sub'] else None,
-                data['cls'] if data['cls'] else None,
-                data['open'] if data['open'] else None,
-                data['full'] if data['full'] else None,
+                self.format_date_for_database(data['etd_sub']) if data['etd_sub'] else None,
+                self.format_date_for_database(data['cls']) if data['cls'] else None,
+                self.format_date_for_database(data['open']) if data['open'] else None,
+                self.format_date_for_database(data['full']) if data['full'] else None,
                 data['destination'],
                 kapal_id
             )
@@ -512,10 +538,9 @@ class KapalWindow:
             messagebox.showerror("Error", f"Gagal menghapus data: {e}")
     
     def load_data(self):
-        """Load all kapal data into PaginatedTreeView"""
+        """Load all kapal data into PaginatedTreeView dengan format tanggal Indonesia"""
         try:
-            # ⚠️ UBAH: Query tanpa party
-            # Fetch data from database (TANPA party)
+            # Query tanpa party
             query = """
                 SELECT kapal_id, feeder, etd_sub, cls, open, full,
                     destination, created_at, updated_at
@@ -533,13 +558,15 @@ class KapalWindow:
                     # Format dates for display
                     formatted_row = []
                     for i, value in enumerate(row):
-                        # ⚠️ UBAH: Adjust index untuk date columns (karena party dihapus)
                         # Date columns: etd_sub(2), cls(3), open(4), full(5), created_at(7), updated_at(8)
-                        if i in [2, 3, 4, 5, 7, 8] and value:  # Date columns
+                        if i in [2, 3, 4, 5]:  # Date columns (tanpa timestamp)
+                            formatted_value = self.format_date_for_display(value)
+                        elif i in [7, 8] and value:  # DateTime columns
                             try:
-                                if 'T' in str(value):  # DateTime format
-                                    formatted_value = datetime.fromisoformat(str(value).replace('T', ' ')).strftime('%Y-%m-%d %H:%M')
-                                else:  # Date format
+                                if 'T' in str(value):
+                                    dt = datetime.fromisoformat(str(value).replace('T', ' '))
+                                    formatted_value = dt.strftime('%d/%m/%Y %H:%M')
+                                else:
                                     formatted_value = str(value)
                             except:
                                 formatted_value = str(value)
@@ -561,42 +588,31 @@ class KapalWindow:
         except Exception as e:
             logger.error(f"Error loading kapal data: {e}")
             messagebox.showerror("Error", f"Gagal memuat data: {e}")
-        
-    def setup_date_placeholder(self, entry):
-        """Setup placeholder behavior for date entries"""
-        def on_focus_in(event):
-            if entry.get() == "YYYY-MM-DD":
-                entry.delete(0, tk.END)
-                entry.config(foreground='black')
-        
-        def on_focus_out(event):
-            if not entry.get():
-                entry.insert(0, "YYYY-MM-DD")
-                entry.config(foreground='gray')
-        
-        entry.bind('<FocusIn>', on_focus_in)
-        entry.bind('<FocusOut>', on_focus_out)
     
     def get_form_data(self):
         """Get data from form entries"""
         data = {}
         for field_name, entry in self.entries.items():
-            value = entry.get().strip()
-            # Skip placeholder text for date fields
-            if field_name in ['etd_sub', 'cls', 'open', 'full'] and value == "YYYY-MM-DD":
-                data[field_name] = None
+            if field_name in ['etd_sub', 'cls', 'open', 'full']:
+                # Untuk DateEntry, ambil tanggal dalam format DD/MM/YYYY
+                try:
+                    date_value = entry.get_date().strftime('%d/%m/%Y')
+                    data[field_name] = date_value
+                except:
+                    data[field_name] = None
             else:
+                value = entry.get().strip()
                 data[field_name] = value if value else None
         return data
     
     def clear_form(self):
         """Clear all form entries"""
         for field_name, entry in self.entries.items():
-            entry.delete(0, tk.END)
-            # Reset placeholder for date fields
             if field_name in ['etd_sub', 'cls', 'open', 'full']:
-                entry.insert(0, "YYYY-MM-DD")
-                entry.config(foreground='gray')
+                # Untuk DateEntry, set ke tanggal hari ini
+                entry.set_date(datetime.now())
+            else:
+                entry.delete(0, tk.END)
         self.selected_item = None
     
     def on_item_select(self, event):
@@ -606,20 +622,28 @@ class KapalWindow:
             self.selected_item = selected[0]
             values = self.tree.item(self.selected_item, 'values')
             
-            # ⚠️ UBAH: Fill form tanpa party
             # Fill form with selected data (TANPA party)
             fields = ['feeder', 'etd_sub', 'cls', 'open', 'full', 'destination']
             for i, field in enumerate(fields):
                 if field in self.entries:
-                    self.entries[field].delete(0, tk.END)
                     # Skip ID column (index 0), start from index 1
                     value = values[i + 1] if i + 1 < len(values) else ''
-                    if value and value != 'None':
-                        # For date fields, extract just the date part
-                        if field in ['etd_sub', 'cls', 'open', 'full'] and ' ' in str(value):
-                            value = str(value).split(' ')[0]
-                        self.entries[field].insert(0, str(value))
-                        
+                    
+                    if field in ['etd_sub', 'cls', 'open', 'full']:
+                        # Untuk DateEntry, parse tanggal dari format Indonesia
+                        if value and value != 'None' and value != '':
+                            try:
+                                date_obj = datetime.strptime(value, '%d/%m/%Y')
+                                self.entries[field].set_date(date_obj)
+                            except:
+                                self.entries[field].set_date(datetime.now())
+                        else:
+                            self.entries[field].set_date(datetime.now())
+                    else:
+                        # Untuk Entry biasa
+                        self.entries[field].delete(0, tk.END)
+                        if value and value != 'None':
+                            self.entries[field].insert(0, str(value))
     
     def validate_date(self, date_string):
         """Validate date format"""
@@ -627,7 +651,7 @@ class KapalWindow:
             return True
         
         try:
-            datetime.strptime(date_string, '%Y-%m-%d')
+            datetime.strptime(date_string, '%d/%m/%Y')
             return True
         except ValueError:
             return False

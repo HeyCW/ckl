@@ -299,11 +299,9 @@ class ContainerWindow:
         self.kapal_combo.pack(side='left', padx=(0, 20))
         
         # Bind event untuk auto-refresh dan auto-filter
-        self.kapal_combo.bind('<FocusIn>', lambda e: self.refresh_kapal_dropdown())  # Saat diklik
-        self.kapal_combo.bind('<KeyRelease>', self.on_kapal_keyrelease)  # Saat mengetik
+        self.kapal_combo.bind('<FocusIn>', lambda e: self.refresh_kapal_dropdown())
+        self.kapal_combo.bind('<KeyRelease>', self.on_kapal_keyrelease)
         
-        
-        # ETD (DatePicker)
         tk.Label(
             row1_frame, 
             text="ETD:", 
@@ -312,18 +310,37 @@ class ContainerWindow:
             width=10,
             anchor='w'
         ).pack(side='left', padx=(0, 5))
-        
+
+        # Frame untuk ETD DateEntry
+        etd_container = tk.Frame(row1_frame, bg='#ecf0f1')
+        etd_container.pack(side='left', padx=(0, 20))
+
+
+        # ✅ DateEntry dengan format Indonesia (DD/MM/YYYY)
         self.etd_entry = DateEntry(
-            row1_frame,
+            etd_container,
             font=('Arial', 10),
-            width=20,
+            width=12,
             background='#e67e22',
             foreground='white',
             borderwidth=2,
-            date_pattern='yyyy-mm-dd'
+            date_pattern='dd/MM/yyyy',  # ✅ FORMAT INDONESIA!
+            locale='id_ID'  # ✅ LOCALE INDONESIA (opsional)
         )
-        self.etd_entry.pack(side='left', padx=(0, 20))
-        
+        self.etd_entry.pack(side='left')
+
+        # Set nilai default ke hari ini
+        self.etd_entry.set_date(datetime.now().date())
+
+        # Hint format (opsional)
+        tk.Label(
+            etd_container,
+            text="(klik untuk pilih)",
+            font=('Arial', 8),
+            bg='#ecf0f1',
+            fg='#7f8c8d'
+        ).pack(side='left', padx=(5, 0))
+                
         # Container
         tk.Label(
             row1_frame, 
@@ -513,8 +530,7 @@ class ContainerWindow:
         # PRINT BUTTONS SECTION
         # ============================================
         self.add_print_buttons_to_container_tab(parent)
-      
-    
+        
     
     def on_kapal_keyrelease(self, event=None):
         """Handle ketika user mengetik di dropdown kapal"""
@@ -650,7 +666,7 @@ class ContainerWindow:
         
         item = self.container_tree.item(selection[0])
         container_id = item['values'][0]
-        container_name = item['values'][3]  # Container column
+        container_name = item['values'][4]  # Container column
         
         # Confirm print
         if messagebox.askyesno("Konfirmasi Print", f"Print Invoice untuk Container '{container_name}'?"):
@@ -759,7 +775,7 @@ class ContainerWindow:
         search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
         search_add_frame.pack(fill='x', pady=10)
 
-        # LEFT: kontrol pemilihan container/pengirim/penerima/colli
+        # LEFT: kontrol pemilihan container/pengirim/penerima/colli/tanggal
         left_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
         left_frame.pack(side='left', fill='both', expand=False, padx=(0, 10))
 
@@ -785,7 +801,7 @@ class ContainerWindow:
                                                 width=25)
         self.sender_search_combo.pack(side='left', padx=(5, 20))
         
-        # PERBAIKAN: Gunakan debounced filter
+        # Gunakan debounced filter
         self.sender_search_var.trace('w', self.schedule_filter)
         self.sender_search_combo.bind('<KeyRelease>', self.on_sender_keyrelease)
 
@@ -799,7 +815,7 @@ class ContainerWindow:
                                                 width=25)
         self.receiver_search_combo.pack(side='left', padx=(5, 20))
         
-        # PERBAIKAN: Gunakan debounced filter
+        # Gunakan debounced filter
         self.receiver_search_var.trace('w', self.schedule_filter)
         self.receiver_search_combo.bind('<KeyRelease>', self.on_receiver_keyrelease)
 
@@ -811,20 +827,43 @@ class ContainerWindow:
         self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, width=8)
         self.colli_entry.pack(side='left', padx=(5, 10))
         
+
+        # ✅ TANGGAL - DATEPICKER DENGAN FORMAT INDONESIA
         tanggal_frame = tk.Frame(left_frame, bg='#ecf0f1')
         tanggal_frame.pack(fill='x', pady=5)
-        tk.Label(tanggal_frame, text="📅 Tanggal:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+
+        tk.Label(
+            tanggal_frame, 
+            text="📅 Tanggal:", 
+            font=('Arial', 10, 'bold'), 
+            bg='#ecf0f1'
+        ).pack(side='left')
+
+
+        # ✅ DateEntry dengan format Indonesia (DD/MM/YYYY)
         self.tanggal_entry = DateEntry(
             tanggal_frame,
-            width=12,
             font=('Arial', 10),
-            background='#e67e22',
+            width=12,
+            background='#27ae60',  # Warna hijau (beda dari ETD yang orange)
             foreground='white',
             borderwidth=2,
-            date_pattern='yyyy-mm-dd',
-            state='readonly'
+            date_pattern='dd/MM/yyyy',  # ✅ FORMAT INDONESIA!
+            locale='id_ID'
         )
         self.tanggal_entry.pack(side='left', padx=(5, 10))
+
+        # Set nilai default ke hari ini
+        self.tanggal_entry.set_date(datetime.now().date())
+
+        # Hint (opsional)
+        tk.Label(
+            tanggal_frame,
+            text="(klik untuk pilih)",
+            font=('Arial', 8),
+            bg='#ecf0f1',
+            fg='#7f8c8d'
+        ).pack(side='left')
 
         # MIDDLE: Biaya pengantaran
         delivery_cost_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
@@ -985,7 +1024,7 @@ class ContainerWindow:
 
         self.load_available_barang()
 
-        # Middle - Barang dalam Container - **PERBAIKAN DI SINI**
+        # Middle - Barang dalam Container
         middle_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
         middle_frame.grid(row=0, column=1, sticky='nsew', padx=(3, 0))
 
@@ -993,11 +1032,11 @@ class ContainerWindow:
                                         font=('Arial', 12, 'bold'), bg='#ffffff')
         self.container_label.pack(pady=10)
 
-        # **PERBAIKAN: Tambah frame wrapper dengan scrollbar horizontal**
+        # Frame wrapper dengan scrollbar horizontal
         container_tree_frame = tk.Frame(middle_frame)
         container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
 
-        # **KOLOM YANG LEBIH LEBAR**
+        # Kolom yang lebih lebar
         container_columns = ('Barang_ID', 'Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door', 'Dimensi',
                     'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal')
 
@@ -1009,28 +1048,28 @@ class ContainerWindow:
             items_per_page=20
         )
         
-        # **Configure headings dengan width yang lebih besar**
+        # Configure headings dengan width yang lebih besar
         headers_config = [
             ('Barang_ID', 'ID', 60),
-            ('Pengirim', 'Pengirim', 150),           # 100 → 150
-            ('Penerima', 'Penerima', 150),           # 100 → 150  
-            ('Nama', 'Nama Barang', 200),            # 150 → 200
-            ('Satuan', 'Satuan', 80),                # 60 → 80
-            ('Door', 'Door Type', 80),               # 70 → 80
-            ('Dimensi', 'P×L×T (cm)', 120),          # 100 → 120
-            ('Volume', 'Volume (m³)', 100),          # 80 → 100
-            ('Berat', 'Berat (ton)', 100),           # 80 → 100
-            ('Colli', 'Colli', 70),                  # 60 → 70
-            ('Harga_Unit', 'Harga/Unit', 120),       # 100 → 120
-            ('Total_Harga', 'Total Harga', 130),     # 120 → 130
-            ('Tanggal', 'Ditambahkan', 110)          # 100 → 110
+            ('Pengirim', 'Pengirim', 150),
+            ('Penerima', 'Penerima', 150),
+            ('Nama', 'Nama Barang', 200),
+            ('Satuan', 'Satuan', 80),
+            ('Door', 'Door Type', 80),
+            ('Dimensi', 'P×L×T (cm)', 120),
+            ('Volume', 'Volume (m³)', 100),
+            ('Berat', 'Berat (ton)', 100),
+            ('Colli', 'Colli', 70),
+            ('Harga_Unit', 'Harga/Unit', 120),
+            ('Total_Harga', 'Total Harga', 130),
+            ('Tanggal', 'Ditambahkan', 110)
         ]
         
         for col, text, width in headers_config:
             self.container_barang_tree.heading(col, text=text)
             self.container_barang_tree.column(col, width=width, minwidth=width)
         
-        # **PENTING: Pack treeview dengan scrollbar horizontal**
+        # Pack treeview dengan scrollbar horizontal
         self.container_barang_tree.pack(fill='both', expand=True)
 
         # Load data container barang jika ada
@@ -4030,8 +4069,9 @@ class ContainerWindow:
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal mengedit colli: {str(e)}")
 
+
     def show_edit_colli_dialog(self, selected_items, container_id):
-        """Show dialog to edit colli amounts and dates with tax recalculation"""
+        """Show dialog to edit colli amounts and dates with tax recalculation - DATEPICKER VERSION"""
         edit_window = tk.Toplevel(self.window)
         edit_window.title("🔢 Edit Jumlah Colli & Tanggal")
         edit_window.geometry("600x500")
@@ -4044,10 +4084,7 @@ class ContainerWindow:
             icon_image = Image.open("assets/logo.jpg")
             icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
             icon_photo = ImageTk.PhotoImage(icon_image)
-        
-            # Set sebagai window icon
             edit_window.iconphoto(False, icon_photo)
-            
         except Exception as e:
             print(f"Icon tidak ditemukan: {e}")
         
@@ -4132,55 +4169,60 @@ class ContainerWindow:
                                 font=('Arial', 10), width=10)
             colli_entry.pack(side='left', padx=5)
             
-            # Date input - NEW
+            # ✅ TANGGAL INPUT - DATEPICKER
             date_frame = tk.Frame(item_frame, bg='#ffffff')
             date_frame.pack(fill='x', padx=10, pady=5)
             
             tk.Label(date_frame, text="📅 Tanggal:", 
                     font=('Arial', 10, 'bold'), bg='#ffffff').pack(side='left')
             
-            # Get current date from database
+            # Get current date from database (in YYYY-MM-DD format)
             try:
                 current_date_data = self.db.execute_one("""
                     SELECT tanggal FROM detail_container 
                     WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
                 """, (item['id'], container_id, item['assigned_at']))
                 
-                current_date = current_date_data[0] if current_date_data and current_date_data[0] else datetime.now().strftime('%Y-%m-%d')
+                current_date_db = current_date_data[0] if current_date_data and current_date_data[0] else datetime.now().strftime('%Y-%m-%d')
             except Exception as date_error:
                 print(f"Error getting current date: {date_error}")
-                current_date = datetime.now().strftime('%Y-%m-%d')
+                current_date_db = datetime.now().strftime('%Y-%m-%d')
             
-            # Use DateEntry widget for date selection
+            # ✅ CONVERT TO INDONESIAN FORMAT FOR DISPLAY
+            current_date_indonesian = self.format_date_indonesian(current_date_db)
+            
+            # ✅ DateEntry dengan format Indonesia (DD/MM/YYYY)
             date_entry = DateEntry(
                 date_frame,
-                width=12,
                 font=('Arial', 10),
-                background='#16a085',
+                width=12,
+                background='#16a085',  # Warna teal
                 foreground='white',
                 borderwidth=2,
-                date_pattern='yyyy-mm-dd',
-                state='readonly'
+                date_pattern='dd/MM/yyyy',  # ✅ FORMAT INDONESIA!
+                locale='id_ID'
             )
-            
-            # Set current date
-            try:
-                date_obj = datetime.strptime(current_date, '%Y-%m-%d')
-                date_entry.set_date(date_obj)
-            except Exception as parse_error:
-                print(f"Error parsing date {current_date}: {parse_error}")
-            
             date_entry.pack(side='left', padx=(5, 10))
             
-            current_date_label = tk.Label(date_frame, 
-                                        text=f"(Saat ini: {current_date})", 
-                                        font=('Arial', 9), bg='#ffffff', fg='#7f8c8d')
-            current_date_label.pack(side='left')
+            # ✅ Set nilai awal dari database (convert YYYY-MM-DD → date object)
+            try:
+                date_obj = datetime.strptime(current_date_db, '%Y-%m-%d').date()
+                date_entry.set_date(date_obj)
+            except Exception as e:
+                print(f"Error setting date: {e}")
+                date_entry.set_date(datetime.now().date())
             
+            # Label info (saat ini)
+            current_date_label = tk.Label(date_frame, 
+                                        text=f"(Saat ini: {current_date_indonesian})", 
+                                        font=('Arial', 9), bg='#ffffff', fg='#7f8c8d')
+            current_date_label.pack(side='left', padx=(10, 0))
+            
+            # ✅ SIMPAN REFERENCE
             edit_entries[item['id']] = {
                 'colli_var': colli_var,
                 'colli_entry': colli_entry,
-                'date_entry': date_entry,
+                'date_entry': date_entry,  # ✅ DateEntry object
                 'item': item
             }
         
@@ -4188,9 +4230,11 @@ class ContainerWindow:
         btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
         btn_frame.pack(fill='x', padx=20, pady=15)
         
+        # ✅ NESTED FUNCTION - save_colli_and_date_changes
         def save_colli_and_date_changes():
-            """Save colli and date changes and recalculate tax if applicable"""
+            """Save colli and date changes with DatePicker format"""
             try:
+                print("🚀 Starting save_colli_and_date_changes...")
                 success_count = 0
                 error_count = 0
                 tax_updated_count = 0
@@ -4200,31 +4244,64 @@ class ContainerWindow:
                     try:
                         new_colli = int(entry_data['colli_var'].get())
                         old_colli = int(entry_data['item']['current_colli'])
-                        new_date = entry_data['date_entry'].get_date().strftime('%Y-%m-%d')
+                        
+                        print(f"\n📦 Processing Barang ID: {barang_id}")
+                        print(f"   Old Colli: {old_colli}, New Colli: {new_colli}")
+                        
+                        # ✅ GET TANGGAL DARI DateEntry (sudah format DD/MM/YYYY)
+                        new_date_indonesian = entry_data['date_entry'].get_date().strftime('%d/%m/%Y')
+                        print(f"   New Date (Indonesian): {new_date_indonesian}")
                         
                         if new_colli <= 0:
                             messagebox.showwarning("Peringatan", 
                                                 f"Colli untuk '{entry_data['item']['name']}' harus lebih dari 0!")
+                            error_count += 1
+                            continue
+                        
+                        # ✅ CONVERT INDONESIAN DATE TO DATABASE FORMAT (YYYY-MM-DD)
+                        try:
+                            date_obj = datetime.strptime(new_date_indonesian, '%d/%m/%Y')
+                            new_date_db = date_obj.strftime('%Y-%m-%d')
+                            print(f"   New Date (DB Format): {new_date_db}")
+                        except Exception as date_error:
+                            print(f"❌ Date conversion error: {date_error}")
+                            messagebox.showwarning("Format Tanggal Salah", 
+                                                f"Format tanggal untuk '{entry_data['item']['name']}' tidak valid!\n\n"
+                                                f"Gunakan format: DD/MM/YYYY\n"
+                                                f"Contoh: 31/10/2025")
+                            error_count += 1
                             continue
                         
                         # Check if there are any changes
                         colli_changed = new_colli != old_colli
                         
                         # Get old date for comparison
+                        
+                        print("Checking Assign at: " + entry_data['item']['assigned_at'])
+                        
+                        
+                        
                         try:
                             old_date_data = self.db.execute_one("""
-                                SELECT tanggal FROM detail_container 
+                                SELECT assigned_at FROM detail_container 
                                 WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
                             """, (barang_id, container_id, entry_data['item']['assigned_at']))
                             
-                            old_date = old_date_data[0] if old_date_data and old_date_data[0] else None
-                            date_changed = new_date != old_date
-                        except:
+                            
+                            old_date_db = old_date_data[0] if old_date_data and old_date_data[0] else None
+                            date_changed = new_date_db != old_date_db
+                            
+                            print(f"   Old Date (DB): {old_date_db}")
+                            print(f"   Date Changed: {date_changed}, Colli Changed: {colli_changed}")
+                        except Exception as get_date_error:
+                            print(f"⚠️ Error getting old date: {get_date_error}")
                             date_changed = True
                         
                         if colli_changed or date_changed:
                             # Calculate new total price
                             harga_unit = float(str(entry_data['item']['harga_unit']).replace(',', ''))
+                            
+                            print(f"   Harga Unit: {harga_unit}")
                             
                             # Get barang data to determine pricing method
                             barang_data = self.db.execute_one("""
@@ -4235,7 +4312,6 @@ class ContainerWindow:
                             """, (barang_id, container_id))
                             
                             if barang_data:
-                                # Safe way to access sqlite3.Row data
                                 try:
                                     satuan = barang_data['satuan'] if barang_data['satuan'] else 'manual'
                                 except (KeyError, TypeError):
@@ -4251,90 +4327,115 @@ class ContainerWindow:
                                 except (KeyError, TypeError, ValueError):
                                     ton_barang = 0.0
                                 
+                                print(f"   Satuan: {satuan}, M3: {m3_barang}, Ton: {ton_barang}")
+                                
                                 # Calculate new total based on pricing method
                                 if satuan == 'm3':
                                     new_total = harga_unit * new_colli * m3_barang
                                 elif satuan == 'ton':
                                     new_total = harga_unit * new_colli * ton_barang
-                                else:  # colli or manual
+                                else:
                                     new_total = harga_unit * new_colli
                             else:
-                                # Fallback: simple multiplication
                                 new_total = harga_unit * new_colli
                             
-                            # Update database with new colli, total, and date
+                            print(f"   New Total: {new_total}")
+                            
+                            # ✅ UPDATE WITH DATABASE FORMAT DATE (YYYY-MM-DD)
+                            print(f"   🔄 Updating database...")
                             self.db.execute("""
                                 UPDATE detail_container 
                                 SET colli_amount = ?, total_harga = ?, tanggal = ?
                                 WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
-                            """, (new_colli, new_total, new_date, barang_id, container_id, 
+                            """, (new_colli, new_total, new_date_db, barang_id, container_id, 
                                 entry_data['item']['assigned_at']))
                             
-                            # Check if this barang has tax and recalculate
+                            print(f"   ✅ Database updated successfully!")
+                            
+                            # Tax recalculation
                             tax_recalculated = False
                             try:
+                                print(f"   🧾 Checking tax calculation...")
                                 barang_tax_data = self.db.execute_one(
                                     "SELECT pajak, penerima FROM barang WHERE barang_id = ?", 
                                     (barang_id,)
                                 )
                                 
-                                if barang_tax_data and barang_tax_data[0] == 1:  # pajak = 1
+                                if barang_tax_data and barang_tax_data[0] == 1:
+                                    print(f"   💰 Tax enabled for this item")
                                     penerima_id = barang_tax_data[1]
-                                    
-                                    # Get receiver name
                                     receiver_data = self.db.get_customer_by_id(penerima_id)
                                     receiver_name = receiver_data.get('nama_customer', 'Unknown') if receiver_data else 'Unknown'
                                     
-                                    # Calculate new tax amounts
-                                    ppn_amount = new_total * 0.011  # PPN 1.1%
-                                    pph23_amount = new_total * 0.02  # PPH 23 2%
+                                    ppn_amount = new_total * 0.011
+                                    pph23_amount = new_total * 0.02
                                     
-                                    # Check if tax record exists
+                                    print(f"   PPN: {ppn_amount}, PPH23: {pph23_amount}")
+                                    
                                     existing_tax = self.db.execute_one("""
                                         SELECT tax_id FROM barang_tax 
                                         WHERE container_id = ? AND barang_id = ?
                                     """, (container_id, barang_id))
                                     
                                     if existing_tax:
-                                        # Update existing tax record
                                         tax_id = existing_tax[0]
+                                        print(f"   🔄 Updating existing tax record (ID: {tax_id})")
                                         self.db.execute("""
                                             UPDATE barang_tax 
                                             SET ppn_amount = ?, pph23_amount = ?
                                             WHERE tax_id = ?
                                         """, (ppn_amount, pph23_amount, tax_id))
                                         
-                                        print(f"✅ Updated tax for barang {barang_id}: PPN={ppn_amount:,.0f}, PPH23={pph23_amount:,.0f}")
-                                    else:
-                                        # Create new tax record
-                                        self.db.execute("""
-                                            INSERT INTO barang_tax (container_id, barang_id, penerima, ppn_amount, pph23_amount, created_at)
-                                            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                                        """, (container_id, barang_id, receiver_name, ppn_amount, pph23_amount))
-                                        
-                                        print(f"✅ Created new tax for barang {barang_id}: PPN={ppn_amount:,.0f}, PPH23={pph23_amount:,.0f}")
-                                    
-                                    # Update tax_id in detail_container if not set
-                                    if existing_tax:
-                                        tax_id = existing_tax[0]
+                                        # Update tax_id in detail_container
                                         self.db.execute("""
                                             UPDATE detail_container 
                                             SET tax_id = ?
                                             WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
                                         """, (tax_id, barang_id, container_id, entry_data['item']['assigned_at']))
+                                    else:
+                                        print(f"   ➕ Creating new tax record")
+                                        self.db.execute("""
+                                            INSERT INTO barang_tax (container_id, barang_id, penerima, ppn_amount, pph23_amount, created_at)
+                                            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                                        """, (container_id, barang_id, receiver_name, ppn_amount, pph23_amount))
+                                        
+                                        # Get the newly created tax_id
+                                        new_tax = self.db.execute_one("""
+                                            SELECT tax_id FROM barang_tax 
+                                            WHERE container_id = ? AND barang_id = ?
+                                            ORDER BY created_at DESC LIMIT 1
+                                        """, (container_id, barang_id))
+                                        
+                                        if new_tax:
+                                            tax_id = new_tax[0]
+                                            self.db.execute("""
+                                                UPDATE detail_container 
+                                                SET tax_id = ?
+                                                WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
+                                            """, (tax_id, barang_id, container_id, entry_data['item']['assigned_at']))
                                     
                                     tax_recalculated = True
                                     tax_updated_count += 1
+                                    print(f"   ✅ Tax recalculated successfully!")
+                                else:
+                                    print(f"   ℹ️ Tax not enabled for this item")
                                     
                             except Exception as tax_error:
-                                print(f"⚠️ Error recalculating tax for barang {barang_id}: {tax_error}")
-                                pass
+                                print(f"   ⚠️ Error recalculating tax: {tax_error}")
+                                import traceback
+                                traceback.print_exc()
                             
+                            # ✅ BUILD CHANGE DESCRIPTION WITH INDONESIAN DATE
                             change_desc = []
                             if colli_changed:
                                 change_desc.append(f"Colli: {old_colli} → {new_colli}")
                             if date_changed:
-                                change_desc.append(f"Tanggal: {old_date} → {new_date}")
+                                try:
+                                    old_date_obj = datetime.strptime(old_date_db, '%Y-%m-%d')
+                                    old_date_indonesian = old_date_obj.strftime('%d/%m/%Y')
+                                except:
+                                    old_date_indonesian = old_date_db if old_date_db else 'N/A'
+                                change_desc.append(f"Tanggal: {old_date_indonesian} → {new_date_indonesian}")
                             
                             changes_made.append({
                                 'name': entry_data['item']['name'],
@@ -4344,16 +4445,24 @@ class ContainerWindow:
                                 'tax_recalculated': tax_recalculated
                             })
                             success_count += 1
+                            print(f"   ✅ Successfully processed Barang ID: {barang_id}")
+                        else:
+                            print(f"   ℹ️ No changes detected for Barang ID: {barang_id}")
                             
-                    except ValueError:
+                    except ValueError as ve:
                         error_count += 1
+                        print(f"❌ ValueError for barang {barang_id}: {ve}")
                         messagebox.showwarning("Peringatan", 
                                             f"Format colli tidak valid untuk '{entry_data['item']['name']}'!")
                     except Exception as e:
                         error_count += 1
-                        print(f"Error updating colli/date for barang {barang_id}: {e}")
+                        print(f"❌ Error updating barang {barang_id}: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
-                # Show enhanced results
+                print(f"\n📊 Summary: Success={success_count}, Errors={error_count}, Tax Updated={tax_updated_count}")
+                
+                # Show results
                 if success_count > 0:
                     result_msg = f"✅ Berhasil mengupdate {success_count} barang!\n"
                     
@@ -4374,12 +4483,11 @@ class ContainerWindow:
                     messagebox.showinfo("Sukses", result_msg)
                     
                     # Refresh displays
+                    print("🔄 Refreshing display...")
                     self.load_container_barang(container_id)
                     
-                    # Refresh tax summary if there were tax updates
                     if tax_updated_count > 0:
                         self.load_tax_summary_tree(container_id)
-                        print(f"🔄 Tax summary refreshed after updating {tax_updated_count} tax records")
                     
                     edit_window.destroy()
                 else:
@@ -4389,10 +4497,11 @@ class ContainerWindow:
                     messagebox.showwarning("Peringatan", f"{error_count} barang gagal diupdate.")
                     
             except Exception as e:
-                print(f"Error in save_colli_and_date_changes: {e}")
+                print(f"❌ FATAL ERROR in save_colli_and_date_changes: {e}")
                 import traceback
                 traceback.print_exc()
                 messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e)}")
+        
         
         # Create buttons
         tk.Button(btn_frame, text="💾 Simpan Perubahan", 
@@ -4407,8 +4516,8 @@ class ContainerWindow:
         if edit_entries:
             first_entry = list(edit_entries.values())[0]['colli_entry']
             first_entry.focus_set()
-            first_entry.select_range(0, tk.END)  
-        
+            first_entry.select_range(0, tk.END)
+    
     # Helper method to refresh tax summary
     def refresh_tax_summary(self, container_id):
         """Refresh tax summary after tax-related operations"""
@@ -4877,23 +4986,35 @@ class ContainerWindow:
         self.sender_search_var.set("")
         self.receiver_search_var.set("")
         self.colli_var.set("1")
+        
+
+        self.tanggal_entry.set_date(datetime.now().date())
+        
         self.load_available_barang()
         self.load_container_barang(None)
     
+    print("[DEBUG] Selection cleared - tanggal reset to today")
+    
     def add_selected_barang_to_container(self):
         """Add selected barang from treeview to container with pricing and tax calculation"""
-        # Validate container selection
+        # ============================================
+        # STEP 1: Validate Container Selection
+        # ============================================
         if not self.selected_container_var.get():
             messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
             return
         
-        # Validate barang selection from treeview
+        # ============================================
+        # STEP 2: Validate Barang Selection
+        # ============================================
         selection = self.available_tree.selection()
         if not selection:
             messagebox.showwarning("Peringatan", "Pilih barang dari daftar barang tersedia!")
             return
         
-        # Validate colli
+        # ============================================
+        # STEP 3: Validate Colli
+        # ============================================
         try:
             colli_amount = int(self.colli_var.get())
             if colli_amount <= 0:
@@ -4903,14 +5024,43 @@ class ContainerWindow:
             messagebox.showwarning("Peringatan", "Jumlah colli harus berupa angka!")
             return
         
+        # ============================================
+        # STEP 4: Validate Tanggal Indonesia
+        # ============================================
+        tanggal_indonesian = self.tanggal_entry.get().strip()  # ✅ DateEntry sudah return DD/MM/YYYY
+        
+        if not tanggal_indonesian:
+            messagebox.showwarning("Validasi", "Masukkan tanggal!")
+            return
+        
+        if not self.validate_indonesian_date(tanggal_indonesian):
+            messagebox.showerror(
+                "Format Tanggal Salah",
+                f"Format tanggal tidak valid!\n\n"
+                f"Input Anda: {tanggal_indonesian}\n\n"
+                f"Gunakan format: DD/MM/YYYY\n"
+                f"Contoh: 31/10/2025"
+            )
+            return
+        
+        # ============================================
+        # STEP 5: Convert ke Format Database
+        # ============================================
+        tanggal_db = self.parse_indonesian_date(tanggal_indonesian)
+        
+        print(f"[DEBUG] Tanggal Input (Indonesia): {tanggal_indonesian}")
+        print(f"[DEBUG] Tanggal Database (YYYY-MM-DD): {tanggal_db}")
+        
         try:
             container_id = int(self.selected_container_var.get().split(' - ')[0])
             
-            # Get selected barang from treeview
+            # ============================================
+            # STEP 6: Get Selected Barang from Treeview
+            # ============================================
             selected_items = []
             for item in selection:
                 values = self.available_tree.item(item)['values']
-                # Based on your treeview structure: ID, Pengirim, Penerima, Nama, Dimensi, Volume, Berat
+                # Based on treeview structure: ID, Pengirim, Penerima, Nama, Dimensi, Volume, Berat
                 barang_id = values[0]      # ID column
                 barang_sender = values[1]  # Pengirim column
                 barang_receiver = values[2] # Penerima column
@@ -4941,13 +5091,17 @@ class ContainerWindow:
                 messagebox.showwarning("Peringatan", "Tidak ada barang yang valid untuk ditambahkan!")
                 return
             
-            # Show pricing dialog
+            # ============================================
+            # STEP 7: Show Pricing Dialog
+            # ============================================
             pricing_result = self.create_pricing_dialog(selected_items, colli_amount)
             
             if not pricing_result:
                 return  # User cancelled
             
-            # Add barang to container with pricing and tax calculation
+            # ============================================
+            # STEP 8: Add Barang to Container with Pricing
+            # ============================================
             success_count = 0
             error_count = 0
             tax_calculated_count = 0
@@ -4965,8 +5119,7 @@ class ContainerWindow:
                     
                     print(f"Processing item {barang_id}: {price_data}")
                     
-                    tanggal = self.tanggal_entry.get()
-                    # Add barang to container with pricing
+                    # ✅ KIRIM TANGGAL DATABASE FORMAT (YYYY-MM-DD)
                     success = self.db.assign_barang_to_container_with_pricing(
                         barang_id, 
                         container_id, 
@@ -4975,15 +5128,17 @@ class ContainerWindow:
                         colli_amount,
                         price_data['harga_per_unit'],
                         price_data['total_harga'],
-                        tanggal  # Tambahkan parameter tanggal
+                        tanggal_db  # ✅ KIRIM FORMAT DATABASE (YYYY-MM-DD)
                     )
                     
                     if success:
                         success_count += 1
                         success_details.append(f"✅ {item['name']} (ID: {barang_id})")
-                        print(f"✅ Added barang {barang_id} ({item['name']}) to container {container_id} with price {price_data['harga_per_unit']}")
+                        print(f"✅ Added barang {barang_id} ({item['name']}) dengan tanggal {tanggal_indonesian}")
                         
-                        # NEW: Check if barang has tax (pajak = 1) and calculate tax
+                        # ============================================
+                        # STEP 9: Calculate Tax if Applicable
+                        # ============================================
                         try:
                             barang_data = self.db.execute_one(
                                 "SELECT pajak, penerima FROM barang WHERE barang_id = ?", 
@@ -5002,6 +5157,11 @@ class ContainerWindow:
                                 ppn_amount = total_nilai * 0.011  # PPN 1.1%
                                 pph23_amount = total_nilai * 0.02  # PPH 23 2%
                                 total_tax = ppn_amount + pph23_amount
+                                
+                                tax_calculated_count += 1
+                                total_tax_amount += total_tax
+                                
+                                print(f"✅ Tax calculated for barang {barang_id}: PPN={ppn_amount:,.0f}, PPH={pph23_amount:,.0f}")
                                     
                         except Exception as tax_error:
                             print(f"⚠️ Error calculating tax for barang {barang_id}: {tax_error}")
@@ -5017,11 +5177,14 @@ class ContainerWindow:
                     error_details.append(f"❌ {item['name']} (ID: {item['id']}) - {str(e)}")
                     print(f"❌ Error adding barang {item['id']} ({item['name']}): {e}")
             
-            # Enhanced result message with tax information
+            # ============================================
+            # STEP 10: Show Result Message
+            # ============================================
             result_msg = ""
             if success_count > 0:
                 result_msg += f"🎉 Berhasil menambahkan {success_count} barang ke container!\n"
                 result_msg += f"Setiap barang ditambahkan dengan {colli_amount} colli.\n"
+                result_msg += f"Tanggal: {tanggal_indonesian}\n"
                 
                 if tax_calculated_count > 0:
                     result_msg += f"\n💰 PAJAK DIHITUNG:\n"
@@ -5047,7 +5210,9 @@ class ContainerWindow:
             else:
                 messagebox.showerror("Gagal", result_msg)
             
-            # Clear selections and refresh displays only if there were successful additions
+            # ============================================
+            # STEP 11: Refresh Displays
+            # ============================================
             if success_count > 0:
                 # Refresh displays based on current sender/receiver filter
                 sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
@@ -5059,12 +5224,15 @@ class ContainerWindow:
                 # Refresh container barang list
                 self.load_container_barang(container_id)
                 
+                # Refresh tax summary
                 self.load_tax_summary_tree(container_id)
                 
                 # Refresh other lists
                 self.load_containers()  # Refresh container list to update item count
                 self.load_customers()   # Refresh customer list
                 self.load_pengirim()    # Refresh pengirim list
+                
+                print(f"✅ Successfully added {success_count} barang with date {tanggal_indonesian} ({tanggal_db})")
             
         except ValueError as ve:
             messagebox.showerror("Error", f"Format data tidak valid: {str(ve)}")
@@ -5074,7 +5242,7 @@ class ContainerWindow:
             print(f"💥 Error in add_selected_barang_to_container: {error_detail}")
             messagebox.showerror("Error", f"Gagal menambah barang ke container: {str(e)}")
         
-                 
+           
     def center_window(self):
         """Center window with boundary checks"""
         self.window.update_idletasks()
@@ -5132,81 +5300,6 @@ class ContainerWindow:
             container_info = selection.split(' - ', 1)[1] if ' - ' in selection else selection
             self.container_label.config(text=f"📦 Barang dalam Container: {container_info}")
     
-    def load_container_barang(self, container_id):
-        """Load barang in specific container with pricing using PaginatedTreeView"""
-        try:
-            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
-            
-            formatted_data = []
-            
-            for barang in container_barang:
-                try:
-                    def safe_get(row, key, default='-'):
-                        try:
-                            return row[key] if row[key] is not None else default
-                        except (KeyError, IndexError):
-                            return default
-                    
-                    # **AMBIL barang_id dari database**
-                    barang_id = safe_get(barang, 'barang_id', safe_get(barang, 'id', ''))
-                    
-                    # Format dimensions
-                    panjang = safe_get(barang, 'panjang_barang', '-')
-                    lebar = safe_get(barang, 'lebar_barang', '-')
-                    tinggi = safe_get(barang, 'tinggi_barang', '-')
-                    dimensi = f"{panjang}×{lebar}×{tinggi}"
-                    
-                    assigned_at = safe_get(barang, 'assigned_at', '')
-                    
-                    # Get values
-                    pengirim = safe_get(barang, 'sender_name', '')
-                    penerima = safe_get(barang, 'receiver_name', '')
-                    nama_barang = safe_get(barang, 'nama_barang', '-')
-                    m3_barang = safe_get(barang, 'm3_barang', '-')
-                    ton_barang = safe_get(barang, 'ton_barang', '-')
-                    satuan = safe_get(barang, 'satuan', '-')
-                    door_type = safe_get(barang, 'door_type', '-')
-                    colli_amount = safe_get(barang, 'colli_amount', 1)
-                    harga_per_unit = safe_get(barang, 'harga_per_unit', 0)
-                    total_harga = safe_get(barang, 'total_harga', 0)
-                    
-                    # Format pricing display
-                    harga_display = f"{float(harga_per_unit):,.0f}" if str(harga_per_unit).replace('.', '').isdigit() else harga_per_unit
-                    total_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').isdigit() else total_harga
-                    
-                    # Unique iid
-                    unique_iid = f"{barang_id}_{assigned_at}" if assigned_at else f"{barang_id}"
-                    
-                    formatted_data.append({
-                        'iid': unique_iid,
-                        'values': (
-                            barang_id,       # ← **INDEX 0: Barang ID**
-                            pengirim,        # ← INDEX 1
-                            penerima,        # ← INDEX 2
-                            nama_barang,     # ← INDEX 3
-                            satuan,          # ← INDEX 4
-                            door_type,       # ← INDEX 5
-                            dimensi,         # ← INDEX 6
-                            m3_barang,       # ← INDEX 7
-                            ton_barang,      # ← INDEX 8
-                            colli_amount,    # ← INDEX 9
-                            harga_display,   # ← INDEX 10
-                            total_display,   # ← INDEX 11
-                            assigned_at      # ← INDEX 12
-                        )
-                    })
-                    
-                except Exception as row_error:
-                    print(f"Error processing barang row: {row_error}")
-                    continue
-            
-            self.container_barang_tree.set_data(formatted_data)
-            print(f"Loaded {len(formatted_data)} barang in container")
-                        
-        except Exception as e:
-            print(f"Error loading container barang: {e}")
-            import traceback
-            traceback.print_exc()
          
     def remove_barang_from_container(self):
         """Remove selected barang from container with tax cleanup"""
@@ -6081,9 +6174,11 @@ class ContainerWindow:
             return False
     
     def add_container(self):
-        """Add new container with flexible kapal input (support manual input)"""
+        """Add new container with flexible kapal input (support manual input) and Indonesian date format"""
         try:
-            # Extract kapal_id
+            # ============================================
+            # STEP 1: Extract dan Validasi Kapal
+            # ============================================
             kapal_combo_value = self.kapal_var.get().strip()
             
             if not kapal_combo_value:
@@ -6129,24 +6224,54 @@ class ContainerWindow:
                 messagebox.showerror("Error", f"Format kapal tidak valid!\n{str(e)}")
                 return
             
-            # Get form values
-            etd = self.etd_entry.get()
+            # ============================================
+            # STEP 2: Get Form Values
+            # ============================================
+            etd_indonesian = self.etd_entry.get().strip()  # ✅ Format DD/MM/YYYY
             party = self.party_entry.get().strip()
             container = self.container_entry.get().strip()
             seal = self.seal_entry.get().strip()
             ref_joa = self.ref_joa_entry.get().strip()
             
-            # Validasi container tidak boleh kosong
+            # ============================================
+            # STEP 3: Validasi Container
+            # ============================================
             if not container:
                 messagebox.showwarning("Validasi", "Masukkan nomor container!")
                 return
             
-            # ⚠️ VALIDASI STRICT - ETD HARUS VALID
-            if not self.validate_kapal_etd(kapal_id, etd):
-                # ERROR - TIDAK BOLEH LANJUT
+            # ============================================
+            # STEP 4: Validasi Format Tanggal Indonesia
+            # ============================================
+            if not etd_indonesian:
+                messagebox.showwarning("Validasi", "Masukkan ETD!")
+                return
+            
+            if not self.validate_indonesian_date(etd_indonesian):
+                messagebox.showerror(
+                    "Format Tanggal Salah",
+                    f"Format ETD tidak valid!\n\n"
+                    f"Input Anda: {etd_indonesian}\n\n"
+                    f"Gunakan format: DD/MM/YYYY\n"
+                    f"Contoh: 31/10/2025"
+                )
+                return
+            
+            # ============================================
+            # STEP 5: Convert ke Format Database
+            # ============================================
+            etd_db = self.parse_indonesian_date(etd_indonesian)
+            
+            print(f"[DEBUG] ETD Input (Indonesia): {etd_indonesian}")
+            print(f"[DEBUG] ETD Database (YYYY-MM-DD): {etd_db}")
+            
+            # ============================================
+            # STEP 6: Validasi STRICT - Kapal + ETD
+            # ============================================
+            if not self.validate_kapal_etd(kapal_id, etd_db):
                 messagebox.showerror(
                     "❌ Error - Kapal dengan ETD Tidak Ditemukan",
-                    f"Kapal '{kapal_name}' dengan ETD '{etd}' tidak ditemukan di database!\n\n"
+                    f"Kapal '{kapal_name}' dengan ETD '{etd_indonesian}' tidak ditemukan di database!\n\n"
                     f"Kemungkinan penyebab:\n"
                     f"• ETD yang dipilih salah\n"
                     f"• Data kapal dengan ETD ini belum diinput\n"
@@ -6157,13 +6282,33 @@ class ContainerWindow:
                 )
                 return  # STOP - tidak bisa lanjut
             
-            # Jika valid, INSERT container
+            # ============================================
+            # STEP 7: INSERT ke Database
+            # ============================================
+            print(f"[DEBUG] Inserting container:")
+            print(f"  - Kapal ID: {kapal_id}")
+            print(f"  - Kapal Name: {kapal_name}")
+            print(f"  - ETD (DB): {etd_db}")
+            print(f"  - Party: {party}")
+            print(f"  - Container: {container}")
+            print(f"  - Seal: {seal}")
+            print(f"  - Ref JOA: {ref_joa}")
+            
             self.db.execute_insert(
                 "INSERT INTO containers (kapal_id, etd, party, container, seal, ref_joa) VALUES (?, ?, ?, ?, ?, ?)", 
-                (kapal_id, etd, party, container, seal, ref_joa)
+                (kapal_id, etd_db, party, container, seal, ref_joa)
             )
             
-            messagebox.showinfo("Sukses", "✅ Container berhasil ditambahkan!")
+            # ============================================
+            # STEP 8: Success & Refresh
+            # ============================================
+            messagebox.showinfo(
+                "Sukses", 
+                f"✅ Container berhasil ditambahkan!\n\n"
+                f"Container: {container}\n"
+                f"Kapal: {kapal_name}\n"
+                f"ETD: {etd_indonesian}"
+            )
 
             # Refresh
             self.clear_form()
@@ -6172,9 +6317,15 @@ class ContainerWindow:
             
             if self.refresh_callback:
                 self.refresh_callback()
+                
+            print(f"✅ Container '{container}' berhasil ditambahkan dengan ETD {etd_indonesian}")
 
         except Exception as e:
+            print(f"[ERROR] add_container: {e}")
+            import traceback
+            traceback.print_exc()
             messagebox.showerror("Database Error", f"Gagal menambahkan container:\n{str(e)}")
+            
      
     def edit_container(self):
         """Edit selected container"""
@@ -6279,14 +6430,13 @@ class ContainerWindow:
                 background='#e67e22',
                 foreground='white',
                 borderwidth=2,
-                date_pattern='yyyy-mm-dd'
+                date_pattern='dd/MM/yyyy'
             )
             etd_entry.pack(side='left', padx=(10, 0))
             
             # Set current date value
             if container[3]:  # etd
                 try:
-                    from datetime import datetime
                     date_obj = datetime.strptime(str(container[3]), '%Y-%m-%d').date()
                     etd_entry.set_date(date_obj)
                 except:
@@ -6435,7 +6585,7 @@ class ContainerWindow:
         
         item = self.container_tree.item(selection[0])
         container_id = item['values'][0]
-        container_name = item['values'][3]  # Container column
+        container_name = item['values'][4]  # Container column
         
         # Check if container has barang
         container_barang = self.db.get_barang_in_container(container_id)
@@ -6479,15 +6629,15 @@ class ContainerWindow:
         self.seal_entry.delete(0, tk.END)
         self.ref_joa_entry.delete(0, tk.END)
         
-        # Reset date picker to today
-        from datetime import date
-        self.etd_entry.set_date(date.today())
+
+        today_indonesian = datetime.now().strftime('%d/%m/%Y')
+        self.etd_entry.set_date(today_indonesian)
         
         if hasattr(self, 'editing_container_id'):
-            delattr(self, 'editing_container_id')  
+            delattr(self, 'editing_container_id')
     
     def load_containers(self):
-        """Load containers into PaginatedTreeView"""
+        """Load containers into PaginatedTreeView with Indonesian date format"""
         try:
             # SELECT dengan etd
             containers = self.db.execute("""
@@ -6515,12 +6665,15 @@ class ContainerWindow:
                 container_barang = self.db.get_barang_in_container(container[0])
                 item_count = len(container_barang)
                 
+                # ✅ CONVERT ETD TO INDONESIAN FORMAT
+                etd_indonesian = self.format_date_indonesian(container[3]) if container[3] else '-'
+                
                 formatted_data.append({
                     'iid': str(container[0]),
                     'values': (
                         container[0],  # container_id
                         container[2] if container[2] else '-',  # kapal_feeder
-                        container[3] if container[3] else '-',  # etd
+                        etd_indonesian,  # ✅ ETD in DD/MM/YYYY format
                         container[4] if container[4] else '-',  # party
                         container[5] if container[5] else '-',  # container
                         container[6] if container[6] else '-',  # seal
@@ -6532,9 +6685,254 @@ class ContainerWindow:
             # Set data ke PaginatedTreeView
             self.container_tree.set_data(formatted_data)
             
-            print(f"Loaded {len(formatted_data)} containers")
+            print(f"Loaded {len(formatted_data)} containers with Indonesian date format")
             
         except Exception as e:
             print(f"Error loading containers: {e}")
+            import traceback
+            traceback.print_exc()
             messagebox.showerror("Error", f"Gagal memuat daftar container: {str(e)}")
             
+        
+    
+    # Tambahkan fungsi helper di awal class ContainerWindow (setelah __init__)
+
+    def format_date_indonesian(self, date_string):
+        """Convert date from YYYY-MM-DD to DD/MM/YYYY (Indonesian format)"""
+        try:
+            if not date_string or date_string in ['-', '', 'None', None]:
+                return '-'
+            
+            # Handle different date formats
+            date_str = str(date_string)
+            
+            # If already in DD/MM/YYYY format, return as is
+            if '/' in date_str and len(date_str.split('/')[0]) <= 2:
+                return date_str
+            
+            # Convert from YYYY-MM-DD to DD/MM/YYYY
+            if '-' in date_str:
+                parts = date_str.split(' ')[0].split('-')  # Remove time if exists
+                if len(parts) == 3 and len(parts[0]) == 4:
+                    return f"{parts[2]}/{parts[1]}/{parts[0]}"
+            
+            return date_str
+            
+        except Exception as e:
+            print(f"Error formatting date: {e}")
+            return str(date_string) if date_string else '-'
+
+    def parse_indonesian_date(self, date_string):
+        """Convert DD/MM/YYYY back to YYYY-MM-DD for database"""
+        try:
+            if not date_string or date_string in ['-', '', 'None']:
+                return None
+            
+            # If already in YYYY-MM-DD format
+            if '-' in date_string and len(date_string.split('-')[0]) == 4:
+                return date_string
+            
+            # Convert from DD/MM/YYYY to YYYY-MM-DD
+            if '/' in date_string:
+                parts = date_string.split('/')
+                if len(parts) == 3:
+                    return f"{parts[2]}-{parts[1]}-{parts[0]}"
+            
+            return date_string
+            
+        except Exception as e:
+            print(f"Error parsing Indonesian date: {e}")
+            return date_string
+        
+        
+        
+    def validate_indonesian_date(self, date_string):
+        """Validate Indonesian date format DD/MM/YYYY"""
+        try:
+            if not date_string or date_string.strip() in ['-', '', 'None']:
+                return False
+            
+            # Check basic format
+            if '/' not in date_string:
+                return False
+            
+            parts = date_string.strip().split('/')
+            if len(parts) != 3:
+                return False
+            
+            day, month, year = parts
+            
+            # Check if all parts are numbers
+            if not (day.isdigit() and month.isdigit() and year.isdigit()):
+                return False
+            
+            # Check ranges
+            day_int = int(day)
+            month_int = int(month)
+            year_int = int(year)
+            
+            if not (1 <= day_int <= 31):
+                return False
+            if not (1 <= month_int <= 12):
+                return False
+            if not (1900 <= year_int <= 2100):
+                return False
+            datetime(year_int, month_int, day_int)
+            
+            return True
+            
+        except (ValueError, Exception) as e:
+            print(f"Date validation error: {e}")
+            return False
+        
+        
+    def load_container_barang(self, container_id):
+        """Load barang in specific container with pricing using PaginatedTreeView"""
+        try:
+            # Validasi container_id
+            if container_id is None:
+                print("[WARNING] container_id is None, clearing tree")
+                self.container_barang_tree.set_data([])
+                return
+            
+            # Get data dari database
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+            
+            if not container_barang:
+                print(f"[INFO] No barang found for container {container_id}")
+                self.container_barang_tree.set_data([])
+                return
+            
+            formatted_data = []
+            
+            for barang in container_barang:
+                try:
+                    # Safe getter function
+                    def safe_get(row, key, default='-'):
+                        try:
+                            value = row[key] if row[key] is not None else default
+                            return value
+                        except (KeyError, IndexError, TypeError):
+                            return default
+                    
+                    # Extract data dengan safe_get
+                    barang_id = safe_get(barang, 'barang_id', '')
+                    
+                    # Pengirim
+                    pengirim = (safe_get(barang, 'sender_name') or 
+                            safe_get(barang, 'pengirim_nama') or 
+                            safe_get(barang, 'pengirim') or '-')
+                    
+                    # Penerima  
+                    penerima = (safe_get(barang, 'receiver_name') or
+                            safe_get(barang, 'penerima_nama') or
+                            safe_get(barang, 'nama_customer') or
+                            safe_get(barang, 'penerima') or '-')
+                    
+                    # Nama barang
+                    nama_barang = safe_get(barang, 'nama_barang', '-')
+                    
+                    # Satuan dan Door Type
+                    satuan = safe_get(barang, 'satuan', 'manual')
+                    door_type = safe_get(barang, 'door_type', '-')
+                    
+                    # Dimensi
+                    try:
+                        panjang = safe_get(barang, 'panjang_barang', '-')
+                        lebar = safe_get(barang, 'lebar_barang', '-')
+                        tinggi = safe_get(barang, 'tinggi_barang', '-')
+                        dimensi = f"{panjang}×{lebar}×{tinggi}"
+                    except:
+                        dimensi = '-'
+                    
+                    # Volume (m³)
+                    try:
+                        m3_value = safe_get(barang, 'm3_barang', 0)
+                        m3_barang = f"{float(m3_value):.4f}" if m3_value not in [None, '', '-'] else '0.0000'
+                    except (ValueError, TypeError):
+                        m3_barang = '0.0000'
+                    
+                    # Berat (ton)
+                    try:
+                        ton_value = safe_get(barang, 'ton_barang', 0)
+                        ton_barang = f"{float(ton_value):.3f}" if ton_value not in [None, '', '-'] else '0.000'
+                    except (ValueError, TypeError):
+                        ton_barang = '0.000'
+                    
+                    # Colli
+                    try:
+                        colli_value = safe_get(barang, 'colli_amount', 0)
+                        colli_amount = int(colli_value) if colli_value not in [None, '', '-'] else 0
+                    except (ValueError, TypeError):
+                        colli_amount = 0
+                    
+                    # Harga per unit
+                    try:
+                        harga_value = safe_get(barang, 'harga_per_unit', 0)
+                        if harga_value in [None, '', '-']:
+                            harga_display = '0'
+                        else:
+                            harga_float = float(str(harga_value).replace(',', ''))
+                            harga_display = f"{harga_float:,.0f}"
+                    except (ValueError, TypeError):
+                        harga_display = '0'
+                    
+                    # Total harga
+                    try:
+                        total_value = safe_get(barang, 'total_harga', 0)
+                        if total_value in [None, '', '-']:
+                            total_display = 'Rp 0'
+                        else:
+                            total_float = float(str(total_value).replace(',', ''))
+                            total_display = f"Rp {total_float:,.0f}"
+                    except (ValueError, TypeError):
+                        total_display = 'Rp 0'
+                    
+                    # Assigned at (untuk unique ID)
+                    assigned_at = safe_get(barang, 'assigned_at', '')
+                    
+                    
+                    
+                    # Create unique iid
+                    unique_iid = f"{barang_id}_{assigned_at}"
+                    
+                    # Append to formatted data
+                    formatted_data.append({
+                        'iid': unique_iid,
+                        'values': (
+                            barang_id,           # Barang_ID
+                            pengirim,            # Pengirim
+                            penerima,            # Penerima
+                            nama_barang,         # Nama Barang
+                            satuan,              # Satuan
+                            door_type,           # Door Type
+                            dimensi,             # Dimensi (P×L×T)
+                            m3_barang,           # Volume (m³)
+                            ton_barang,          # Berat (ton)
+                            colli_amount,        # Colli
+                            harga_display,       # Harga/Unit
+                            total_display,       # Total Harga
+                            assigned_at      # ✅ Tanggal (DD/MM/YYYY)
+                        )
+                    })
+                    
+                except Exception as row_error:
+                    print(f"[ERROR] Processing barang row: {row_error}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+            
+            # Set data ke PaginatedTreeView
+            self.container_barang_tree.set_data(formatted_data)
+            print(f"✅ Loaded {len(formatted_data)} barang in container {container_id}")
+            
+        except Exception as e:
+            print(f"[ERROR] load_container_barang: {e}")
+            import traceback
+            traceback.print_exc()
+            self.container_barang_tree.set_data([])
+            messagebox.showerror("Error", f"Gagal memuat data barang:\n{str(e)}")
+    
+        
+        
+        

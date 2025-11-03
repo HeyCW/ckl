@@ -78,11 +78,11 @@ def check_database_schema(db_path="data/app.db"):
             print(f"\nROW COUNT: {count}")
             
             if count > 0:
-                cursor.execute(f"SELECT * FROM {table_name} LIMIT 3")
+                cursor.execute(f"SELECT * FROM {table_name} LIMIT 5")
                 sample_data = cursor.fetchall()
                 
                 if sample_data:
-                    print("\nSAMPLE DATA (first 3 rows):")
+                    print("\nSAMPLE DATA (first 5 rows):")
                     col_names = [desc[0] for desc in cursor.description]
                     
                     # Print headers

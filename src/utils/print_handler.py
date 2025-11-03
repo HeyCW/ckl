@@ -46,7 +46,25 @@ class PrintHandler:
            
         except Exception as e:
             messagebox.showerror("Error", f"Gagal membuat invoice: {str(e)}")
-               
+    
+    def format_container_date(self, date_value):
+        """Convert date from YYYY-MM-DD to DD-MM-YYYY or DD-Okt-YYYY"""
+        if not date_value or date_value == '-':
+            return '-'
+        
+        try:
+            # Jika string format YYYY-MM-DD
+            if isinstance(date_value, str) and len(date_value) == 10:
+                date_obj = datetime.strptime(date_value, '%Y-%m-%d')
+                # Untuk format angka saja: DD-MM-YYYY
+                return date_obj.strftime('%d-%m-%Y')
+                
+                # ATAU jika mau format Indonesia dengan nama bulan:
+                # return self.format_date_indonesian(date_obj, 'full')
+            
+            return str(date_value)
+        except:
+            return str(date_value)
    
     def _generate_excel_invoice_optimized(self, container, barang_list, container_id):
         """Generate Excel invoice document optimized for A4 printing with profit calculation and tax as separate rows"""
@@ -126,10 +144,10 @@ class PrintHandler:
                 ("Feeder", safe_get('feeder')),
                 ("Destination", safe_get('destination')),
                 ("Party", safe_get('party')),
-                ("ETD Sub", safe_get('etd_sub')),
-                ("CLS", safe_get('cls')),
-                ("Open", safe_get('open')),
-                ("Full", safe_get('full')),
+                ("ETD Sub", self.format_container_date(safe_get('etd_sub'))),
+                ("CLS", self.format_container_date(safe_get('cls'))),
+                ("Open", self.format_container_date(safe_get('open'))),
+                ("Full", self.format_container_date(safe_get('full'))),
                 ("Seal", safe_get('seal')),
                 ("Ref JOA", safe_get('ref_joa'))
             ]

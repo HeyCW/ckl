@@ -1054,49 +1054,64 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
 
     # ================== PRICING FEATURES ==================
 
-    def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, tanggal):
-        """Assign barang to container with pricing, tax handling, and date"""
+    def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, 
+                                            colli_amount, harga_per_unit, total_harga, tanggal):
+        """Assign barang to container with complete pricing data and unique timestamp"""
         try:
-            # Check if barang has tax (pajak = 1)
-            barang_data = self.execute_one("SELECT pajak, penerima FROM barang WHERE barang_id = ?", (barang_id,))
+            from datetime import datetime
+            import time
             
-            tax_id = None
-            if barang_data and barang_data[0] == 1:  # pajak = 1
-                penerima_id = barang_data[1]
+            # ✅ Generate base timestamp
+            base_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            assigned_at = base_timestamp
+            
+            # ✅ Check for duplicates and add suffix if needed
+            counter = 0
+            while True:
+                existing = self.execute_one("""
+                    SELECT id FROM detail_container 
+                    WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
+                """, (barang_id, container_id, assigned_at))
                 
-                # Get receiver name
-                receiver_data = self.get_customer_by_id(penerima_id)
-                receiver_name = receiver_data.get('nama_customer', 'Unknown') if receiver_data else 'Unknown'
+                if not existing:
+                    break  # Timestamp is unique
                 
-                # Create tax record and get tax_id
-                tax_id = self.save_tax_data_with_return_id(container_id, barang_id, receiver_name, total_harga)
+                # Add counter to make it unique
+                counter += 1
+                assigned_at = f"{base_timestamp}.{counter:03d}"
+                
+                if counter > 999:  # Safety limit
+                    time.sleep(1)
+                    base_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    assigned_at = base_timestamp
+                    counter = 0
             
-            # Insert into detail_container with tax_id and tanggal
-            query = """
-            INSERT INTO detail_container
-            (tanggal, barang_id, container_id, tax_id, satuan, door_type, colli_amount, harga_per_unit, total_harga, assigned_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """
+            # ✅ Pastikan tanggal dalam format YYYY-MM-DD
+            if not tanggal:
+                tanggal = datetime.now().strftime('%Y-%m-%d')
             
-            result = self.execute(query, (
-                tanggal,  # Tambahkan tanggal di sini
-                barang_id, 
-                container_id, 
-                tax_id, 
-                satuan, 
-                door_type,
-                colli_amount, 
-                harga_per_unit, 
-                total_harga
-            ))
+            print(f"[DB] Inserting with tanggal={tanggal}, assigned_at={assigned_at}")
             
-            return result is not None
+            # ✅ INSERT dengan tanggal dan assigned_at UNIK
+            self.execute("""
+                INSERT INTO detail_container 
+                (barang_id, container_id, satuan, door_type, colli_amount, 
+                harga_per_unit, total_harga, tanggal, assigned_at, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (barang_id, container_id, satuan, door_type, colli_amount, 
+                harga_per_unit, total_harga, tanggal, assigned_at, assigned_at))
+            
+            print(f"✅ Successfully assigned barang {barang_id} to container {container_id}")
+            print(f"   Tanggal: {tanggal}, Assigned At: {assigned_at}")
+            return True
             
         except Exception as e:
-            print(f"Error assigning barang to container with tax and date: {e}")
+            print(f"❌ Error in assign_barang_to_container_with_pricing: {e}")
             import traceback
             traceback.print_exc()
             return False
+
+
 
     def get_barang_in_container_with_colli_and_pricing(self, container_id):
         """Get all barang in a specific container with colli and pricing information"""
