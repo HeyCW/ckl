@@ -324,6 +324,8 @@ class SQLiteDatabase:
     def get_tax_summary(self, container_id):
         """Get aggregated tax summary by container_id and penerima"""
         try:
+            print(f"\n[DB] Getting tax summary for container {container_id}...")
+            
             query = """
             SELECT 
                 penerima,
@@ -333,17 +335,27 @@ class SQLiteDatabase:
                 COUNT(*) as record_count
             FROM barang_tax
             WHERE container_id = ?
-            GROUP BY container_id, penerima
+            GROUP BY penerima
             ORDER BY latest_date DESC
             """
             
             result = self.execute(query, (container_id,))
-            print(f"Aggregated tax summary result: {result}")  # Debug line
+            
+            if result:
+                print(f"[DB] ✅ Found {len(result)} tax records")
+                for row in result:
+                    print(f"     - {row[0]}: PPN={row[1]:,.0f}, PPH={row[2]:,.0f}")
+            else:
+                print(f"[DB] ℹ️ No tax records found for container {container_id}")
+            
             return result or []
             
         except Exception as e:
-            print(f"Failed to retrieve aggregated tax summary: {str(e)}")
+            print(f"[DB] ❌ Failed to retrieve tax summary: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return []
+    
     
     def create_detail_container_table(self):
         """Create detail container table with pricing columns and sender/receiver info"""
@@ -1055,17 +1067,18 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
     # ================== PRICING FEATURES ==================
 
     def assign_barang_to_container_with_pricing(self, barang_id, container_id, satuan, door_type, 
-                                            colli_amount, harga_per_unit, total_harga, tanggal):
-        """Assign barang to container with complete pricing data and unique timestamp"""
+                                        colli_amount, harga_per_unit, total_harga, tanggal):
+        """Assign barang to container with complete pricing data, tax handling, and unique timestamp"""
         try:
             from datetime import datetime
             import time
             
-            # ✅ Generate base timestamp
+            # ============================================
+            # STEP 1: Generate Unique Timestamp
+            # ============================================
             base_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             assigned_at = base_timestamp
             
-            # ✅ Check for duplicates and add suffix if needed
             counter = 0
             while True:
                 existing = self.execute_one("""
@@ -1074,44 +1087,123 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                 """, (barang_id, container_id, assigned_at))
                 
                 if not existing:
-                    break  # Timestamp is unique
+                    break
                 
-                # Add counter to make it unique
                 counter += 1
                 assigned_at = f"{base_timestamp}.{counter:03d}"
                 
-                if counter > 999:  # Safety limit
+                if counter > 999:
                     time.sleep(1)
                     base_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     assigned_at = base_timestamp
                     counter = 0
             
-            # ✅ Pastikan tanggal dalam format YYYY-MM-DD
+            # ============================================
+            # STEP 2: Validate Tanggal Format
+            # ============================================
             if not tanggal:
                 tanggal = datetime.now().strftime('%Y-%m-%d')
             
-            print(f"[DB] Inserting with tanggal={tanggal}, assigned_at={assigned_at}")
+            print(f"\n{'='*60}")
+            print(f"[DB] ASSIGN BARANG TO CONTAINER:")
+            print(f"{'='*60}")
+            print(f"Barang ID    : {barang_id}")
+            print(f"Container ID : {container_id}")
+            print(f"Satuan       : {satuan}")
+            print(f"Door Type    : {door_type}")
+            print(f"Colli        : {colli_amount}")
+            print(f"Harga/Unit   : {harga_per_unit}")
+            print(f"Total Harga  : {total_harga}")
+            print(f"Tanggal      : {tanggal}")
+            print(f"Assigned At  : {assigned_at}")
+            print(f"{'='*60}\n")
             
-            # ✅ INSERT dengan tanggal dan assigned_at UNIK
-            self.execute("""
-                INSERT INTO detail_container 
-                (barang_id, container_id, satuan, door_type, colli_amount, 
-                harga_per_unit, total_harga, tanggal, assigned_at, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (barang_id, container_id, satuan, door_type, colli_amount, 
-                harga_per_unit, total_harga, tanggal, assigned_at, assigned_at))
+            # ============================================
+            # STEP 3: ✅ CHECK PAJAK & CREATE TAX RECORD
+            # ============================================
+            tax_id = None
             
-            print(f"✅ Successfully assigned barang {barang_id} to container {container_id}")
-            print(f"   Tanggal: {tanggal}, Assigned At: {assigned_at}")
+            # Get barang data untuk cek pajak
+            barang_data = self.execute_one("""
+                SELECT pajak, penerima FROM barang WHERE barang_id = ?
+            """, (barang_id,))
+            
+            if barang_data:
+                has_pajak = barang_data[0]  # pajak column
+                penerima_id = barang_data[1]  # penerima column
+                
+                print(f"[DB] Barang pajak status: {has_pajak}")
+                
+                # ✅ Jika barang memiliki pajak (pajak = 1)
+                if has_pajak == 1:
+                    # Get receiver name
+                    receiver_data = self.get_customer_by_id(penerima_id)
+                    receiver_name = receiver_data.get('nama_customer', 'Unknown') if receiver_data else 'Unknown'
+                    
+                    print(f"[DB] ✅ Barang has tax! Receiver: {receiver_name}")
+                    
+                    # ✅ Calculate tax amounts
+                    ppn_rate = 0.011  # PPN 1.1%
+                    pph23_rate = 0.02  # PPH 23 2%
+                    ppn_amount = total_harga * ppn_rate
+                    pph23_amount = total_harga * pph23_rate
+                    total_tax = ppn_amount + pph23_amount
+                    
+                    print(f"[DB] Tax Calculation:")
+                    print(f"     Total Harga  : Rp {total_harga:,.0f}")
+                    print(f"     PPN (1.1%)   : Rp {ppn_amount:,.0f}")
+                    print(f"     PPH23 (2%)   : Rp {pph23_amount:,.0f}")
+                    print(f"     Total Tax    : Rp {total_tax:,.0f}")
+                    
+                    # ✅ INSERT TAX RECORD
+                    tax_insert_query = """
+                    INSERT INTO barang_tax 
+                    (container_id, barang_id, penerima, total_nilai_barang, 
+                    ppn_rate, pph23_rate, ppn_amount, pph23_amount, total_tax, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """
+                    
+                    tax_id = self.execute_insert(tax_insert_query, (
+                        container_id, barang_id, receiver_name, total_harga,
+                        ppn_rate, pph23_rate, ppn_amount, pph23_amount, total_tax
+                    ))
+                    
+                    print(f"[DB] ✅ Tax record created with tax_id: {tax_id}")
+                else:
+                    print(f"[DB] ℹ️ Barang does not have tax (pajak = 0)")
+            
+            # ============================================
+            # STEP 4: INSERT TO DETAIL_CONTAINER
+            # ============================================
+            detail_insert_query = """
+            INSERT INTO detail_container 
+            (barang_id, container_id, tax_id, satuan, door_type, colli_amount, 
+            harga_per_unit, total_harga, tanggal, assigned_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            self.execute(detail_insert_query, (
+                barang_id, container_id, tax_id, satuan, door_type, colli_amount, 
+                harga_per_unit, total_harga, tanggal, assigned_at, assigned_at
+            ))
+            
+            print(f"[DB] ✅ Successfully assigned barang {barang_id} to container {container_id}")
+            print(f"     Tanggal: {tanggal}, Assigned At: {assigned_at}")
+            if tax_id:
+                print(f"     Tax ID: {tax_id}")
+            print(f"{'='*60}\n")
+            
             return True
             
         except Exception as e:
-            print(f"❌ Error in assign_barang_to_container_with_pricing: {e}")
+            print(f"\n{'='*60}")
+            print(f"[DB] ❌ ERROR in assign_barang_to_container_with_pricing:")
+            print(f"{'='*60}")
+            print(f"Error: {e}")
             import traceback
             traceback.print_exc()
+            print(f"{'='*60}\n")
             return False
-
-
 
     def get_barang_in_container_with_colli_and_pricing(self, container_id):
         """Get all barang in a specific container with colli and pricing information"""

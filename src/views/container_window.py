@@ -63,7 +63,7 @@ class ContainerWindow:
         try:
             # Query hanya ambil kapal_id dan feeder
             kapals = self.db.execute("""
-                SELECT DISTINCT k.kapal_id, k.feeder
+                SELECT DISTINCT k.feeder
                 FROM kapals k 
                 ORDER BY k.feeder
             """)
@@ -72,9 +72,7 @@ class ContainerWindow:
             # Format sederhana: hanya nama feeder
             kapal_options = []
             for k in kapals:
-                kapal_id = k[0]
-                feeder = k[1]
-                # JANGAN akses k[2] karena tidak ada!
+                feeder = k[0]
                 display_text = f"{feeder}"
                 kapal_options.append(display_text)
             
@@ -96,6 +94,7 @@ class ContainerWindow:
             messagebox.showerror("Database Error", f"Gagal memuat daftar kapal:\n{str(e)}")
             return False
     
+    
     def filter_kapal_dropdown(self):
         """Filter dropdown kapal berdasarkan text yang diketik (autocomplete)"""
         try:
@@ -106,33 +105,27 @@ class ContainerWindow:
                 self.refresh_kapal_dropdown()
                 return
             
-            # Ambil semua kapal dari database
+            # Ambil semua distinct feeder
             kapals = self.db.execute("""
-                SELECT DISTINCT k.kapal_id, k.feeder
+                SELECT DISTINCT k.feeder
                 FROM kapals k 
                 ORDER BY k.feeder
             """)
             
             # Filter yang match dengan input user
             filtered_options = []
+            typed_lower = typed_text.lower()
+            
             for k in kapals:
-                kapal_id = k[0]
-                feeder = k[1]
-                display_text = f"{feeder}"
-                
-                # Cek apakah match dengan yang diketik (case-insensitive)
-                typed_lower = typed_text.lower()
-                if (typed_lower in display_text.lower() or 
-                    typed_lower in str(kapal_id) or 
-                    typed_lower in feeder.lower()):
-                    filtered_options.append(display_text)
+                feeder = k[0]
+                if typed_lower in feeder.lower():
+                    filtered_options.append(feeder)
             
             # Update dropdown dengan hasil filter
             self.kapal_combo['values'] = filtered_options
             
             # PENTING: Buka dropdown untuk menampilkan hasil
             if filtered_options:
-                # Pastikan dropdown terbuka
                 try:
                     self.kapal_combo.event_generate('<Down>')
                 except:
@@ -142,6 +135,7 @@ class ContainerWindow:
             
         except Exception as e:
             print(f"[ERROR] Filter kapal dropdown: {e}")
+        
     
     def refresh_kapal_dropdown(self):
         """Refresh kapal dropdown dengan feedback visual"""
@@ -5726,6 +5720,34 @@ class ContainerWindow:
     def show_container_summary_dialog_with_pricing(self, container, barang_list, customer_summary, total_volume, total_weight, total_colli, total_nilai):
         """Show container summary in a dialog with pricing information - showing sender and receiver"""
         try:
+            # ✅ PERBAIKAN: Ambil data lengkap dengan JOIN ke kapals
+            container_id = container.get('container_id') if hasattr(container, 'get') else container['container_id']
+            
+            # Query lengkap dengan JOIN
+            full_container_data = self.db.execute_one("""
+                SELECT 
+                    c.container_id,
+                    c.kapal_id,
+                    c.etd,
+                    c.party,
+                    c.container,
+                    c.seal,
+                    c.ref_joa,
+                    k.feeder,
+                    k.destination,
+                    k.etd_sub as kapal_etd,
+                    k.cls,
+                    k.open as open,
+                    k.full as full
+                FROM containers c
+                LEFT JOIN kapals k ON c.kapal_id = k.kapal_id
+                WHERE c.container_id = ?
+            """, (container_id,))
+            
+            # Override container data dengan hasil query lengkap
+            if full_container_data:
+                container = dict(full_container_data)
+            
             summary_window = tk.Toplevel(self.window)
             
             # Get container name safely
@@ -5811,10 +5833,29 @@ class ContainerWindow:
             tk.Label(info_frame, text="🚢 INFORMASI CONTAINER", 
                     font=('Arial', 14, 'bold'), bg='#ffffff').pack(pady=10)
             
+            # ✅ PERBAIKAN: Ambil dan format semua tanggal
+            etd_container = safe_get(container, 'etd')
+            etd_kapal = safe_get(container, 'kapal_etd')
+            cls_date = safe_get(container, 'cls')
+            open_date = safe_get(container, 'open')
+            full_date = safe_get(container, 'full')
+            
+            # Format ke Indonesia
+            etd_display = self.format_date_indonesian(etd_container or etd_kapal) if (etd_container or etd_kapal) else '-'
+            cls_display = self.format_date_indonesian(cls_date) if cls_date else '-'
+            open_display = self.format_date_indonesian(open_date) if open_date else '-'
+            full_display = self.format_date_indonesian(full_date) if full_date else '-'
+            
             info_lines = [
                 f"Container: {safe_get(container, 'container')}",
-                f"Feeder: {safe_get(container, 'kapal_feeder') or safe_get(container, 'feeder')}",
+                f"Feeder: {safe_get(container, 'feeder')}",
+                f"Destination: {safe_get(container, 'destination')}",
+                f"ETD: {etd_display}",
+                f"CLS: {cls_display}",
+                f"Open: {open_display}",
+                f"Full: {full_display}",
                 f"Seal: {safe_get(container, 'seal')}",
+                f"Party: {safe_get(container, 'party')}",
                 f"Ref JOA: {safe_get(container, 'ref_joa')}"
             ]
             
@@ -5837,7 +5878,7 @@ class ContainerWindow:
             tk.Label(stats_frame, text=stats_text, font=('Arial', 12, 'bold'), 
                     bg='#ffffff', justify='left').pack(padx=20, pady=10)
             
-            # Tab 2: Per Penerima (sesuai permintaan Anda)
+            # Tab 2: Per Penerima
             penerima_frame = tk.Frame(summary_notebook, bg='#ecf0f1')
             summary_notebook.add(penerima_frame, text='👥 Per Penerima')
             
@@ -5950,9 +5991,12 @@ class ContainerWindow:
                     tinggi = safe_get(barang, 'tinggi_barang', '-')
                     dimensi = f"{panjang}×{lebar}×{tinggi}"
                     
-                    tanggal = safe_get(barang, 'tanggal', '-')
-                    if tanggal != '-' and len(str(tanggal)) >= 10:
-                        tanggal = str(tanggal)[:10]
+                    # ✅ PERBAIKAN: Format tanggal ke Indonesia
+                    tanggal_raw = safe_get(barang, 'tanggal', '-')
+                    if tanggal_raw and tanggal_raw != '-':
+                        tanggal = self.format_date_indonesian(str(tanggal_raw))
+                    else:
+                        tanggal = '-'
                     
                     harga_unit = safe_get(barang, 'harga_per_unit', 0)
                     total_harga = safe_get(barang, 'total_harga', 0)
@@ -5992,6 +6036,7 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal membuat dialog summary: {str(dialog_error)}")
+            
         
         
     def view_selected_container_summary(self):
@@ -6174,79 +6219,36 @@ class ContainerWindow:
             return False
     
     def add_container(self):
-        """Add new container with flexible kapal input (support manual input) and Indonesian date format"""
+        """Add new container - kapal_id didapat dari kombinasi feeder + ETD"""
         try:
             # ============================================
-            # STEP 1: Extract dan Validasi Kapal
+            # STEP 1: Get Input Values
             # ============================================
-            kapal_combo_value = self.kapal_var.get().strip()
-            
-            if not kapal_combo_value:
-                messagebox.showwarning("Validasi", "Pilih atau ketik nama kapal terlebih dahulu!")
-                return
-            
-            # Coba parse format: "ID - Nama Kapal" atau "ID - Nama Kapal (ETD)"
-            kapal_id = None
-            kapal_name = kapal_combo_value
-            
-            try:
-                # Jika format dropdown: "ID - Nama"
-                if ' - ' in kapal_combo_value:
-                    parts = kapal_combo_value.split(' - ')
-                    kapal_id = int(parts[0])
-                    kapal_name = parts[1].split('(')[0].strip()  # Buang ETD jika ada
-                else:
-                    # Coba parsing sebagai ID langsung
-                    try:
-                        kapal_id = int(kapal_combo_value)
-                        # Cari nama kapal dari database
-                        result = self.db.execute("SELECT feeder FROM kapals WHERE kapal_id = ?", (kapal_id,))
-                        if result:
-                            kapal_name = result[0][0]
-                        else:
-                            messagebox.showerror("Error", f"Kapal dengan ID {kapal_id} tidak ditemukan!")
-                            return
-                    except ValueError:
-                        # Input adalah nama kapal (input manual)
-                        # Cari di database berdasarkan nama
-                        result = self.db.execute("SELECT kapal_id FROM kapals WHERE feeder LIKE ?", (f"%{kapal_combo_value}%",))
-                        if result:
-                            kapal_id = result[0][0]
-                            kapal_name = kapal_combo_value
-                        else:
-                            messagebox.showwarning(
-                                "Kapal Tidak Ditemukan", 
-                                f"Kapal '{kapal_combo_value}' tidak ditemukan di database.\n\n"
-                                "Silakan tambahkan kapal ini terlebih dahulu di menu 'Kelola Kapal'."
-                            )
-                            return
-            except Exception as e:
-                messagebox.showerror("Error", f"Format kapal tidak valid!\n{str(e)}")
-                return
-            
-            # ============================================
-            # STEP 2: Get Form Values
-            # ============================================
-            etd_indonesian = self.etd_entry.get().strip()  # ✅ Format DD/MM/YYYY
+            feeder_name = self.kapal_var.get().strip()
+            etd_indonesian = self.etd_entry.get().strip()
             party = self.party_entry.get().strip()
             container = self.container_entry.get().strip()
             seal = self.seal_entry.get().strip()
             ref_joa = self.ref_joa_entry.get().strip()
             
             # ============================================
-            # STEP 3: Validasi Container
+            # STEP 2: Validasi Input
             # ============================================
+            if not feeder_name:
+                messagebox.showwarning("Validasi", "Pilih atau ketik nama kapal terlebih dahulu!")
+                return
+            
             if not container:
                 messagebox.showwarning("Validasi", "Masukkan nomor container!")
                 return
             
-            # ============================================
-            # STEP 4: Validasi Format Tanggal Indonesia
-            # ============================================
             if not etd_indonesian:
                 messagebox.showwarning("Validasi", "Masukkan ETD!")
                 return
             
+            # ============================================
+            # STEP 3: Validasi Format Tanggal Indonesia
+            # ============================================
             if not self.validate_indonesian_date(etd_indonesian):
                 messagebox.showerror(
                     "Format Tanggal Salah",
@@ -6258,56 +6260,91 @@ class ContainerWindow:
                 return
             
             # ============================================
-            # STEP 5: Convert ke Format Database
+            # STEP 4: Convert ke Format Database
             # ============================================
             etd_db = self.parse_indonesian_date(etd_indonesian)
             
-            print(f"[DEBUG] ETD Input (Indonesia): {etd_indonesian}")
-            print(f"[DEBUG] ETD Database (YYYY-MM-DD): {etd_db}")
+            print(f"\n{'='*60}")
+            print(f"[DEBUG] ADD CONTAINER - Input Values:")
+            print(f"{'='*60}")
+            print(f"Feeder Name     : '{feeder_name}'")
+            print(f"ETD (Indonesia) : {etd_indonesian}")
+            print(f"ETD (Database)  : {etd_db}")
+            print(f"Container       : {container}")
+            print(f"Party           : {party}")
+            print(f"Seal            : {seal}")
+            print(f"Ref JOA         : {ref_joa}")
+            print(f"{'='*60}\n")
             
             # ============================================
-            # STEP 6: Validasi STRICT - Kapal + ETD
+            # STEP 5: ✅ CARI KAPAL_ID berdasarkan FEEDER + ETD
             # ============================================
-            if not self.validate_kapal_etd(kapal_id, etd_db):
-                messagebox.showerror(
-                    "❌ Error - Kapal dengan ETD Tidak Ditemukan",
-                    f"Kapal '{kapal_name}' dengan ETD '{etd_indonesian}' tidak ditemukan di database!\n\n"
-                    f"Kemungkinan penyebab:\n"
-                    f"• ETD yang dipilih salah\n"
-                    f"• Data kapal dengan ETD ini belum diinput\n"
-                    f"• ETD di data kapal berbeda dengan yang Anda pilih\n\n"
-                    f"Silakan:\n"
-                    f"1. Cek kembali ETD yang benar\n"
-                    f"2. Atau tambahkan data kapal dengan ETD tersebut di menu Kelola Kapal"
-                )
-                return  # STOP - tidak bisa lanjut
+            kapal_result = self.db.execute_one("""
+                SELECT kapal_id, feeder, etd_sub, destination
+                FROM kapals 
+                WHERE feeder = ? AND etd_sub = ?
+            """, (feeder_name, etd_db))
+            
+            if not kapal_result:
+                # ✅ Jika tidak ditemukan, cari semua ETD yang tersedia untuk feeder ini
+                available_etds = self.db.execute("""
+                    SELECT DISTINCT etd_sub FROM kapals 
+                    WHERE feeder = ?
+                    ORDER BY etd_sub DESC
+                """, (feeder_name,))
+                
+                if available_etds:
+                    etd_list = "\n".join([f"• {self.format_date_indonesian(e[0])}" for e in available_etds])
+                    messagebox.showerror(
+                        "❌ Kapal dengan ETD Tidak Ditemukan",
+                        f"Kapal '{feeder_name}' dengan ETD '{etd_indonesian}' tidak ditemukan!\n\n"
+                        f"ETD yang tersedia untuk kapal ini:\n{etd_list}\n\n"
+                        f"Silakan:\n"
+                        f"1. Pilih ETD yang tersedia di atas, atau\n"
+                        f"2. Tambahkan data kapal dengan ETD '{etd_indonesian}' di menu Kelola Kapal"
+                    )
+                else:
+                    messagebox.showerror(
+                        "❌ Kapal Tidak Ditemukan",
+                        f"Kapal '{feeder_name}' tidak ditemukan di database!\n\n"
+                        f"Silakan tambahkan kapal ini terlebih dahulu di menu Kelola Kapal."
+                    )
+                return
+            
+            # ✅ Kapal ditemukan!
+            kapal_id = kapal_result[0]
+            kapal_feeder = kapal_result[1]
+            kapal_etd = kapal_result[2]
+            kapal_destination = kapal_result[3] if len(kapal_result) > 3 else '-'
+            
+            print(f"\n{'='*60}")
+            print(f"[DEBUG] ✅ KAPAL FOUND:")
+            print(f"{'='*60}")
+            print(f"Kapal ID     : {kapal_id}")
+            print(f"Feeder       : {kapal_feeder}")
+            print(f"ETD (DB)     : {kapal_etd}")
+            print(f"Destination  : {kapal_destination}")
+            print(f"{'='*60}\n")
             
             # ============================================
-            # STEP 7: INSERT ke Database
+            # STEP 6: INSERT ke Database
             # ============================================
-            print(f"[DEBUG] Inserting container:")
-            print(f"  - Kapal ID: {kapal_id}")
-            print(f"  - Kapal Name: {kapal_name}")
-            print(f"  - ETD (DB): {etd_db}")
-            print(f"  - Party: {party}")
-            print(f"  - Container: {container}")
-            print(f"  - Seal: {seal}")
-            print(f"  - Ref JOA: {ref_joa}")
-            
             self.db.execute_insert(
                 "INSERT INTO containers (kapal_id, etd, party, container, seal, ref_joa) VALUES (?, ?, ?, ?, ?, ?)", 
                 (kapal_id, etd_db, party, container, seal, ref_joa)
             )
             
             # ============================================
-            # STEP 8: Success & Refresh
+            # STEP 7: Success & Refresh
             # ============================================
             messagebox.showinfo(
-                "Sukses", 
-                f"✅ Container berhasil ditambahkan!\n\n"
-                f"Container: {container}\n"
-                f"Kapal: {kapal_name}\n"
-                f"ETD: {etd_indonesian}"
+                "✅ Sukses", 
+                f"Container berhasil ditambahkan!\n\n"
+                f"Container   : {container}\n"
+                f"Kapal       : {kapal_feeder}\n"
+                f"ETD         : {etd_indonesian}\n"
+                f"Destination : {kapal_destination}\n"
+                f"Kapal ID    : {kapal_id}"
             )
 
             # Refresh
@@ -6318,14 +6355,17 @@ class ContainerWindow:
             if self.refresh_callback:
                 self.refresh_callback()
                 
-            print(f"✅ Container '{container}' berhasil ditambahkan dengan ETD {etd_indonesian}")
+            print(f"✅ Container '{container}' berhasil ditambahkan dengan kapal_id={kapal_id}")
 
         except Exception as e:
-            print(f"[ERROR] add_container: {e}")
+            print(f"\n{'='*60}")
+            print(f"[ERROR] add_container failed:")
+            print(f"{'='*60}")
             import traceback
             traceback.print_exc()
+            print(f"{'='*60}\n")
             messagebox.showerror("Database Error", f"Gagal menambahkan container:\n{str(e)}")
-            
+         
      
     def edit_container(self):
         """Edit selected container"""
@@ -6371,6 +6411,14 @@ class ContainerWindow:
             edit_window.transient(self.window)
             edit_window.grab_set()
 
+            try:
+                icon_image = Image.open("assets/logo.jpg")
+                icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
+                icon_photo = ImageTk.PhotoImage(icon_image)
+                edit_window.iconphoto(False, icon_photo)
+            except Exception as e:
+                print(f"Icon tidak ditemukan: {e}")
+
             # Center dialog
             edit_window.update_idletasks()
             x = self.window.winfo_x() + (self.window.winfo_width() // 2) - 325
@@ -6394,7 +6442,7 @@ class ContainerWindow:
             form_frame = tk.Frame(edit_window, bg='#ffffff', relief='solid', bd=1)
             form_frame.pack(fill='both', expand=True, padx=20, pady=20)
 
-            # 1. Kapal (Dropdown)
+            # 1. Kapal (Dropdown) - HANYA NAMA FEEDER
             row = tk.Frame(form_frame, bg='#ffffff')
             row.pack(fill='x', pady=12, padx=20)
             
@@ -6403,18 +6451,17 @@ class ContainerWindow:
             
             kapal_var = tk.StringVar()
             kapal_combo = ttk.Combobox(row, textvariable=kapal_var, 
-                                    font=('Arial', 11), width=35, state='readonly')
+                                    font=('Arial', 11), width=35, state='normal')  # ✅ state='normal' untuk allow typing
             kapal_combo.pack(side='left', padx=(10, 0))
             
-            # Load kapal options
-            kapals = self.db.execute("SELECT kapal_id, feeder FROM kapals ORDER BY feeder")
-            kapal_options = [f"{k[0]} - {k[1]}" for k in kapals]
+            # ✅ Load HANYA NAMA FEEDER (bukan kapal_id - feeder)
+            kapals = self.db.execute("SELECT DISTINCT feeder FROM kapals ORDER BY feeder")
+            kapal_options = [k[0] for k in kapals]
             kapal_combo['values'] = kapal_options
             
-            # Set current value
-            if container[1]:
-                current_kapal = f"{container[1]} - {container[2]}"
-                kapal_combo.set(current_kapal)
+            # ✅ Set current value - HANYA NAMA FEEDER
+            if container[2]:  # container[2] = kapal_feeder
+                kapal_combo.set(container[2])
 
             # 2. ETD
             row = tk.Frame(form_frame, bg='#ffffff')
@@ -6486,43 +6533,122 @@ class ContainerWindow:
             ref_joa_entry.pack(side='left', padx=(10, 0))
             ref_joa_entry.insert(0, safe_get(container[7]))
 
-            # Save function with STRICT validation
+            # ✅ Save function with FEEDER + ETD matching
             def save_container():
                 try:
-                    kapal_combo_value = kapal_var.get().strip()
-                    if not kapal_combo_value:
+                    # ============================================
+                    # STEP 1: Get Input Values
+                    # ============================================
+                    feeder_name = kapal_var.get().strip()
+                    etd_indonesian = etd_entry.get().strip()
+                    
+                    container_value = container_entry.get().strip()
+                    party_value = party_entry.get().strip()
+                    seal_value = seal_entry.get().strip()
+                    ref_joa_value = ref_joa_entry.get().strip()
+                    
+                    # ============================================
+                    # STEP 2: Validasi Input
+                    # ============================================
+                    if not feeder_name:
                         messagebox.showwarning("Validasi", "Pilih kapal!")
                         return
                     
-                    kapal_id = int(kapal_combo_value.split(' - ')[0])
-                    kapal_name = kapal_combo_value.split(' - ')[1] if ' - ' in kapal_combo_value else 'Unknown'
-                    etd_value = etd_entry.get()
-                    
-                    container_value = container_entry.get().strip()
                     if not container_value:
                         messagebox.showwarning("Validasi", "Container tidak boleh kosong!")
                         return
                     
-                    # ⚠️ VALIDASI STRICT - TIDAK BOLEH LANJUT
-                    if not self.validate_kapal_etd(kapal_id, etd_value):
-                        messagebox.showerror(
-                            "❌ Error - Kapal dengan ETD Tidak Ditemukan",
-                            f"Kapal '{kapal_name}' dengan ETD '{etd_value}' tidak ditemukan di database!\n\n"
-                            f"Kemungkinan penyebab:\n"
-                            f"• ETD yang dipilih salah\n"
-                            f"• Data kapal dengan ETD ini belum diinput\n"
-                            f"• ETD di data kapal berbeda\n\n"
-                            f"Silakan:\n"
-                            f"1. Cek kembali ETD yang benar\n"
-                            f"2. Atau tambahkan data kapal dengan ETD tersebut"
-                        )
-                        return  # STOP - tidak bisa update
+                    if not etd_indonesian:
+                        messagebox.showwarning("Validasi", "ETD tidak boleh kosong!")
+                        return
                     
+                    # ============================================
+                    # STEP 3: Validasi Format Tanggal
+                    # ============================================
+                    if not self.validate_indonesian_date(etd_indonesian):
+                        messagebox.showerror(
+                            "Format Tanggal Salah",
+                            f"Format ETD tidak valid!\n\n"
+                            f"Input Anda: {etd_indonesian}\n\n"
+                            f"Gunakan format: DD/MM/YYYY"
+                        )
+                        return
+                    
+                    # ============================================
+                    # STEP 4: Convert ke Database Format
+                    # ============================================
+                    etd_db = self.parse_indonesian_date(etd_indonesian)
+                    
+                    print(f"\n{'='*60}")
+                    print(f"[DEBUG] EDIT CONTAINER - Save Attempt:")
+                    print(f"{'='*60}")
+                    print(f"Container ID    : {container_id}")
+                    print(f"Feeder Name     : '{feeder_name}'")
+                    print(f"ETD (Indonesia) : {etd_indonesian}")
+                    print(f"ETD (Database)  : {etd_db}")
+                    print(f"{'='*60}\n")
+                    
+                    # ============================================
+                    # STEP 5: ✅ CARI KAPAL_ID berdasarkan FEEDER + ETD
+                    # ============================================
+                    kapal_result = self.db.execute_one("""
+                        SELECT kapal_id, feeder, etd_sub, destination
+                        FROM kapals 
+                        WHERE feeder = ? AND etd_sub = ?
+                    """, (feeder_name, etd_db))
+                    
+                    if not kapal_result:
+                        # ✅ Jika tidak ditemukan, tampilkan ETD yang tersedia
+                        available_etds = self.db.execute("""
+                            SELECT DISTINCT etd_sub FROM kapals 
+                            WHERE feeder = ?
+                            ORDER BY etd_sub DESC
+                        """, (feeder_name,))
+                        
+                        if available_etds:
+                            etd_list = "\n".join([f"• {self.format_date_indonesian(e[0])}" for e in available_etds])
+                            messagebox.showerror(
+                                "❌ Error - Kapal dengan ETD Tidak Ditemukan",
+                                f"Kapal '{feeder_name}' dengan ETD '{etd_indonesian}' tidak ditemukan di database!\n\n"
+                                f"Kemungkinan penyebab:\n"
+                                f"• ETD yang dipilih salah\n"
+                                f"• Data kapal dengan ETD ini belum diinput\n"
+                                f"• ETD di data kapal berbeda\n\n"
+                                f"ETD yang tersedia untuk kapal ini:\n{etd_list}\n\n"
+                                f"Silakan:\n"
+                                f"1. Cek kembali ETD yang benar\n"
+                                f"2. Atau tambahkan data kapal dengan ETD tersebut"
+                            )
+                        else:
+                            messagebox.showerror(
+                                "❌ Error - Kapal Tidak Ditemukan",
+                                f"Kapal '{feeder_name}' tidak ditemukan di database!\n\n"
+                                f"Silakan tambahkan kapal ini di menu Kelola Kapal."
+                            )
+                        return  # ✅ STOP - tidak bisa update
+                    
+                    # ✅ Kapal ditemukan!
+                    kapal_id = kapal_result[0]
+                    
+                    print(f"\n{'='*60}")
+                    print(f"[DEBUG] ✅ KAPAL FOUND:")
+                    print(f"{'='*60}")
+                    print(f"Kapal ID     : {kapal_id}")
+                    print(f"Feeder       : {kapal_result[1]}")
+                    print(f"ETD (DB)     : {kapal_result[2]}")
+                    print(f"Destination  : {kapal_result[3]}")
+                    print(f"{'='*60}\n")
+                    
+                    # ============================================
+                    # STEP 6: Konfirmasi Update
+                    # ============================================
                     if not messagebox.askyesno("Konfirmasi Update", 
                             f"Simpan perubahan untuk container ID {container_id}?"):
                         return
 
-                    # UPDATE dengan etd
+                    # ============================================
+                    # STEP 7: UPDATE Database
+                    # ============================================
                     self.db.execute("""
                         UPDATE containers SET 
                         kapal_id = ?, etd = ?, party = ?, container = ?, seal = ?, ref_joa = ?, 
@@ -6530,15 +6656,17 @@ class ContainerWindow:
                         WHERE container_id = ?
                     """, (
                         kapal_id,
-                        etd_value,
-                        party_entry.get().strip(),
+                        etd_db,
+                        party_value,
                         container_value,
-                        seal_entry.get().strip(),
-                        ref_joa_entry.get().strip(),
+                        seal_value,
+                        ref_joa_value,
                         container_id
                     ))
 
                     messagebox.showinfo("Sukses", "✅ Container berhasil diupdate!")
+                    
+                    # Refresh
                     self.load_containers()
                     self.load_container_combo()
                     
@@ -6548,7 +6676,13 @@ class ContainerWindow:
                     edit_window.destroy()
 
                 except Exception as e:
-                    messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e)}")
+                    print(f"\n{'='*60}")
+                    print(f"[ERROR] save_container failed:")
+                    print(f"{'='*60}")
+                    import traceback
+                    traceback.print_exc()
+                    print(f"{'='*60}\n")
+                    messagebox.showerror("Error", f"Gagal menyimpan perubahan:\n{str(e)}")
 
             # Buttons
             btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
@@ -6563,7 +6697,14 @@ class ContainerWindow:
                     command=edit_window.destroy).pack(side='right')
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal membuat dialog edit: {str(e)}")
+            print(f"\n{'='*60}")
+            print(f"[ERROR] show_edit_container_dialog failed:")
+            print(f"{'='*60}")
+            import traceback
+            traceback.print_exc()
+            print(f"{'='*60}\n")
+            messagebox.showerror("Error", f"Gagal membuat dialog edit:\n{str(e)}")
+        
         
     def is_valid_date_format(self, date_string):
         """Validate date format YYYY-MM-DD"""

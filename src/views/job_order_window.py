@@ -218,8 +218,8 @@ class JobOrderWindow:
         sales_scroll_y = ttk.Scrollbar(sales_table_frame, orient=tk.VERTICAL)
         sales_scroll_x = ttk.Scrollbar(sales_table_frame, orient=tk.HORIZONTAL)
         
-        # Sales Treeview dengan kolom yang benar
-        sales_columns = ('customer', 'rp', 'invoice', 'kubikasi', 'tonase')
+        # ✅ Sales Treeview TANPA kolom INVOICE
+        sales_columns = ('customer', 'rp', 'kubikasi', 'tonase')
         self.sales_tree = ttk.Treeview(sales_table_frame, columns=sales_columns, show='headings',
                                        yscrollcommand=sales_scroll_y.set,
                                        xscrollcommand=sales_scroll_x.set, height=8)
@@ -230,22 +230,20 @@ class JobOrderWindow:
         # Configure Sales columns
         self.sales_tree.heading('customer', text='CUSTOMER')
         self.sales_tree.heading('rp', text='Rp')
-        self.sales_tree.heading('invoice', text='INVOICE')
         self.sales_tree.heading('kubikasi', text='KUBIKASI')
         self.sales_tree.heading('tonase', text='TONASE')
         
-        self.sales_tree.column('customer', width=200, anchor=tk.W)
-        self.sales_tree.column('rp', width=120, anchor=tk.E)
-        self.sales_tree.column('invoice', width=120, anchor=tk.CENTER)
-        self.sales_tree.column('kubikasi', width=100, anchor=tk.E)
-        self.sales_tree.column('tonase', width=100, anchor=tk.E)
+        self.sales_tree.column('customer', width=250, anchor=tk.W)
+        self.sales_tree.column('rp', width=150, anchor=tk.E)
+        self.sales_tree.column('kubikasi', width=120, anchor=tk.E)
+        self.sales_tree.column('tonase', width=120, anchor=tk.E)
         
         # Grid layout untuk sales
         self.sales_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         sales_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         sales_scroll_x.grid(row=1, column=0, sticky=(tk.W, tk.E))
         
-        # Sales Total Frame (dengan breakdown POL & POD)
+        # Sales Total Frame
         sales_total_frame = ttk.Frame(sales_main_frame)
         sales_total_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
         
@@ -279,7 +277,7 @@ class JobOrderWindow:
         pol_scroll_x = ttk.Scrollbar(pol_frame, orient=tk.HORIZONTAL)
         
         # POL Treeview
-        pol_columns = ('keterangan', 'unit', 'biaya_pol', 'total', 'keterangan2')
+        pol_columns = ('keterangan', 'unit', 'biaya_pol', 'total')
         self.pol_tree = ttk.Treeview(pol_frame, columns=pol_columns, show='headings',
                                      yscrollcommand=pol_scroll_y.set,
                                      xscrollcommand=pol_scroll_x.set, height=8)
@@ -292,13 +290,11 @@ class JobOrderWindow:
         self.pol_tree.heading('unit', text='UNIT')
         self.pol_tree.heading('biaya_pol', text='BIAYA POL')
         self.pol_tree.heading('total', text='TOTAL')
-        self.pol_tree.heading('keterangan2', text='KETERANGAN')
         
-        self.pol_tree.column('keterangan', width=150, anchor=tk.W)
+        self.pol_tree.column('keterangan', width=180, anchor=tk.W)
         self.pol_tree.column('unit', width=80, anchor=tk.CENTER)
-        self.pol_tree.column('biaya_pol', width=100, anchor=tk.E)
-        self.pol_tree.column('total', width=100, anchor=tk.E)
-        self.pol_tree.column('keterangan2', width=150, anchor=tk.W)
+        self.pol_tree.column('biaya_pol', width=120, anchor=tk.E)
+        self.pol_tree.column('total', width=120, anchor=tk.E)
         
         # Grid layout untuk POL
         self.pol_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -316,7 +312,7 @@ class JobOrderWindow:
         pod_scroll_x = ttk.Scrollbar(pod_frame, orient=tk.HORIZONTAL)
         
         # POD Treeview
-        pod_columns = ('keterangan', 'unit', 'biaya_pod', 'total', 'keterangan2')
+        pod_columns = ('keterangan', 'unit', 'biaya_pod', 'total')
         self.pod_tree = ttk.Treeview(pod_frame, columns=pod_columns, show='headings',
                                      yscrollcommand=pod_scroll_y.set,
                                      xscrollcommand=pod_scroll_x.set, height=8)
@@ -329,13 +325,11 @@ class JobOrderWindow:
         self.pod_tree.heading('unit', text='UNIT')
         self.pod_tree.heading('biaya_pod', text='BIAYA POD')
         self.pod_tree.heading('total', text='TOTAL')
-        self.pod_tree.heading('keterangan2', text='KETERANGAN')
         
-        self.pod_tree.column('keterangan', width=150, anchor=tk.W)
+        self.pod_tree.column('keterangan', width=180, anchor=tk.W)
         self.pod_tree.column('unit', width=80, anchor=tk.CENTER)
-        self.pod_tree.column('biaya_pod', width=100, anchor=tk.E)
-        self.pod_tree.column('total', width=100, anchor=tk.E)
-        self.pod_tree.column('keterangan2', width=150, anchor=tk.W)
+        self.pod_tree.column('biaya_pod', width=120, anchor=tk.E)
+        self.pod_tree.column('total', width=120, anchor=tk.E)
         
         # Grid layout untuk POD
         self.pod_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -361,7 +355,6 @@ class JobOrderWindow:
         self.pod_purchase_total_label.pack(side=tk.LEFT)
         
         # Grand Total (kanan)
-        # Grand Total (kanan)
         purchase_grand_frame = ttk.Frame(purchase_total_frame)
         purchase_grand_frame.pack(side=tk.RIGHT, padx=10)
         ttk.Label(purchase_grand_frame, text="PURCHASE TOTAL:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=(0, 5))
@@ -382,7 +375,6 @@ class JobOrderWindow:
     def load_joa_list(self):
         """Load list of JOAs"""
         try:
-            # PERBAIKAN: Menggunakan c.kapal_id instead of c.kapal_feeder, dan ambil party dari containers
             query = """
                 SELECT DISTINCT c.ref_joa, c.container_id, c.container, c.kapal_id, c.party
                 FROM containers c
@@ -403,42 +395,34 @@ class JobOrderWindow:
                         'feeder': None,
                         'destination': None,
                         'etd_sub': None,
-                        'kapal_id': None,  # PERBAIKAN: Simpan kapal_id instead of kapal_feeder
-                        'party': None,  # Party dari containers
-                        'shipping_line': None  # Ini mungkin tidak ada, set default None
+                        'kapal_id': None,
+                        'party': None,
+                        'shipping_line': None
                     }
                 
                 container_id = row['container_id']
                 container = row['container']
-                kapal_id = row['kapal_id'] if row['kapal_id'] else None  # PERBAIKAN
-                party = row['party'] if row['party'] else None  # Ambil party dari containers
+                kapal_id = row['kapal_id'] if row['kapal_id'] else None
+                party = row['party'] if row['party'] else None
                 
                 self.joa_data[joa]['containers'].append(container)
                 
-                # Store first container's kapal_id and party
                 if self.joa_data[joa]['kapal_id'] is None:
                     self.joa_data[joa]['kapal_id'] = kapal_id
                 if self.joa_data[joa]['party'] is None:
                     self.joa_data[joa]['party'] = party
                 
-                # Get kapal info separately if kapal_id exists
                 if kapal_id:
                     try:
-                        # PERBAIKAN: Query by kapal_id - party ada di containers, bukan kapals
                         kapal_query = """
                             SELECT feeder, destination, etd_sub, cls, open, full
                             FROM kapals 
                             WHERE kapal_id = ?
                         """
                         
-                        print(f"DEBUG: JOA {joa}, Container {container}, kapal_id = {kapal_id}")
-                        print(f"DEBUG: Querying kapals with kapal_id = {kapal_id}")
                         kapal_result = self.db.execute_one(kapal_query, (kapal_id,))
                         
                         if kapal_result:
-                            print(f"DEBUG: Kapal found - feeder: {kapal_result['feeder']}, dest: {kapal_result['destination']}")
-                            
-                            # Update JOA data with kapal info (only if not set yet)
                             if self.joa_data[joa]['feeder'] is None:
                                 self.joa_data[joa]['feeder'] = kapal_result['feeder']
                                 self.joa_data[joa]['destination'] = kapal_result['destination']
@@ -446,14 +430,8 @@ class JobOrderWindow:
                                 self.joa_data[joa]['cls'] = kapal_result['cls']
                                 self.joa_data[joa]['open'] = kapal_result['open']
                                 self.joa_data[joa]['full'] = kapal_result['full']
-                        else:
-                            print(f"DEBUG: No kapal found with kapal_id = {kapal_id}")
                     except Exception as e:
                         print(f"ERROR getting kapal info: {e}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"DEBUG: kapal_id is None for container {container}")
                 
                 if self.joa_data[joa]['container'] is None:
                     self.joa_data[joa]['container'] = container
@@ -610,11 +588,10 @@ class JobOrderWindow:
 
                 sales_total += total_invoice
 
-                # Insert ke sales_tree
+                # ✅ Insert ke sales_tree TANPA INVOICE
                 self.sales_tree.insert('', 'end', values=(
                     customer_name,
                     f"Rp {total_invoice:,.0f}",
-                    f"{(total_invoice/total_colli):,.0f}" if total_colli else "-",
                     f"{total_m3:.4f}" if total_m3 else "-",
                     f"{total_ton:.2f}" if total_ton else "-"
                 ))
@@ -623,9 +600,10 @@ class JobOrderWindow:
             self.sales_total_label.config(text=f"Rp {sales_total:,.0f}")
 
             # ============================================================
-            # PURCHASE INVOICE
+            # PURCHASE INVOICE - LOGIKA POL vs POD BERDASARKAN LOKASI
             # ============================================================
             purchase_pol_total, purchase_pod_total, purchase_total = 0, 0, 0
+            
             delivery_cost_query = f"""
                 SELECT 
                     cdc.description as cost_type,
@@ -639,20 +617,39 @@ class JobOrderWindow:
             """
             delivery_costs = self.db.execute(delivery_cost_query, tuple(container_ids))
 
-            # Group pakai (cost_type, size)
+            # ✅ LOGIKA: Pakai kolom delivery untuk tentukan POL vs POD
+            # POL = Lokasi Surabaya (atau kosong)
+            # POD = Lokasi selain Surabaya
+            
             cost_summary_pol, cost_summary_pod = {}, {}
+            
             for cost in delivery_costs:
-                cost_type = cost['cost_type']
+                cost_type = cost['cost_type'] or ''
                 delivery_type = cost['delivery_type'] or ''
                 amount = cost['cost_amount'] or 0
                 notes = cost['notes'] or ''
                 party = cost['party'] or ''
 
+                # Deteksi ukuran container
                 size = '40' if '40' in party else '20' if '20' in party else None
-                is_pod = not ('surabaya' in cost_type.lower() or 'sby' in delivery_type.lower())
-
+                
+                # ✅ PERBAIKAN LOGIKA:
+                # Jika delivery_type kosong atau mengandung "Surabaya" → POL
+                # Jika delivery_type mengandung nama kota lain → POD
+                delivery_lower = delivery_type.lower()
+                
+                is_pol = (
+                    not delivery_type or  # Kosong = default Surabaya = POL
+                    'surabaya' in delivery_lower or 
+                    'sby' in delivery_lower or
+                    'sub' in delivery_lower
+                )
+                
+                print(f"DEBUG Cost: '{cost_type}' | Delivery: '{delivery_type}' | Lokasi: {'POL (Surabaya)' if is_pol else 'POD (Destination)'}")
+                
                 key = (cost_type, size)
-                target = cost_summary_pod if is_pod else cost_summary_pol
+                target = cost_summary_pol if is_pol else cost_summary_pod
+                
                 if key not in target:
                     target[key] = {'notes': notes, 'size': size, 'unit_cost': amount}
 
@@ -665,7 +662,12 @@ class JobOrderWindow:
 
                 purchase_pol_total += total
                 purchase_total += total
-                self.pol_tree.insert('', 'end', values=(ket, unit, f"Rp {data['unit_cost']:,.0f}", f"Rp {total:,.0f}", data['notes']))
+                self.pol_tree.insert('', 'end', values=(
+                    ket, 
+                    unit, 
+                    f"Rp {data['unit_cost']:,.0f}", 
+                    f"Rp {total:,.0f}"
+                ))
 
             # POD costs
             for (cost_type, size), data in cost_summary_pod.items():
@@ -676,15 +678,28 @@ class JobOrderWindow:
 
                 purchase_pod_total += total
                 purchase_total += total
-                self.pod_tree.insert('', 'end', values=(ket, unit, f"Rp {data['unit_cost']:,.0f}", f"Rp {total:,.0f}", data['notes']))
+                self.pod_tree.insert('', 'end', values=(
+                    ket, 
+                    unit, 
+                    f"Rp {data['unit_cost']:,.0f}", 
+                    f"Rp {total:,.0f}"
+                ))
 
             # Update purchase labels
             self.pol_purchase_total_label.config(text=f"Rp {purchase_pol_total:,.0f}")
             self.pod_purchase_total_label.config(text=f"Rp {purchase_pod_total:,.0f}")
             self.purchase_total_label.config(text=f"Rp {purchase_total:,.0f}")
 
-            print(f"DEBUG: Sales={sales_total}, POL={pol_total}, POD={pod_total}")
-            print(f"DEBUG: Purchase POL={purchase_pol_total}, POD={purchase_pod_total}, Total={purchase_total}")
+            print(f"\n{'='*60}")
+            print(f"SUMMARY:")
+            print(f"{'='*60}")
+            print(f"Sales Total        : Rp {sales_total:,.0f}")
+            print(f"  - POL            : Rp {pol_total:,.0f}")
+            print(f"  - POD            : Rp {pod_total:,.0f}")
+            print(f"Purchase POL Total : Rp {purchase_pol_total:,.0f}")
+            print(f"Purchase POD Total : Rp {purchase_pod_total:,.0f}")
+            print(f"Purchase Total     : Rp {purchase_total:,.0f}")
+            print(f"{'='*60}\n")
 
         except Exception as e:
             import traceback
@@ -692,14 +707,13 @@ class JobOrderWindow:
             print(f"ERROR in load_joa_details: {str(e)}")
             messagebox.showerror("Error", f"Gagal memuat detail JOA:\n{str(e)}")
 
-
     def refresh_current_joa(self):
         """Refresh current JOA data"""
         if self.selected_joa:
             self.load_joa_details(self.selected_joa)
     
     def export_to_excel(self):
-        """Export current JOA to Excel - ambil data dari UI yang sudah tampil"""
+        """Export current JOA to Excel"""
         if not self.selected_joa:
             messagebox.showwarning("Warning", "Pilih JOA terlebih dahulu!")
             return
@@ -729,7 +743,7 @@ class JobOrderWindow:
             ws = wb.active
             ws.title = "Job Order Account"
             
-            # Get JOA info dari label yang sudah ditampilkan di UI
+            # Get JOA info
             joa_info = {
                 'joa': self.joa_label.cget('text'),
                 'feeder': self.feeder_label.cget('text'),
@@ -753,7 +767,6 @@ class JobOrderWindow:
             )
             
             if response:
-                # Buka file dengan aplikasi default
                 try:
                     if platform.system() == 'Windows':
                         os.startfile(filename)
@@ -777,7 +790,7 @@ class JobOrderWindow:
                 ws.cell(row=row, column=col).border = border
 
     def _create_side_by_side_from_ui(self, ws, joa_info):
-        """Create Sales and Purchase Invoice side by side - layout rapi"""
+        """Create Sales and Purchase Invoice side by side"""
         # Styling
         header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
         header_font = Font(bold=True, color="FFFFFF", size=10)
@@ -793,13 +806,12 @@ class JobOrderWindow:
         # ==================== LEFT SIDE: SALES INVOICE ====================
         
         # Title Sales
-        ws.merge_cells('A1:E1')
+        ws.merge_cells('A1:D1')
         title_sales = ws['A1']
         title_sales.value = "JOB ORDER ACCOUNT - SALES INVOICE"
         title_sales.font = title_font
         title_sales.alignment = Alignment(horizontal='center', vertical='center')
-        # Apply border to all merged cells
-        self._apply_border_to_range(ws, 1, 1, 1, 5, border_thin)
+        self._apply_border_to_range(ws, 1, 1, 1, 4, border_thin)
         ws.row_dimensions[1].height = 25
         
         # Sales Document Info
@@ -807,33 +819,33 @@ class JobOrderWindow:
         ws[f'A{row}'] = "SHIPPING LINE:"
         ws[f'A{row}'].font = Font(bold=True)
         ws[f'B{row}'] = joa_info.get('shipping_line', '-')
-        ws[f'D{row}'] = "ETD:"
-        ws[f'D{row}'].font = Font(bold=True)
-        ws[f'E{row}'] = joa_info.get('etd_sub', '-')
+        ws[f'C{row}'] = "ETD:"
+        ws[f'C{row}'].font = Font(bold=True)
+        ws[f'D{row}'] = joa_info.get('etd_sub', '-')
         
         row += 1
         ws[f'A{row}'] = "NAMA KAPAL:"
         ws[f'A{row}'].font = Font(bold=True)
         ws[f'B{row}'] = joa_info.get('feeder', '-')
-        ws[f'D{row}'] = "ETA:"
-        ws[f'D{row}'].font = Font(bold=True)
-        ws[f'E{row}'] = joa_info.get('eta_sub', '-')
+        ws[f'C{row}'] = "ETA:"
+        ws[f'C{row}'].font = Font(bold=True)
+        ws[f'D{row}'] = joa_info.get('eta_sub', '-')
         
         row += 1
         ws[f'A{row}'] = "PARTY:"
         ws[f'A{row}'].font = Font(bold=True)
         ws[f'B{row}'] = joa_info.get('party_display', '-')
-        ws.merge_cells(f'B{row}:E{row}')
+        ws.merge_cells(f'B{row}:D{row}')
         
         row += 1
         ws[f'A{row}'] = "NO. JOA:"
         ws[f'A{row}'].font = Font(bold=True)
         ws[f'B{row}'] = joa_info.get('joa', '-')
-        ws.merge_cells(f'B{row}:E{row}')
+        ws.merge_cells(f'B{row}:D{row}')
         
-        # Sales Table Headers
+        # ✅ Sales Table Headers TANPA INVOICE
         row += 2
-        headers_sales = ['CUSTOMER', 'Rp', 'INVOICE', 'KUBIKASI', 'TONASE']
+        headers_sales = ['CUSTOMER', 'Rp', 'KUBIKASI', 'TONASE']
         for col_idx, header in enumerate(headers_sales, start=1):
             cell = ws.cell(row=row, column=col_idx)
             cell.value = header
@@ -855,42 +867,37 @@ class JobOrderWindow:
             cell.alignment = Alignment(horizontal='left', vertical='center')
             
             # Rp
-            cell = ws.cell(row=row, column=2, value="Rp")
-            cell.border = border_thin
-            cell.alignment = Alignment(horizontal='center', vertical='center')
-            
-            # Invoice
-            invoice_str = str(values[1]).replace('Rp', '').replace(',', '').strip()
+            rp_str = str(values[1]).replace('Rp', '').replace(',', '').strip()
             try:
-                invoice_val = float(invoice_str)
+                rp_val = float(rp_str)
             except:
-                invoice_val = 0
+                rp_val = 0
             
-            cell = ws.cell(row=row, column=3, value=invoice_val)
+            cell = ws.cell(row=row, column=2, value=rp_val)
             cell.border = border_thin
-            cell.number_format = '#,##0'
+            cell.number_format = '"Rp "#,##0'
             cell.alignment = Alignment(horizontal='right', vertical='center')
             
             # Kubikasi
-            kubikasi_str = str(values[3]).replace('-', '0')
+            kubikasi_str = str(values[2]).replace('-', '0')
             try:
                 kubikasi = float(kubikasi_str)
             except:
                 kubikasi = 0
             
-            cell = ws.cell(row=row, column=4, value=kubikasi)
+            cell = ws.cell(row=row, column=3, value=kubikasi)
             cell.border = border_thin
             cell.number_format = '0.0000'
             cell.alignment = Alignment(horizontal='right', vertical='center')
             
             # Tonase
-            tonase_str = str(values[4]).replace('-', '0')
+            tonase_str = str(values[3]).replace('-', '0')
             try:
                 tonase = float(tonase_str)
             except:
                 tonase = 0
             
-            cell = ws.cell(row=row, column=5, value=tonase)
+            cell = ws.cell(row=row, column=4, value=tonase)
             cell.border = border_thin
             cell.number_format = '0.00'
             cell.alignment = Alignment(horizontal='right', vertical='center')
@@ -902,58 +909,56 @@ class JobOrderWindow:
         # ==================== RIGHT SIDE: PURCHASE INVOICE ====================
         
         # Title Purchase
-        ws.merge_cells('G1:K1')
-        title_purchase = ws['G1']
+        ws.merge_cells('F1:I1')
+        title_purchase = ws['F1']
         title_purchase.value = "JOB ORDER ACCOUNT - PURCHASE INVOICE"
         title_purchase.font = title_font
         title_purchase.alignment = Alignment(horizontal='center', vertical='center')
-        # Apply border to all merged cells
-        self._apply_border_to_range(ws, 1, 7, 1, 11, border_thin)
+        self._apply_border_to_range(ws, 1, 6, 1, 9, border_thin)
         
         # Purchase Document Info
         row = 3
-        ws[f'G{row}'] = "SHIPPING LINE:"
-        ws[f'G{row}'].font = Font(bold=True)
-        ws[f'H{row}'] = joa_info.get('shipping_line', '-')
-        ws[f'J{row}'] = "ETD:"
-        ws[f'J{row}'].font = Font(bold=True)
-        ws[f'K{row}'] = joa_info.get('etd_sub', '-')
+        ws[f'F{row}'] = "SHIPPING LINE:"
+        ws[f'F{row}'].font = Font(bold=True)
+        ws[f'G{row}'] = joa_info.get('shipping_line', '-')
+        ws[f'H{row}'] = "ETD:"
+        ws[f'H{row}'].font = Font(bold=True)
+        ws[f'I{row}'] = joa_info.get('etd_sub', '-')
         
         row += 1
-        ws[f'G{row}'] = "NAMA KAPAL:"
-        ws[f'G{row}'].font = Font(bold=True)
-        ws[f'H{row}'] = joa_info.get('feeder', '-')
-        ws[f'J{row}'] = "ETA:"
-        ws[f'J{row}'].font = Font(bold=True)
-        ws[f'K{row}'] = joa_info.get('eta_sub', '-')
+        ws[f'F{row}'] = "NAMA KAPAL:"
+        ws[f'F{row}'].font = Font(bold=True)
+        ws[f'G{row}'] = joa_info.get('feeder', '-')
+        ws[f'H{row}'] = "ETA:"
+        ws[f'H{row}'].font = Font(bold=True)
+        ws[f'I{row}'] = joa_info.get('eta_sub', '-')
         
         row += 1
-        ws[f'G{row}'] = "PARTY:"
-        ws[f'G{row}'].font = Font(bold=True)
-        ws[f'H{row}'] = joa_info.get('party_display', '-')
-        ws.merge_cells(f'H{row}:K{row}')
+        ws[f'F{row}'] = "PARTY:"
+        ws[f'F{row}'].font = Font(bold=True)
+        ws[f'G{row}'] = joa_info.get('party_display', '-')
+        ws.merge_cells(f'G{row}:I{row}')
         
         row += 1
-        ws[f'G{row}'] = "NO. JOA:"
-        ws[f'G{row}'].font = Font(bold=True)
-        ws[f'H{row}'] = joa_info.get('joa', '-')
-        ws.merge_cells(f'H{row}:K{row}')
+        ws[f'F{row}'] = "NO. JOA:"
+        ws[f'F{row}'].font = Font(bold=True)
+        ws[f'G{row}'] = joa_info.get('joa', '-')
+        ws.merge_cells(f'G{row}:I{row}')
         
         # ===== BIAYA POL SECTION =====
         row += 2
-        ws.merge_cells(f'G{row}:K{row}')
-        section_pol = ws[f'G{row}']
+        ws.merge_cells(f'F{row}:I{row}')
+        section_pol = ws[f'F{row}']
         section_pol.value = "BIAYA POL"
         section_pol.font = Font(bold=True, size=11)
         section_pol.alignment = Alignment(horizontal='center', vertical='center')
         section_pol.fill = section_fill
-        # Apply border to all merged cells in section header
-        self._apply_border_to_range(ws, row, 7, row, 11, border_thin)
+        self._apply_border_to_range(ws, row, 6, row, 9, border_thin)
         
         # POL Headers
         row += 1
         pol_headers = ['KETERANGAN', 'UNIT', 'BIAYA POL', 'TOTAL']
-        for col_idx, header in enumerate(pol_headers, start=7):
+        for col_idx, header in enumerate(pol_headers, start=6):
             cell = ws.cell(row=row, column=col_idx)
             cell.value = header
             cell.fill = header_fill
@@ -969,12 +974,12 @@ class JobOrderWindow:
             values = self.pol_tree.item(item)['values']
             
             # Keterangan
-            cell = ws.cell(row=row, column=7, value=values[0])
+            cell = ws.cell(row=row, column=6, value=values[0])
             cell.border = border_thin
             cell.alignment = Alignment(horizontal='left', vertical='center')
             
             # Unit
-            cell = ws.cell(row=row, column=8, value=values[1])
+            cell = ws.cell(row=row, column=7, value=values[1])
             cell.border = border_thin
             cell.alignment = Alignment(horizontal='center', vertical='center')
             
@@ -985,7 +990,7 @@ class JobOrderWindow:
             except:
                 biaya = 0
             
-            cell = ws.cell(row=row, column=9, value=biaya)
+            cell = ws.cell(row=row, column=8, value=biaya)
             cell.border = border_thin
             cell.number_format = '"Rp "#,##0'
             cell.alignment = Alignment(horizontal='right', vertical='center')
@@ -997,7 +1002,7 @@ class JobOrderWindow:
             except:
                 total = 0
             
-            cell = ws.cell(row=row, column=10, value=total)
+            cell = ws.cell(row=row, column=9, value=total)
             cell.border = border_thin
             cell.number_format = '"Rp "#,##0'
             cell.alignment = Alignment(horizontal='right', vertical='center')
@@ -1008,19 +1013,18 @@ class JobOrderWindow:
         
         # ===== BIAYA POD SECTION =====
         row += 1
-        ws.merge_cells(f'G{row}:K{row}')
-        section_pod = ws[f'G{row}']
+        ws.merge_cells(f'F{row}:I{row}')
+        section_pod = ws[f'F{row}']
         section_pod.value = "BIAYA POD"
         section_pod.font = Font(bold=True, size=11)
         section_pod.alignment = Alignment(horizontal='center', vertical='center')
         section_pod.fill = section_fill
-        # Apply border to all merged cells in section header
-        self._apply_border_to_range(ws, row, 7, row, 11, border_thin)
+        self._apply_border_to_range(ws, row, 6, row, 9, border_thin)
         
         # POD Headers
         row += 1
         pod_headers = ['KETERANGAN', 'UNIT', 'BIAYA POD', 'TOTAL']
-        for col_idx, header in enumerate(pod_headers, start=7):
+        for col_idx, header in enumerate(pod_headers, start=6):
             cell = ws.cell(row=row, column=col_idx)
             cell.value = header
             cell.fill = header_fill
@@ -1036,12 +1040,12 @@ class JobOrderWindow:
             values = self.pod_tree.item(item)['values']
             
             # Keterangan
-            cell = ws.cell(row=row, column=7, value=values[0])
+            cell = ws.cell(row=row, column=6, value=values[0])
             cell.border = border_thin
             cell.alignment = Alignment(horizontal='left', vertical='center')
             
             # Unit
-            cell = ws.cell(row=row, column=8, value=values[1])
+            cell = ws.cell(row=row, column=7, value=values[1])
             cell.border = border_thin
             cell.alignment = Alignment(horizontal='center', vertical='center')
             
@@ -1052,7 +1056,7 @@ class JobOrderWindow:
             except:
                 biaya = 0
             
-            cell = ws.cell(row=row, column=9, value=biaya)
+            cell = ws.cell(row=row, column=8, value=biaya)
             cell.border = border_thin
             cell.number_format = '"Rp "#,##0'
             cell.alignment = Alignment(horizontal='right', vertical='center')
@@ -1064,7 +1068,7 @@ class JobOrderWindow:
             except:
                 total = 0
             
-            cell = ws.cell(row=row, column=10, value=total)
+            cell = ws.cell(row=row, column=9, value=total)
             cell.border = border_thin
             cell.number_format = '"Rp "#,##0'
             cell.alignment = Alignment(horizontal='right', vertical='center')
@@ -1073,12 +1077,12 @@ class JobOrderWindow:
         
         pod_end_row = row
         
-        # ===== TOTALS - BOLD TANPA WARNA =====
+        # ===== TOTALS =====
         max_row = max(sales_end_row, pod_end_row)
         
-        # TOTAL POL (langsung di bawah tabel POL)
+        # TOTAL POL
         row = pol_end_row
-        cell = ws.cell(row=row, column=7, value="TOTAL POL:")
+        cell = ws.cell(row=row, column=6, value="TOTAL POL:")
         cell.font = Font(bold=True, size=11)
         cell.alignment = Alignment(horizontal='right', vertical='center')
         
@@ -1088,14 +1092,14 @@ class JobOrderWindow:
         except:
             pol_total_val = 0
         
-        cell = ws.cell(row=row, column=10, value=pol_total_val)
+        cell = ws.cell(row=row, column=9, value=pol_total_val)
         cell.font = Font(bold=True, size=11)
         cell.number_format = '"Rp "#,##0'
         cell.alignment = Alignment(horizontal='right', vertical='center')
         
-        # TOTAL POD (langsung di bawah tabel POD)
+        # TOTAL POD
         row = pod_end_row
-        cell = ws.cell(row=row, column=7, value="TOTAL POD:")
+        cell = ws.cell(row=row, column=6, value="TOTAL POD:")
         cell.font = Font(bold=True, size=11)
         cell.alignment = Alignment(horizontal='right', vertical='center')
         
@@ -1105,14 +1109,14 @@ class JobOrderWindow:
         except:
             pod_total_val = 0
         
-        cell = ws.cell(row=row, column=10, value=pod_total_val)
+        cell = ws.cell(row=row, column=9, value=pod_total_val)
         cell.font = Font(bold=True, size=11)
         cell.number_format = '"Rp "#,##0'
         cell.alignment = Alignment(horizontal='right', vertical='center')
         
         # PURCHASE TOTAL
         row = max_row + 2
-        cell = ws.cell(row=row, column=7, value="PURCHASE TOTAL:")
+        cell = ws.cell(row=row, column=6, value="PURCHASE TOTAL:")
         cell.font = Font(bold=True, size=12)
         cell.alignment = Alignment(horizontal='right', vertical='center')
         
@@ -1122,12 +1126,12 @@ class JobOrderWindow:
         except:
             purchase_total_val = 0
         
-        cell = ws.cell(row=row, column=10, value=purchase_total_val)
+        cell = ws.cell(row=row, column=9, value=purchase_total_val)
         cell.font = Font(bold=True, size=12)
         cell.number_format = '"Rp "#,##0'
         cell.alignment = Alignment(horizontal='right', vertical='center')
         
-        # SALES TOTAL (di bawah kiri)
+        # SALES TOTAL
         row = max_row + 2
         cell = ws.cell(row=row, column=1, value="SALES TOTAL:")
         cell.font = Font(bold=True, size=12)
@@ -1139,29 +1143,26 @@ class JobOrderWindow:
         except:
             sales_total_val = 0
         
-        cell = ws.cell(row=row, column=3, value=sales_total_val)
+        cell = ws.cell(row=row, column=2, value=sales_total_val)
         cell.font = Font(bold=True, size=12)
         cell.number_format = '"Rp "#,##0'
         cell.alignment = Alignment(horizontal='right', vertical='center')
         
         # ==================== COLUMN WIDTHS ====================
-        ws.column_dimensions['A'].width = 28  # Customer
-        ws.column_dimensions['B'].width = 5   # Rp
-        ws.column_dimensions['C'].width = 15  # Invoice
-        ws.column_dimensions['D'].width = 12  # Kubikasi
-        ws.column_dimensions['E'].width = 12  # Tonase
-        ws.column_dimensions['F'].width = 3   # Spacing
-        ws.column_dimensions['G'].width = 25  # Keterangan Purchase
-        ws.column_dimensions['H'].width = 10  # Unit
-        ws.column_dimensions['I'].width = 15  # Biaya
-        ws.column_dimensions['J'].width = 15  # Total
-        ws.column_dimensions['K'].width = 3   # Extra spacing
+        ws.column_dimensions['A'].width = 35  # Customer
+        ws.column_dimensions['B'].width = 18  # Rp
+        ws.column_dimensions['C'].width = 12  # Kubikasi
+        ws.column_dimensions['D'].width = 12  # Tonase
+        ws.column_dimensions['E'].width = 3   # Spacing
+        ws.column_dimensions['F'].width = 25  # Keterangan Purchase
+        ws.column_dimensions['G'].width = 10  # Unit
+        ws.column_dimensions['H'].width = 15  # Biaya
+        ws.column_dimensions['I'].width = 15  # Total
         
         # Set row heights
         for r in range(1, row + 1):
             if ws.row_dimensions[r].height is None:
                 ws.row_dimensions[r].height = 18
-
 
     def print_preview(self):
         """Show print preview window"""
@@ -1169,17 +1170,14 @@ class JobOrderWindow:
             messagebox.showwarning("Warning", "Pilih JOA terlebih dahulu!")
             return
         
-        # Create preview window
         preview_window = tk.Toplevel(self.window)
         preview_window.title(f"Print Preview - JOA {self.selected_joa}")
         
-        # Make preview window responsive
         preview_width = int(self.window.winfo_width() * 0.7)
         preview_height = int(self.window.winfo_height() * 0.8)
         preview_window.geometry(f"{preview_width}x{preview_height}")
         preview_window.minsize(600, 400)
         
-        # Create text widget with scrollbar
         text_frame = ttk.Frame(preview_window)
         text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
@@ -1191,7 +1189,6 @@ class JobOrderWindow:
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=text_widget.yview)
         
-        # Generate preview content
         joa_info = self.joa_data.get(self.selected_joa, {})
         
         content = f"""
@@ -1221,17 +1218,11 @@ Tanggal Print  : {datetime.now().strftime('%d-%m-%Y %H:%M')}
         content += f"""{'-'*80}
 {'TOTAL':>62} Rp {total:>12,.0f}
 {'='*80}
-
-Keterangan:
-- Port to Port (PP): Dari pelabuhan ke pelabuhan
-- Port to Door (PD): Dari pelabuhan ke alamat tujuan
-- Door to Door (DD): Dari alamat pengirim ke alamat tujuan
 """
         
         text_widget.insert('1.0', content)
         text_widget.config(state=tk.DISABLED)
         
-        # Print button
         btn_frame = ttk.Frame(preview_window)
         btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         
