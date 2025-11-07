@@ -881,7 +881,7 @@ class ContainerWindow:
             "PPH 25", "PPH 21", "Pajak", "Trucking Samarinda ke SMA",
             "THC SMD", "Dooring Barang Ringan", "Bi. Dooring Barang Berat",
             "Buruh Harian di depo Samarinda", "Bi. Lolo Empty", "Bi. Ops Samarinda",
-            "Bi. Sewa JPT & Adm", "Bi. Forklip Samarinda", "Bi. Lolo", "Rekolasi Samarinda"
+            "Bi. Sewa JPT & Adm", "Bi. Forklif Samarinda", "Bi. Lolo", "Rekolasi Samarinda"
         ]
         self.delivery_desc_combo['values'] = common_titles
         self.delivery_desc_combo.pack(side='left', padx=(5, 20))

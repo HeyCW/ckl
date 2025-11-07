@@ -364,13 +364,9 @@ class JobOrderWindow:
         # ===== BOTTOM BUTTONS =====
         buttons_frame = ttk.Frame(right_frame)
         buttons_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
-        
-        ttk.Button(buttons_frame, text="📄 Export to Excel", 
+
+        ttk.Button(buttons_frame, text="📄 Export to Excel",
                   command=self.export_to_excel).pack(side=tk.LEFT, padx=5)
-        ttk.Button(buttons_frame, text="🖨️ Print Preview", 
-                  command=self.print_preview).pack(side=tk.LEFT, padx=5)
-        ttk.Button(buttons_frame, text="🔄 Refresh", 
-                  command=self.refresh_current_joa).pack(side=tk.LEFT, padx=5)
     
     def load_joa_list(self):
         """Load list of JOAs"""
@@ -415,13 +411,13 @@ class JobOrderWindow:
                 if kapal_id:
                     try:
                         kapal_query = """
-                            SELECT feeder, destination, etd_sub, cls, open, full
-                            FROM kapals 
+                            SELECT feeder, destination, etd_sub, cls, open, full, shipping_line
+                            FROM kapals
                             WHERE kapal_id = ?
                         """
-                        
+
                         kapal_result = self.db.execute_one(kapal_query, (kapal_id,))
-                        
+
                         if kapal_result:
                             if self.joa_data[joa]['feeder'] is None:
                                 self.joa_data[joa]['feeder'] = kapal_result['feeder']
@@ -430,6 +426,7 @@ class JobOrderWindow:
                                 self.joa_data[joa]['cls'] = kapal_result['cls']
                                 self.joa_data[joa]['open'] = kapal_result['open']
                                 self.joa_data[joa]['full'] = kapal_result['full']
+                                self.joa_data[joa]['shipping_line'] = kapal_result['shipping_line']
                     except Exception as e:
                         print(f"ERROR getting kapal info: {e}")
                 
@@ -792,10 +789,8 @@ class JobOrderWindow:
     def _create_side_by_side_from_ui(self, ws, joa_info):
         """Create Sales and Purchase Invoice side by side"""
         # Styling
-        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        header_font = Font(bold=True, color="FFFFFF", size=10)
+        header_font = Font(bold=True, size=10)
         title_font = Font(bold=True, size=12)
-        section_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
         border_thin = Border(
             left=Side(style='thin'),
             right=Side(style='thin'),
@@ -849,7 +844,6 @@ class JobOrderWindow:
         for col_idx, header in enumerate(headers_sales, start=1):
             cell = ws.cell(row=row, column=col_idx)
             cell.value = header
-            cell.fill = header_fill
             cell.font = header_font
             cell.border = border_thin
             cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -952,7 +946,6 @@ class JobOrderWindow:
         section_pol.value = "BIAYA POL"
         section_pol.font = Font(bold=True, size=11)
         section_pol.alignment = Alignment(horizontal='center', vertical='center')
-        section_pol.fill = section_fill
         self._apply_border_to_range(ws, row, 6, row, 9, border_thin)
         
         # POL Headers
@@ -961,7 +954,6 @@ class JobOrderWindow:
         for col_idx, header in enumerate(pol_headers, start=6):
             cell = ws.cell(row=row, column=col_idx)
             cell.value = header
-            cell.fill = header_fill
             cell.font = header_font
             cell.border = border_thin
             cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -1018,7 +1010,6 @@ class JobOrderWindow:
         section_pod.value = "BIAYA POD"
         section_pod.font = Font(bold=True, size=11)
         section_pod.alignment = Alignment(horizontal='center', vertical='center')
-        section_pod.fill = section_fill
         self._apply_border_to_range(ws, row, 6, row, 9, border_thin)
         
         # POD Headers
@@ -1027,7 +1018,6 @@ class JobOrderWindow:
         for col_idx, header in enumerate(pod_headers, start=6):
             cell = ws.cell(row=row, column=col_idx)
             cell.value = header
-            cell.fill = header_fill
             cell.font = header_font
             cell.border = border_thin
             cell.alignment = Alignment(horizontal='center', vertical='center')

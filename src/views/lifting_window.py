@@ -145,7 +145,9 @@ class LiftingWindow:
             "BI. LAIN POL",
             "PPH POL", "PPN POL", "TOTAL BIAYA POL",
             "THC, LOLO, RELOKASI POD",
-            "OPS POD",
+            "TRUCKING, DOORING POD",
+            "FORKLIF POD",
+            "BURUH POD",
             "BI. LAIN POD",
             "TOTAL BIAYA POD",
             "TOTAL BIAYA", "NILAI INVOICE", "PROFIT"
@@ -279,30 +281,42 @@ class LiftingWindow:
                         ) THEN cdc.cost ELSE 0 END) AS bi_lain_pol,
                         -- Total POL
                         SUM(CASE WHEN cdc.delivery = 'Surabaya' THEN cdc.cost ELSE 0 END) AS total_biaya_pol,
-                        -- POD (Non-Surabaya) - THC Group (THC + LOLO + RELOKASI + SEAL + DOC + CLEANING)
+                        -- POD (Non-Surabaya) - THC Group (THC + LOLO + RELOKASI)
                         SUM(CASE WHEN cdc.delivery <> 'Surabaya' AND (
                             cdc.description LIKE '%THC%' OR
                             cdc.description LIKE '%Lolo%' OR
                             cdc.description LIKE '%Relokasi%' OR
-                            cdc.description LIKE '%Rekolasi%' OR
-                            cdc.description LIKE '%Seal%' OR
-                            cdc.description LIKE '%DOC%' OR
-                            cdc.description LIKE '%Doc%' OR
-                            cdc.description LIKE '%Cleaning%'
+                            cdc.description LIKE '%Rekolasi%'
                         ) THEN cdc.cost ELSE 0 END) AS thc_pod,
-                        -- POD (Non-Surabaya) - OPS
-                        SUM(CASE WHEN cdc.delivery <> 'Surabaya' AND cdc.description LIKE '%OPS%' THEN cdc.cost ELSE 0 END) AS ops_pod,
+                        -- POD (Non-Surabaya) - TRUCKING, DOORING
+                        SUM(CASE WHEN cdc.delivery <> 'Surabaya' AND (
+                            cdc.description LIKE '%Trucking%' OR
+                            cdc.description LIKE '%Truck%' OR
+                            cdc.description LIKE '%Dooring%' OR
+                            cdc.description LIKE '%Door%'
+                        ) THEN cdc.cost ELSE 0 END) AS trucking_dooring_pod,
+                        -- POD (Non-Surabaya) - FORKLIFT
+                        SUM(CASE WHEN cdc.delivery <> 'Surabaya' AND (
+                            cdc.description LIKE '%Forklift%' OR
+                            cdc.description LIKE '%Forklif%'
+                        ) THEN cdc.cost ELSE 0 END) AS forklift_pod,
+                        -- POD (Non-Surabaya) - BURUH
+                        SUM(CASE WHEN cdc.delivery <> 'Surabaya' AND (
+                            cdc.description LIKE '%Buruh%'
+                        ) THEN cdc.cost ELSE 0 END) AS buruh_pod,
                         -- POD (Non-Surabaya) - BI. LAIN (biaya lain-lain yang tidak termasuk kategori di atas)
                         SUM(CASE WHEN cdc.delivery <> 'Surabaya' AND NOT (
                             cdc.description LIKE '%THC%' OR
                             cdc.description LIKE '%Lolo%' OR
                             cdc.description LIKE '%Relokasi%' OR
                             cdc.description LIKE '%Rekolasi%' OR
-                            cdc.description LIKE '%Seal%' OR
-                            cdc.description LIKE '%DOC%' OR
-                            cdc.description LIKE '%Doc%' OR
-                            cdc.description LIKE '%Cleaning%' OR
-                            cdc.description LIKE '%OPS%'
+                            cdc.description LIKE '%Trucking%' OR
+                            cdc.description LIKE '%Truck%' OR
+                            cdc.description LIKE '%Dooring%' OR
+                            cdc.description LIKE '%Door%' OR
+                            cdc.description LIKE '%Forklift%' OR
+                            cdc.description LIKE '%Forklif%' OR
+                            cdc.description LIKE '%Buruh%'
                         ) THEN cdc.cost ELSE 0 END) AS bi_lain_pod,
                         -- Total POD
                         SUM(CASE WHEN cdc.delivery <> 'Surabaya' THEN cdc.cost ELSE 0 END) AS total_biaya_pod,
@@ -323,7 +337,9 @@ class LiftingWindow:
                     SUM(COALESCE(d.ppn_pol,0)) AS 'PPN POL',
                     SUM(COALESCE(d.total_biaya_pol,0)) AS 'TOTAL BIAYA POL',
                     SUM(COALESCE(d.thc_pod,0)) AS 'THC, LOLO, RELOKASI POD',
-                    SUM(COALESCE(d.ops_pod,0)) AS 'OPS POD',
+                    SUM(COALESCE(d.trucking_dooring_pod,0)) AS 'TRUCKING, DOORING POD',
+                    SUM(COALESCE(d.forklift_pod,0)) AS 'FORKLIF POD',
+                    SUM(COALESCE(d.buruh_pod,0)) AS 'BURUH POD',
                     SUM(COALESCE(d.bi_lain_pod,0)) AS 'BI. LAIN POD',
                     SUM(COALESCE(d.total_biaya_pod,0)) AS 'TOTAL BIAYA POD',
                     SUM(COALESCE(d.total_biaya,0)) AS 'TOTAL BIAYA',
@@ -447,7 +463,7 @@ class LiftingWindow:
             
             # Title
             current_row = 1
-            ws.merge_cells(f'A{current_row}:Q{current_row}')
+            ws.merge_cells(f'A{current_row}:S{current_row}')
             title_cell = ws[f'A{current_row}']
             title_cell.value = "📦 LAPORAN LIFTING (BIAYA POL & POD)"
             title_cell.font = Font(name='Arial', size=14, bold=True, color="FFFFFF")
@@ -457,7 +473,7 @@ class LiftingWindow:
             current_row += 1
 
             # Filter info
-            ws.merge_cells(f'A{current_row}:Q{current_row}')
+            ws.merge_cells(f'A{current_row}:S{current_row}')
             filter_cell = ws[f'A{current_row}']
             start_date_display = self.start_date.get_date().strftime("%d/%m/%Y")
             end_date_display = self.end_date.get_date().strftime("%d/%m/%Y")
@@ -477,7 +493,9 @@ class LiftingWindow:
                 "BI. LAIN POL",
                 "PPH POL", "PPN POL", "TOTAL BIAYA POL",
                 "THC, LOLO, RELOKASI POD",
-                "OPS POD",
+                "TRUCKING, DOORING POD",
+                "FORKLIF POD",
+                "BURUH POD",
                 "BI. LAIN POD",
                 "TOTAL BIAYA POD",
                 "TOTAL BIAYA", "NILAI INVOICE", "PROFIT"
@@ -554,17 +572,19 @@ class LiftingWindow:
                 4: 15,   # Freight LSS POL
                 5: 13,   # TRUCKING POL
                 6: 11,   # OPS POL
-                7: 14,   # BI. LAIN POL (termasuk Asuransi)
+                7: 14,   # BI. LAIN POL
                 8: 11,   # PPH POL
                 9: 11,   # PPN POL
                 10: 16,  # TOTAL BIAYA POL
                 11: 20,  # THC, LOLO, RELOKASI POD
-                12: 11,  # OPS POD
-                13: 13,  # BI. LAIN POD
-                14: 16,  # TOTAL BIAYA POD
-                15: 14,  # TOTAL BIAYA
-                16: 15,  # NILAI INVOICE
-                17: 13   # PROFIT
+                12: 17,  # TRUCKING, DOORING POD
+                13: 13,  # FORKLIF POD
+                14: 12,  # BURUH POD
+                15: 13,  # BI. LAIN POD
+                16: 16,  # TOTAL BIAYA POD
+                17: 14,  # TOTAL BIAYA
+                18: 15,  # NILAI INVOICE
+                19: 13   # PROFIT
             }
             
             for col_idx, width in column_widths.items():

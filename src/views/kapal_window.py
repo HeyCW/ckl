@@ -47,14 +47,15 @@ class KapalWindow:
                 window_width = self.window.winfo_width()
                 available_width = window_width - 100
                 
-                # Proportional widths for kapal columns (TANPA Party)
+                # Proportional widths for kapal columns (DENGAN Shipping Line)
                 self.tree.column('ID', width=int(available_width * 0.04))
-                self.tree.column('Feeder', width=int(available_width * 0.15))
-                self.tree.column('ETD Sub', width=int(available_width * 0.12))
-                self.tree.column('CLS', width=int(available_width * 0.12))
-                self.tree.column('Open', width=int(available_width * 0.12))
-                self.tree.column('Full', width=int(available_width * 0.12))
-                self.tree.column('Destination', width=int(available_width * 0.15))
+                self.tree.column('Shipping Line', width=int(available_width * 0.12))
+                self.tree.column('Feeder', width=int(available_width * 0.13))
+                self.tree.column('ETD Sub', width=int(available_width * 0.10))
+                self.tree.column('CLS', width=int(available_width * 0.10))
+                self.tree.column('Open', width=int(available_width * 0.10))
+                self.tree.column('Full', width=int(available_width * 0.10))
+                self.tree.column('Destination', width=int(available_width * 0.13))
                 self.tree.column('Created', width=int(available_width * 0.09))
                 self.tree.column('Updated', width=int(available_width * 0.09))
             except:
@@ -230,13 +231,14 @@ class KapalWindow:
         label_font = ('Arial', self.scaled_font(10), 'bold')
         entry_font = ('Arial', self.scaled_font(10))
         
-        # Define fields (TANPA Party)
+        # Define fields (DENGAN Shipping Line)
         fields = [
-            ("Feeder", "feeder", 0, 0, "text"),
-            ("ETD Sub", "etd_sub", 0, 2, "date"),
-            ("CLS", "cls", 0, 4, "date"),
-            ("Open", "open", 1, 0, "date"),
-            ("Full", "full", 1, 2, "date"),
+            ("Shipping Line", "shipping_line", 0, 0, "text"),
+            ("Feeder", "feeder", 0, 2, "text"),
+            ("ETD Sub", "etd_sub", 0, 4, "date"),
+            ("CLS", "cls", 1, 0, "date"),
+            ("Open", "open", 1, 2, "date"),
+            ("Full", "full", 1, 4, "date"),
             ("Destination", "destination", 2, 0, "text")
         ]
         
@@ -362,8 +364,8 @@ class KapalWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        # Define columns (TANPA Party)
-        columns = ('ID', 'Feeder', 'ETD Sub', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
+        # Define columns (DENGAN Shipping Line)
+        columns = ('ID', 'Shipping Line', 'Feeder', 'ETD Sub', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
 
         # Create PaginatedTreeView
         self.tree = PaginatedTreeView(
@@ -379,14 +381,15 @@ class KapalWindow:
         
         column_configs = {
             'ID': ('ID', max(40, int(window_width * 0.03))),
+            'Shipping Line': ('Shipping Line', max(100, int(window_width * 0.10))),
             'Feeder': ('Feeder', max(100, int(window_width * 0.12))),
-            'ETD Sub': ('ETD Sub', max(90, int(window_width * 0.10))),
-            'CLS': ('CLS', max(90, int(window_width * 0.10))),
-            'Open': ('Open', max(90, int(window_width * 0.10))),
-            'Full': ('Full', max(90, int(window_width * 0.10))),
-            'Destination': ('Destination', max(150, int(window_width * 0.15))),
-            'Created': ('Created', max(120, int(window_width * 0.15))),
-            'Updated': ('Updated', max(120, int(window_width * 0.15)))
+            'ETD Sub': ('ETD Sub', max(90, int(window_width * 0.08))),
+            'CLS': ('CLS', max(90, int(window_width * 0.08))),
+            'Open': ('Open', max(90, int(window_width * 0.08))),
+            'Full': ('Full', max(90, int(window_width * 0.08))),
+            'Destination': ('Destination', max(150, int(window_width * 0.12))),
+            'Created': ('Created', max(120, int(window_width * 0.12))),
+            'Updated': ('Updated', max(120, int(window_width * 0.12)))
         }
 
         for col, (heading_text, width) in column_configs.items():
@@ -434,15 +437,16 @@ class KapalWindow:
             if not data.get('feeder') or not data.get('destination'):
                 messagebox.showerror("Error", "Feeder dan Destination wajib diisi!")
                 return
-            
-            # Query tanpa party
+
+            # Query dengan shipping_line
             query = '''
-                INSERT INTO kapals (feeder, etd_sub, cls, open, full, destination)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO kapals (shipping_line, feeder, etd_sub, cls, open, full, destination)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             '''
-            
-            # Params tanpa party - konversi tanggal ke format database
+
+            # Params dengan shipping_line - konversi tanggal ke format database
             params = (
+                data['shipping_line'],
                 data['feeder'],
                 self.format_date_for_database(data['etd_sub']) if data['etd_sub'] else None,
                 self.format_date_for_database(data['cls']) if data['cls'] else None,
@@ -478,17 +482,18 @@ class KapalWindow:
             
             # Get kapal_id from selected item
             kapal_id = self.tree.item(self.selected_item, 'values')[0]
-            
-            # Query tanpa party
+
+            # Query dengan shipping_line
             query = '''
-                UPDATE kapals 
-                SET feeder=?, etd_sub=?, cls=?, open=?, full=?, 
+                UPDATE kapals
+                SET shipping_line=?, feeder=?, etd_sub=?, cls=?, open=?, full=?,
                     destination=?, updated_at=CURRENT_TIMESTAMP
                 WHERE kapal_id=?
             '''
-            
-            # Params tanpa party - konversi tanggal ke format database
+
+            # Params dengan shipping_line - konversi tanggal ke format database
             params = (
+                data['shipping_line'],
                 data['feeder'],
                 self.format_date_for_database(data['etd_sub']) if data['etd_sub'] else None,
                 self.format_date_for_database(data['cls']) if data['cls'] else None,
@@ -540,9 +545,9 @@ class KapalWindow:
     def load_data(self):
         """Load all kapal data into PaginatedTreeView dengan format tanggal Indonesia"""
         try:
-            # Query tanpa party
+            # Query dengan shipping_line
             query = """
-                SELECT kapal_id, feeder, etd_sub, cls, open, full,
+                SELECT kapal_id, shipping_line, feeder, etd_sub, cls, open, full,
                     destination, created_at, updated_at
                 FROM kapals
                 ORDER BY created_at DESC
@@ -558,10 +563,10 @@ class KapalWindow:
                     # Format dates for display
                     formatted_row = []
                     for i, value in enumerate(row):
-                        # Date columns: etd_sub(2), cls(3), open(4), full(5), created_at(7), updated_at(8)
-                        if i in [2, 3, 4, 5]:  # Date columns (tanpa timestamp)
+                        # Date columns: etd_sub(3), cls(4), open(5), full(6), created_at(8), updated_at(9)
+                        if i in [3, 4, 5, 6]:  # Date columns (tanpa timestamp)
                             formatted_value = self.format_date_for_display(value)
-                        elif i in [7, 8] and value:  # DateTime columns
+                        elif i in [8, 9] and value:  # DateTime columns
                             try:
                                 if 'T' in str(value):
                                     dt = datetime.fromisoformat(str(value).replace('T', ' '))
@@ -622,8 +627,8 @@ class KapalWindow:
             self.selected_item = selected[0]
             values = self.tree.item(self.selected_item, 'values')
             
-            # Fill form with selected data (TANPA party)
-            fields = ['feeder', 'etd_sub', 'cls', 'open', 'full', 'destination']
+            # Fill form with selected data (DENGAN shipping_line)
+            fields = ['shipping_line', 'feeder', 'etd_sub', 'cls', 'open', 'full', 'destination']
             for i, field in enumerate(fields):
                 if field in self.entries:
                     # Skip ID column (index 0), start from index 1

@@ -185,10 +185,11 @@ class SQLiteDatabase:
             raise
         
     def create_kapals_table(self):
-        """Create kapals table - TANPA field party"""
+        """Create kapals table - DENGAN field shipping_line"""
         query = '''
         CREATE TABLE IF NOT EXISTS kapals (
             kapal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            shipping_line TEXT,
             feeder TEXT,
             etd_sub DATE,
             cls DATE,
