@@ -17,38 +17,53 @@ class LiftingWindow:
         self.window = tk.Toplevel(self.parent)
         self.window.title("📦 Lifting Report (Biaya POL & POD)")
         self.window.configure(bg="#ecf0f1")
-        
-        # === Ukuran & posisi tengah ===
+
+        # === Ukuran & posisi tengah (Responsive) ===
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        scale = max(0.8, min(screen_width / 1920, 1.0))
-        width = int(1400 * scale)
-        height = int(800 * scale)
-        x_pos = int((screen_width / 2) - (width / 2))
-        y_pos = int((screen_height / 2) - (height / 2))
+
+        # Adaptive scale based on screen resolution
+        scale = max(0.75, min(screen_width / 1920, 1.2))
+
+        # Window size: 85% of screen size
+        width = int(screen_width * 0.85)
+        height = int(screen_height * 0.85)
+
+        # Center position
+        x_pos = int((screen_width - width) / 2)
+        y_pos = int((screen_height - height) / 2)
+
         self.window.geometry(f"{width}x{height}+{x_pos}+{y_pos}")
-        self.window.minsize(900, 600)
+
+        # Responsive minimum size based on screen
+        min_width = max(800, int(screen_width * 0.5))
+        min_height = max(500, int(screen_height * 0.4))
+        self.window.minsize(min_width, min_height)
+
+        # Allow resizing
+        self.window.resizable(True, True)
         
-        # === Font ===
-        font_small = ("Arial", int(11 * scale))
-        font_normal = ("Arial", int(12 * scale))
-        font_bold = ("Arial", int(13 * scale), "bold")
-        font_title = ("Arial", int(16 * scale), "bold")
+        # === Font (Responsive based on scale) ===
+        font_small = ("Arial", max(9, int(10 * scale)))
+        font_normal = ("Arial", max(10, int(11 * scale)))
+        font_bold = ("Arial", max(11, int(12 * scale)), "bold")
+        font_title = ("Arial", max(14, int(16 * scale)), "bold")
         
-        # === Header ===
+        # === Header (Responsive padding) ===
         title = tk.Label(
             self.window,
             text="📦 LAPORAN LIFTING (BIAYA POL & POD)",
             font=font_title,
             bg="#27ae60",
             fg="white",
-            pady=int(8 * scale)
+            pady=max(8, int(10 * scale))
         )
         title.pack(fill="x")
         
-        # === Filter Frame ===
+        # === Filter Frame (Responsive padding) ===
         filter_frame = tk.Frame(self.window, bg="#ffffff", relief="solid", bd=1)
-        filter_frame.pack(fill="x", padx=20, pady=(10, 0))
+        responsive_padx = max(10, int(20 * scale))
+        filter_frame.pack(fill="x", padx=responsive_padx, pady=(10, 0))
         
         tk.Label(
             filter_frame,
@@ -61,13 +76,16 @@ class LiftingWindow:
         controls = tk.Frame(filter_frame, bg="#ffffff")
         controls.pack(fill="x", padx=10, pady=(0, 10))
         
-        # === Date pickers ===
+        # === Date pickers (Responsive width) ===
         tk.Label(controls, text="Dari:", bg="#ffffff", font=font_normal).pack(side="left", padx=(0, 5))
-        
+
+        # Responsive width for DateEntry
+        date_entry_width = max(12, int(14 * scale))
+
         self.start_date = DateEntry(
             controls,
             date_pattern='dd/MM/yyyy',  # ✅ FORMAT INDONESIA
-            width=int(14 * scale),
+            width=date_entry_width,
             font=font_normal,
             borderwidth=2,
             background="#27ae60",
@@ -88,11 +106,11 @@ class LiftingWindow:
         self.start_date.pack(side="left", padx=(0, 20))
         
         tk.Label(controls, text="Sampai:", bg="#ffffff", font=font_normal).pack(side="left", padx=(0, 5))
-        
+
         self.end_date = DateEntry(
             controls,
             date_pattern='dd/MM/yyyy',  # ✅ FORMAT INDONESIA
-            width=int(14 * scale),
+            width=date_entry_width,
             font=font_normal,
             borderwidth=2,
             background="#27ae60",
@@ -112,26 +130,29 @@ class LiftingWindow:
         self.end_date.set_date(date.today())
         self.end_date.pack(side="left", padx=(0, 20))
         
-        # === Tombol Filter & Clear ===
+        # === Tombol Filter & Clear (Responsive button padding) ===
+        btn_padx = max(10, int(12 * scale))
+        btn_pady = max(4, int(6 * scale))
+
         tk.Button(
             controls, text="🔍 Filter", bg="#3498db", fg="white", font=font_bold,
-            padx=int(12 * scale), pady=int(5 * scale), command=self.filter_data
+            padx=btn_padx, pady=btn_pady, command=self.filter_data
         ).pack(side="left", padx=8)
-        
+
         tk.Button(
             controls, text="❌ Clear", bg="#e67e22", fg="white", font=font_bold,
-            padx=int(12 * scale), pady=int(5 * scale), command=self.clear_filter
+            padx=btn_padx, pady=btn_pady, command=self.clear_filter
         ).pack(side="left", padx=8)
-        
+
         # ✅ TOMBOL EXPORT EXCEL
         tk.Button(
             controls, text="📊 Export Excel", bg="#27ae60", fg="white", font=font_bold,
-            padx=int(12 * scale), pady=int(5 * scale), command=self.export_to_excel
+            padx=btn_padx, pady=btn_pady, command=self.export_to_excel
         ).pack(side="left", padx=8)
         
-        # === Table ===
+        # === Table (Responsive padding) ===
         table_frame = tk.Frame(self.window, bg="#ecf0f1")
-        table_frame.pack(fill="both", expand=True, padx=20, pady=15)
+        table_frame.pack(fill="both", expand=True, padx=responsive_padx, pady=15)
         
         x_scroll = ttk.Scrollbar(table_frame, orient="horizontal")
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical")
@@ -164,33 +185,42 @@ class LiftingWindow:
         y_scroll.pack(side="right", fill="y")
         x_scroll.pack(side="bottom", fill="x")
         
-        # === Style Table ===
+        # === Style Table (Responsive styling) ===
         style = ttk.Style()
         style.theme_use("default")
         style.configure("Treeview.Heading", background="#27ae60", foreground="white", font=font_bold)
-        style.configure("Treeview", font=font_small, rowheight=int(26 * scale))
+        style.configure("Treeview", font=font_small, rowheight=max(20, int(24 * scale)))
         style.map("Treeview", background=[("selected", "#3498db")])
-        
+
+        # Responsive column widths
+        base_col_width = max(100, int(120 * scale))
+
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=int(120 * scale), anchor="center")
+            # Different widths for different column types
+            if col in ["ETD SUB", "NO JOA"]:
+                self.tree.column(col, width=int(base_col_width * 0.9), anchor="center", minwidth=80)
+            elif "TOTAL" in col or "PROFIT" in col or "NILAI INVOICE" in col:
+                self.tree.column(col, width=int(base_col_width * 1.1), anchor="center", minwidth=100)
+            else:
+                self.tree.column(col, width=base_col_width, anchor="center", minwidth=90)
         
         self.tree.tag_configure("evenrow", background="#f8f9fa")
         self.tree.tag_configure("oddrow", background="#eaf2ef")
         
-        # === Footer ===
+        # === Footer (Responsive) ===
         footer_frame = tk.Frame(self.window, bg="#27ae60")
         footer_frame.pack(fill="x", pady=(5, 0))
-        
+
         self.total_label = tk.Label(
             footer_frame,
             text="TOTAL PROFIT: Rp 0",
             font=font_bold,
             fg="white",
             bg="#27ae60",
-            pady=int(5 * scale)
+            pady=max(5, int(6 * scale))
         )
-        self.total_label.pack(side="right", padx=20)
+        self.total_label.pack(side="right", padx=responsive_padx)
         
         self.load_data_from_db()
     

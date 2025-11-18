@@ -8,6 +8,7 @@ from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
+from src.utils.helpers import format_ton
 
 class ContainerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -4958,12 +4959,12 @@ class ContainerWindow:
                 
                 row_data = (
                     str(barang.get('barang_id', '')),
-                    str(barang.get('sender_name', '')), 
+                    str(barang.get('sender_name', '')),
                     str(barang.get('receiver_name', '')),
                     str(barang.get('nama_barang', '')),
                     f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}",
                     f"{float(barang.get('m3_barang', 0)):.4f}" if barang.get('m3_barang') else '0.0000',
-                    f"{float(barang.get('ton_barang', 0)):.3f}" if barang.get('ton_barang') else '0.000'
+                    format_ton(barang.get('ton_barang', 0)) if barang.get('ton_barang') else '0'
                 )
                 formatted_data.append(row_data)
             self.available_tree.set_data(formatted_data)
@@ -6996,9 +6997,9 @@ class ContainerWindow:
                     # Berat (ton)
                     try:
                         ton_value = safe_get(barang, 'ton_barang', 0)
-                        ton_barang = f"{float(ton_value):.3f}" if ton_value not in [None, '', '-'] else '0.000'
+                        ton_barang = format_ton(ton_value) if ton_value not in [None, '', '-'] else '0'
                     except (ValueError, TypeError):
-                        ton_barang = '0.000'
+                        ton_barang = '0'
                     
                     # Colli
                     try:

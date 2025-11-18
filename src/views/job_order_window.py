@@ -4,6 +4,7 @@ from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from tkinter import filedialog
+from src.utils.helpers import format_ton
 
 class JobOrderWindow:
     def __init__(self, parent, db):
@@ -93,12 +94,18 @@ class JobOrderWindow:
         # Main container
         main_frame = ttk.Frame(self.window, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Configure grid weights
+
+        # Configure grid weights for responsive layout
         self.window.columnconfigure(0, weight=1)
         self.window.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(0, weight=1, minsize=250)  # Left panel dengan minsize
-        main_frame.columnconfigure(1, weight=3, minsize=400)  # Right panel dengan minsize
+
+        # Responsive minsize based on window width
+        screen_width = self.window.winfo_screenwidth()
+        left_minsize = max(200, int(screen_width * 0.15))
+        right_minsize = max(400, int(screen_width * 0.30))
+
+        main_frame.columnconfigure(0, weight=1, minsize=left_minsize)  # Left panel responsif
+        main_frame.columnconfigure(1, weight=3, minsize=right_minsize)  # Right panel responsif
         main_frame.rowconfigure(0, weight=1)
         
         # ===== LEFT PANEL - JOA LIST =====
@@ -112,7 +119,7 @@ class JobOrderWindow:
         ttk.Label(search_frame, text="Cari JOA:").pack(side=tk.LEFT, padx=(0, 5))
         self.search_var = tk.StringVar()
         self.search_var.trace('w', lambda *args: self.filter_joa_list())
-        search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=20)
+        search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
         # JOA Listbox with scrollbar
@@ -122,8 +129,8 @@ class JobOrderWindow:
         scrollbar = ttk.Scrollbar(list_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        self.joa_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, 
-                                       font=('Arial', 10), height=30)
+        self.joa_listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set,
+                                       font=('Arial', 10))
         self.joa_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.joa_listbox.yview)
         
@@ -213,30 +220,32 @@ class JobOrderWindow:
         sales_table_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         sales_table_frame.columnconfigure(0, weight=1)
         sales_table_frame.rowconfigure(0, weight=1)
-        
+
         # Scrollbars untuk Sales
         sales_scroll_y = ttk.Scrollbar(sales_table_frame, orient=tk.VERTICAL)
         sales_scroll_x = ttk.Scrollbar(sales_table_frame, orient=tk.HORIZONTAL)
-        
-        # ✅ Sales Treeview TANPA kolom INVOICE
+
+        # ✅ Sales Treeview TANPA kolom INVOICE (responsive height)
         sales_columns = ('customer', 'rp', 'kubikasi', 'tonase')
         self.sales_tree = ttk.Treeview(sales_table_frame, columns=sales_columns, show='headings',
                                        yscrollcommand=sales_scroll_y.set,
-                                       xscrollcommand=sales_scroll_x.set, height=8)
+                                       xscrollcommand=sales_scroll_x.set)
         
         sales_scroll_y.config(command=self.sales_tree.yview)
         sales_scroll_x.config(command=self.sales_tree.xview)
         
-        # Configure Sales columns
+        # Configure Sales columns (responsive widths)
         self.sales_tree.heading('customer', text='CUSTOMER')
         self.sales_tree.heading('rp', text='Rp')
         self.sales_tree.heading('kubikasi', text='KUBIKASI')
         self.sales_tree.heading('tonase', text='TONASE')
-        
-        self.sales_tree.column('customer', width=250, anchor=tk.W)
-        self.sales_tree.column('rp', width=150, anchor=tk.E)
-        self.sales_tree.column('kubikasi', width=120, anchor=tk.E)
-        self.sales_tree.column('tonase', width=120, anchor=tk.E)
+
+        # Responsive column widths based on screen
+        col_base_width = max(80, int(screen_width * 0.08))
+        self.sales_tree.column('customer', width=int(col_base_width * 2.5), anchor=tk.W, minwidth=150)
+        self.sales_tree.column('rp', width=int(col_base_width * 1.5), anchor=tk.E, minwidth=100)
+        self.sales_tree.column('kubikasi', width=col_base_width, anchor=tk.E, minwidth=80)
+        self.sales_tree.column('tonase', width=col_base_width, anchor=tk.E, minwidth=80)
         
         # Grid layout untuk sales
         self.sales_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -276,25 +285,25 @@ class JobOrderWindow:
         pol_scroll_y = ttk.Scrollbar(pol_frame, orient=tk.VERTICAL)
         pol_scroll_x = ttk.Scrollbar(pol_frame, orient=tk.HORIZONTAL)
         
-        # POL Treeview
+        # POL Treeview (responsive height)
         pol_columns = ('keterangan', 'unit', 'biaya_pol', 'total')
         self.pol_tree = ttk.Treeview(pol_frame, columns=pol_columns, show='headings',
                                      yscrollcommand=pol_scroll_y.set,
-                                     xscrollcommand=pol_scroll_x.set, height=8)
+                                     xscrollcommand=pol_scroll_x.set)
         
         pol_scroll_y.config(command=self.pol_tree.yview)
         pol_scroll_x.config(command=self.pol_tree.xview)
         
-        # Configure POL columns
+        # Configure POL columns (responsive widths)
         self.pol_tree.heading('keterangan', text='KETERANGAN')
         self.pol_tree.heading('unit', text='UNIT')
         self.pol_tree.heading('biaya_pol', text='BIAYA POL')
         self.pol_tree.heading('total', text='TOTAL')
-        
-        self.pol_tree.column('keterangan', width=180, anchor=tk.W)
-        self.pol_tree.column('unit', width=80, anchor=tk.CENTER)
-        self.pol_tree.column('biaya_pol', width=120, anchor=tk.E)
-        self.pol_tree.column('total', width=120, anchor=tk.E)
+
+        self.pol_tree.column('keterangan', width=int(col_base_width * 1.8), anchor=tk.W, minwidth=120)
+        self.pol_tree.column('unit', width=int(col_base_width * 0.8), anchor=tk.CENTER, minwidth=60)
+        self.pol_tree.column('biaya_pol', width=int(col_base_width * 1.2), anchor=tk.E, minwidth=90)
+        self.pol_tree.column('total', width=int(col_base_width * 1.2), anchor=tk.E, minwidth=90)
         
         # Grid layout untuk POL
         self.pol_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -311,25 +320,25 @@ class JobOrderWindow:
         pod_scroll_y = ttk.Scrollbar(pod_frame, orient=tk.VERTICAL)
         pod_scroll_x = ttk.Scrollbar(pod_frame, orient=tk.HORIZONTAL)
         
-        # POD Treeview
+        # POD Treeview (responsive height)
         pod_columns = ('keterangan', 'unit', 'biaya_pod', 'total')
         self.pod_tree = ttk.Treeview(pod_frame, columns=pod_columns, show='headings',
                                      yscrollcommand=pod_scroll_y.set,
-                                     xscrollcommand=pod_scroll_x.set, height=8)
+                                     xscrollcommand=pod_scroll_x.set)
         
         pod_scroll_y.config(command=self.pod_tree.yview)
         pod_scroll_x.config(command=self.pod_tree.xview)
         
-        # Configure POD columns
+        # Configure POD columns (responsive widths)
         self.pod_tree.heading('keterangan', text='KETERANGAN')
         self.pod_tree.heading('unit', text='UNIT')
         self.pod_tree.heading('biaya_pod', text='BIAYA POD')
         self.pod_tree.heading('total', text='TOTAL')
-        
-        self.pod_tree.column('keterangan', width=180, anchor=tk.W)
-        self.pod_tree.column('unit', width=80, anchor=tk.CENTER)
-        self.pod_tree.column('biaya_pod', width=120, anchor=tk.E)
-        self.pod_tree.column('total', width=120, anchor=tk.E)
+
+        self.pod_tree.column('keterangan', width=int(col_base_width * 1.8), anchor=tk.W, minwidth=120)
+        self.pod_tree.column('unit', width=int(col_base_width * 0.8), anchor=tk.CENTER, minwidth=60)
+        self.pod_tree.column('biaya_pod', width=int(col_base_width * 1.2), anchor=tk.E, minwidth=90)
+        self.pod_tree.column('total', width=int(col_base_width * 1.2), anchor=tk.E, minwidth=90)
         
         # Grid layout untuk POD
         self.pod_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -590,7 +599,7 @@ class JobOrderWindow:
                     customer_name,
                     f"Rp {total_invoice:,.0f}",
                     f"{total_m3:.4f}" if total_m3 else "-",
-                    f"{total_ton:.2f}" if total_ton else "-"
+                    format_ton(total_ton) if total_ton else "-"
                 ))
 
             # Update sales labels

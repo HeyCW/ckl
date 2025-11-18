@@ -13,6 +13,7 @@ from PIL import Image as PILImage, ImageTk
 import io
 import base64
 import traceback
+from src.utils.helpers import format_ton
 
 class DigitalSignaturePad:
     def __init__(self, parent, width=400, height=150):
@@ -299,7 +300,7 @@ class PDFPackingListGenerator:
             # Create PDF document - SAME SIZE as Invoice
             doc = SimpleDocTemplate(file_path, pagesize=A4,
                                 rightMargin=50, leftMargin=50,
-                                topMargin=50, bottomMargin=50)
+                                topMargin=20, bottomMargin=50)
             
             # Get styles
             styles = getSampleStyleSheet()
@@ -349,7 +350,8 @@ class PDFPackingListGenerator:
             logo_path = "assets/logo-cklogistik.jpg"
             if logo_path and os.path.exists(logo_path):
                 try:
-                    logo_img = Image(logo_path, width=4*cm, height=1.2*cm)
+                    # Increased logo size by ~20%
+                    logo_img = Image(logo_path, width=6*cm, height=1.8*cm)
                     
                     # Create header table: Logo | Company Info | Title
                     header_data = [
@@ -360,13 +362,16 @@ class PDFPackingListGenerator:
                         ]
                     ]
                     
-                    header_table = Table(header_data, colWidths=[4.5*cm, 7*cm, 7*cm])
+                    # Adjusted column widths for larger logo
+                    header_table = Table(header_data, colWidths=[6*cm, 6.5*cm, 6*cm])
                     header_table.setStyle(TableStyle([
                         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
                         ('ALIGN', (1, 0), (1, 0), 'LEFT'),
                         ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('LEFTPADDING', (0, 0), (0, 0), 0),
+                        ('LEFTPADDING', (1, 0), (1, 0), 30),
+                        ('LEFTPADDING', (2, 0), (2, 0), 0),
                         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                     ]))
                     
@@ -520,7 +525,7 @@ class PDFPackingListGenerator:
                     
                     # Format values
                     m3_val = f"{float(m3):.3f}" if m3 not in [None, '', '-'] else "0.000"
-                    ton_val = f"{float(ton):.3f}" if ton not in [None, '', '-'] else "0.000"
+                    ton_val = format_ton(ton)
                     colli_val = f"{float(colli):.2f}" if colli not in [None, '', '-'] else "0.00"
                     
                     # Add row
@@ -548,7 +553,7 @@ class PDFPackingListGenerator:
                 '',
                 '',
                 f"{total_m3:.3f}",
-                f"{total_ton:.3f}",
+                format_ton(total_ton),
                 f"{total_colli:.0f}",
                 ''
             ])
@@ -928,7 +933,7 @@ class PDFPackingListGenerator:
             # Create PDF document
             doc = SimpleDocTemplate(file_path, pagesize=A4,
                                 rightMargin=50, leftMargin=50,
-                                topMargin=50, bottomMargin=50)
+                                topMargin=20, bottomMargin=50)
             
             # Get styles
             styles = getSampleStyleSheet()
@@ -949,26 +954,29 @@ class PDFPackingListGenerator:
             logo_path = "assets/logo-cklogistik.jpg"
             if logo_path and os.path.exists(logo_path):
                 try:
-                    # LOGO TETAP BESAR
-                    logo_img = Image(logo_path, width=6*cm, height=3*cm)
-                    
+                    # LOGO DIPERBESAR (~20% lebih besar)
+                    logo_img = Image(logo_path, width=8.4*cm, height=2.4*cm)
+
                     # TULISAN PERUSAHAAN DI SEBELAH KANAN LOGO
                     company_text = "Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
                     title_para = Paragraph("SALES INVOICE", title_style)
-                    
+
                     # SUSUNAN: Logo | Company Text | Title (3 kolom)
+                    # Adjusted column widths for larger logo
                     header_data = [[logo_img, company_para, title_para]]
-                    header_table = Table(header_data, colWidths=[6.5*cm, 6*cm, 6*cm])
+                    header_table = Table(header_data, colWidths=[8.4*cm, 5*cm, 5.1*cm])
                     header_table.setStyle(TableStyle([
                         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
                         ('ALIGN', (1, 0), (1, 0), 'LEFT'),
                         ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('LEFTPADDING', (0, 0), (0, 0), 0),
+                        ('LEFTPADDING', (1, 0), (1, 0), 30),
+                        ('LEFTPADDING', (2, 0), (2, 0), 0),
                         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                     ]))
-                    
+
                 except Exception as logo_error:
                     print(f"[ERROR] Logo error: {logo_error}")
                     company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
@@ -1276,12 +1284,9 @@ class PDFPackingListGenerator:
                         m3_val = f"{total_m3_item:.0f}"  # Tanpa desimal jika >= 1
                     else:
                         m3_val = f"{total_m3_item:.3f}"  # 3 desimal jika < 1
-                    
-                    if total_ton_item >= 1:
-                        ton_val = f"{total_ton_item:.0f}"  # Tanpa desimal jika >= 1
-                    else:
-                        ton_val = f"{total_ton_item:.3f}"  # 3 desimal jika < 1
-                    
+
+                    ton_val = format_ton(total_ton_item)
+
                     colli_val = f"{colli_int}"
                     unit_price_val = f"Rp {float(unit_price):,.0f}" if unit_price not in [None, '', '-'] else "Rp 0"
                     total_price_val = f"Rp {float(total_harga):,.0f}" if total_harga not in [None, '', '-'] else "Rp 0"
@@ -1341,7 +1346,7 @@ class PDFPackingListGenerator:
             
             # Format total M3 dan Ton dengan conditional decimal ✅
             total_m3_formatted = f"{total_m3:.0f}" if total_m3 >= 1 else f"{total_m3:.3f}"
-            total_ton_formatted = f"{total_ton:.0f}" if total_ton >= 1 else f"{total_ton:.3f}"
+            total_ton_formatted = format_ton(total_ton)
             
             table_data.append([
                 'TOTAL',  # Akan di-merge dengan 4 kolom berikutnya
@@ -1650,10 +1655,10 @@ class PDFPackingListGenerator:
             from reportlab.lib.units import cm
             from reportlab.lib import colors
             from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-            
+
             doc = SimpleDocTemplate(file_path, pagesize=A4,
                                 rightMargin=50, leftMargin=50,
-                                topMargin=50, bottomMargin=50)
+                                topMargin=20, bottomMargin=50)
             
             styles = getSampleStyleSheet()
             
@@ -1673,23 +1678,26 @@ class PDFPackingListGenerator:
             logo_path = "assets/logo-cklogistik.jpg"
             if logo_path and os.path.exists(logo_path):
                 try:
-                    # LOGO TETAP BESAR
-                    logo_img = Image(logo_path, width=6*cm, height=3*cm)
-                    
+                    # LOGO DIPERBESAR (~20% lebih besar)
+                    logo_img = Image(logo_path, width=8.4*cm, height=2.4*cm)
+
                     # TULISAN PERUSAHAAN DI SEBELAH KANAN LOGO
                     company_text = "Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
                     title_para = Paragraph("PACKING LISTS", title_style)
-                    
+
                     # SUSUNAN: Logo | Company Text | Title (3 kolom)
+                    # Adjusted column widths for larger logo
                     header_data = [[logo_img, company_para, title_para]]
-                    header_table = Table(header_data, colWidths=[6.5*cm, 6*cm, 6*cm])
+                    header_table = Table(header_data, colWidths=[8.4*cm, 5*cm, 5.1*cm])
                     header_table.setStyle(TableStyle([
                         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                         ('ALIGN', (0, 0), (0, 0), 'LEFT'),
                         ('ALIGN', (1, 0), (1, 0), 'LEFT'),
                         ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-                        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                        ('LEFTPADDING', (0, 0), (0, 0), 0),
+                        ('LEFTPADDING', (1, 0), (1, 0), 30),
+                        ('LEFTPADDING', (2, 0), (2, 0), 0),
                         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                     ]))
                     
@@ -1911,12 +1919,9 @@ class PDFPackingListGenerator:
                         m3_val = f"{total_m3_item:.0f}"  # Tanpa desimal jika >= 1
                     else:
                         m3_val = f"{total_m3_item:.3f}"  # 3 desimal jika < 1
-                    
-                    if total_ton_item >= 1:
-                        ton_val = f"{total_ton_item:.0f}"  # Tanpa desimal jika >= 1
-                    else:
-                        ton_val = f"{total_ton_item:.3f}"  # 3 desimal jika < 1
-                    
+
+                    ton_val = format_ton(total_ton_item)
+
                     colli_val = f"{colli_int:.0f}"
                     
                     # Item row - DENGAN KOLOM PENGIRIM
@@ -1940,7 +1945,7 @@ class PDFPackingListGenerator:
             
             # TOTAL row - DENGAN CONDITIONAL DECIMAL FORMATTING ✅
             total_m3_formatted = f"{total_m3:.0f}" if total_m3 >= 1 else f"{total_m3:.3f}"
-            total_ton_formatted = f"{total_ton:.0f}" if total_ton >= 1 else f"{total_ton:.3f}"
+            total_ton_formatted = format_ton(total_ton)
             
             table_data.append([
                 'TOTAL',

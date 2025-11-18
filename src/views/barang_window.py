@@ -182,8 +182,50 @@ class BarangWindow:
         except Exception as e:
             # Log error but don't show to user during typing
             print(f"Error calculating volume: {e}")
-        
-        
+
+    def format_weight_input(self, event=None):
+        """Format weight input to use comma as decimal separator"""
+        try:
+            # Get current cursor position
+            widget = event.widget if event else self.ton_entry
+            cursor_pos = widget.index(tk.INSERT)
+
+            # Get current value
+            current_value = widget.get().strip()
+
+            # If empty or only dash, skip formatting
+            if not current_value or current_value == '-':
+                return
+
+            # Replace comma with dot for internal processing
+            normalized_value = current_value.replace(',', '.')
+
+            # Try to parse as float to validate
+            try:
+                float_value = float(normalized_value)
+                # Don't reformat if user is still typing (ends with dot)
+                if not normalized_value.endswith('.'):
+                    # Format back with comma as decimal separator
+                    formatted_value = normalized_value.replace('.', ',')
+
+                    # Update the entry
+                    widget.delete(0, tk.END)
+                    widget.insert(0, formatted_value)
+
+                    # Restore cursor position
+                    try:
+                        widget.icursor(cursor_pos)
+                    except:
+                        pass
+            except ValueError:
+                # If not a valid number, don't change anything
+                pass
+
+        except Exception as e:
+            # Silently ignore any formatting errors
+            pass
+
+
     def create_manual_tab(self, parent):
         """Create manual input tab with scrollable content"""
         # Main container
@@ -305,6 +347,9 @@ class BarangWindow:
         tk.Label(other_frame, text="Berat (ton):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
         self.ton_entry = tk.Entry(other_frame, font=('Arial', 10), width=10)
         self.ton_entry.pack(side='left', padx=(5, 20))
+
+        # Bind format_weight_input to ton_entry
+        self.ton_entry.bind('<FocusOut>', self.format_weight_input)
         
         # Price frame with multiple pricing options
         price_frame = tk.Frame(form_frame, bg='#ecf0f1')
@@ -1431,9 +1476,19 @@ class BarangWindow:
         volume_entry.pack(side='left', padx=(5, 20))
 
         tk.Label(other_frame, text="Berat (ton):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        berat_var = tk.StringVar(value=str(barang_data.get('ton_barang', '') or '') or '-')
+        # Format berat with comma as decimal separator
+        berat_value = barang_data.get('ton_barang', '') or ''
+        if berat_value and berat_value != '-':
+            try:
+                berat_value = str(float(berat_value)).replace('.', ',')
+            except (ValueError, TypeError):
+                pass
+        berat_var = tk.StringVar(value=str(berat_value) or '-')
         berat_entry = tk.Entry(other_frame, textvariable=berat_var, font=('Arial', 10), width=10)
         berat_entry.pack(side='left', padx=(5, 20))
+
+        # Bind format_weight_input to berat_entry
+        berat_entry.bind('<FocusOut>', self.format_weight_input)
 
         tk.Label(other_frame, text="Colli:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
         colli_var = tk.StringVar(value=str(barang_data.get('col_barang', '') or '') or '-')
@@ -1628,7 +1683,8 @@ class BarangWindow:
                     if value == '-':
                         pass  # Skip validasi untuk nilai '-'
                     else:
-                        val = float(value)
+                        # Replace comma with dot for proper float conversion
+                        val = float(value.replace(',', '.'))
                         if val <= 0:
                             raise ValueError("Berat harus lebih besar dari 0")
             
@@ -1703,7 +1759,8 @@ class BarangWindow:
                 stripped = value.strip() if value else ''
                 if stripped == '-' or stripped == '':
                     return None
-                return stripped
+                # Replace comma with dot for proper float conversion
+                return stripped.replace(',', '.')
             
             updated_barang = {
                 'barang_id': barang_data['barang_id'],
@@ -3500,12 +3557,15 @@ class BarangWindow:
             def get_numeric_value(entry_widget, field_name):
                 try:
                     value = entry_widget.get().strip()
-                    
+
                     if value == "-":
                         return None
-                    
+
                     if not value:
                         return None
+
+                    # Replace comma with dot for proper float conversion
+                    value = value.replace(',', '.')
                     return float(value)
                 except ValueError:
                     raise ValueError(f"Format {field_name} tidak valid: '{value}' (gunakan angka)")
@@ -3713,6 +3773,15 @@ class BarangWindow:
                 # Format date
                 created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
                 
+                # Format weight with comma as decimal separator
+                ton_barang = barang.get('ton_barang', '-')
+                if ton_barang and ton_barang != '-':
+                    try:
+                        # Convert to float and format with comma
+                        ton_barang = str(float(ton_barang)).replace('.', ',')
+                    except (ValueError, TypeError):
+                        pass  # Keep original value if conversion fails
+
                 # Buat tuple data untuk row ini
                 row_data = (
                     barang['barang_id'],
@@ -3721,7 +3790,7 @@ class BarangWindow:
                     barang['nama_barang'],
                     dimensi,
                     barang.get('m3_barang', '-'),
-                    barang.get('ton_barang', '-'),
+                    ton_barang,
                     harga_m3_pp,
                     harga_m3_pd,
                     harga_m3_dd,

@@ -9,6 +9,7 @@ from src.views.pengirim_window import SenderWindow
 from src.views.report_window import ReportsWindow
 from src.views.job_order_window import JobOrderWindow
 from src.views.lifting_window import LiftingWindow
+from src.views.customer_orders_window import CustomerOrdersWindow
 from PIL import Image, ImageTk
 
 class MainWindow:
@@ -170,11 +171,9 @@ class MainWindow:
         )
         kapal_btn.pack(side='left', padx=30)
         
-        # Row 2: Container and Reports
+        # Row 2: Container, Job Order, Customer Orders
         row2_frame = tk.Frame(menu_frame, bg='#ecf0f1')
         row2_frame.pack(pady=(0, 20))
-        
-        
 
         # Container button
         container_btn = tk.Button(
@@ -189,7 +188,7 @@ class MainWindow:
             command=self.show_container_window
         )
         container_btn.pack(side='left', padx=30)
-        
+
         # Job Order button
         job_order_btn = tk.Button(
             row2_frame,
@@ -203,12 +202,28 @@ class MainWindow:
             command=self.show_job_order_window
         )
         job_order_btn.pack(side='left', padx=30)
-        
-        
-        # Lifting button - HANYA MUNCUL UNTUK OWNER
+
+        # Customer Orders button (NEW)
+        # customer_orders_btn = tk.Button(
+        #     row2_frame,
+        #     text="📊\n\nCUSTOMER ORDERS\n\nLihat Pesanan Customer",
+        #     font=('Arial', 14, 'bold'),
+        #     bg="#16a085",
+        #     fg='white',
+        #     relief='flat',
+        #     width=20,
+        #     height=6,
+        #     command=self.show_customer_orders_window
+        # )
+        # customer_orders_btn.pack(side='left', padx=30)
+
+        # Row 3: Lifting button (only for owner)
         if self.is_owner():
+            row3_frame = tk.Frame(menu_frame, bg='#ecf0f1')
+            row3_frame.pack(pady=(0, 20))
+
             lifting_btn = tk.Button(
-                row2_frame,
+                row3_frame,
                 text="🚧\n\nDATA LIFTING\n\nTambah & Lihat Lifting",
                 font=('Arial', 14, 'bold'),
                 bg="#f39c12",
@@ -226,6 +241,13 @@ class MainWindow:
             CustomerWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}")
+
+    def show_customer_orders_window(self):
+        """Show customer orders window"""
+        try:
+            CustomerOrdersWindow(self.root, self.db)
+        except Exception as e:
+            messagebox.showerror("Error", f"Tidak dapat membuka window customer orders:\n{str(e)}")
 
     def show_lifting_window(self):
         """Show lifting management window - OWNER ONLY"""

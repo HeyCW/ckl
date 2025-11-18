@@ -19,6 +19,7 @@ from PIL import Image as PILImage, ImageTk
 import io
 import base64
 import traceback
+from src.utils.helpers import format_ton
 
 class PrintHandler:
     def __init__(self, db):
@@ -1237,7 +1238,7 @@ class PrintHandler:
         
             current_row += 2
         
-            summary_text = f"Total Items: {len(barang_list)} | Total M3: {total_m3:.2f} | Total Ton: {total_ton:.2f} | Total Colli: {total_colli} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            summary_text = f"Total Items: {len(barang_list)} | Total M3: {total_m3:.2f} | Total Ton: {format_ton(total_ton)} | Total Colli: {total_colli} | Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             if filter_criteria:
                 summary_text = f"Pengirim: {filter_criteria.get('sender_name', '')} → Penerima: {filter_criteria.get('receiver_name', '')} | " + summary_text
             
