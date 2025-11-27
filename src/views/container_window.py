@@ -56,8 +56,65 @@ class ContainerWindow:
                 self.container_tree.column('Items', width=int(available_width * 0.12))
             except:
                 pass
-            
-    
+
+
+    def parse_party(self, party_text):
+        """Parse party text untuk mengidentifikasi container type (20', 21', 40')"""
+        import re
+
+        if not party_text or party_text == '-':
+            return (0, 0, 0, '-', '-')
+
+        count_20 = 0
+        count_21 = 0
+        count_40 = 0
+
+        # Pattern untuk container type yang exact match (case insensitive)
+        party_upper = party_text.strip().upper()
+
+        # Deteksi single container type
+        if party_upper == "20'" or party_upper == "20":
+            count_20 = 1
+        elif party_upper == "21'" or party_upper == "21":
+            count_21 = 1
+        elif party_upper == "40'" or party_upper == "40":
+            count_40 = 1
+
+        # Pattern untuk "3X40", "5x40", "3x40'", dll
+        matches_40 = re.findall(r"(\d+)\s*[xX]\s*40['\"]?", party_text, re.IGNORECASE)
+        if matches_40:
+            count_40 = sum(int(m) for m in matches_40)
+
+        # Pattern untuk "2X20", "4x20", "2x20'", dll
+        matches_20 = re.findall(r"(\d+)\s*[xX]\s*20['\"]?", party_text)
+        if matches_20:
+            count_20 = sum(int(m) for m in matches_20)
+
+        # Pattern untuk "2X21", "4x21", "2x21'", dll
+        matches_21 = re.findall(r"(\d+)\s*[xX]\s*21['\"]?", party_text)
+        if matches_21:
+            count_21 = sum(int(m) for m in matches_21)
+
+        # Build display text
+        parts = []
+        if count_20 > 0:
+            parts.append(f"{count_20} X 20'")
+        if count_21 > 0:
+            parts.append(f"{count_21} X 21'")
+        if count_40 > 0:
+            parts.append(f"{count_40} X 40'")
+
+        if parts:
+            total = count_20 + count_21 + count_40
+            # Format lengkap dengan total untuk display di header
+            display_full = " + ".join(parts) + f" (Total: {total} container{'s' if total > 1 else ''})"
+            # Format singkat untuk kolom UNIT (tanpa total)
+            display_short = " + ".join(parts)
+        else:
+            display_full = party_text  # Fallback ke text asli jika tidak bisa di-parse
+            display_short = party_text
+
+        return (count_20, count_21, count_40, display_full, display_short)
 
     def load_kapals(self):
         """Load kapal options from the database - Format: Feeder"""
@@ -2307,10 +2364,15 @@ class ContainerWindow:
         for item in selected_items:
             try:
                 barang_data = self.db.execute_one("""
-                    SELECT b.*, r.nama_customer AS receiver_name, s.nama_customer AS sender_name
+                    SELECT 
+                        b.*,
+                        COALESCE(s.nama_customer, b.pengirim) AS sender_name,
+                        COALESCE(r.nama_customer, b.penerima) AS receiver_name
                     FROM barang b
-                    JOIN customers r ON b.penerima = r.customer_id
-                    JOIN customers s ON b.pengirim = s.customer_id
+                    LEFT JOIN customers s 
+                        ON (CAST(b.pengirim AS TEXT) = CAST(s.customer_id AS TEXT) OR b.pengirim = s.nama_customer)
+                    LEFT JOIN customers r 
+                        ON (CAST(b.penerima AS TEXT) = CAST(r.customer_id AS TEXT) OR b.penerima = r.nama_customer)
                     WHERE b.barang_id = ?
                 """, (item['id'],))
                 
@@ -2339,9 +2401,13 @@ class ContainerWindow:
                 'harga_colli_pp': barang_detail.get('col_pp', 0) or 0,
                 'harga_colli_pd': barang_detail.get('col_pd', 0) or 0,
                 'harga_colli_dd': barang_detail.get('col_dd', 0) or 0,
+                'harga_container_pp': barang_detail.get('container_pp', 0) or 0,
+                'harga_container_pd': barang_detail.get('container_pd', 0) or 0,
+                'harga_container_dd': barang_detail.get('container_dd', 0) or 0,
                 # Base measurements
                 'm3_barang': barang_detail.get('m3_barang', 0) or 0,
                 'ton_barang': barang_detail.get('ton_barang', 0) or 0,
+                'container_barang': barang_detail.get('container_barang', 0) or 0,
                 # Tax info
                 'has_tax': barang_detail.get('pajak', 0) == 1
             }
@@ -2459,6 +2525,10 @@ class ContainerWindow:
         elif method.startswith('Harga/ton_'):
             # ton-based combinations: price × ton_barang × colli  
             total = price * pricing_info['ton_barang'] * colli_amount
+        elif method.startswith('Harga/container_'):
+            # container-based combinations: price × container_barang × colli
+            container_qty = pricing_info.get('container_barang') or 1
+            total = price * container_qty * colli_amount
         elif method.startswith('Harga/colli_'):
             # colli-based combinations: price × colli
             total = price * colli_amount
@@ -2509,8 +2579,8 @@ class ContainerWindow:
         
         # Create combobox
         combo_var = tk.StringVar(value=pricing_data_store[item_id]['current_method'])
-        combo = ttk.Combobox(tree, textvariable=combo_var, 
-                            values=['Manual', 'Harga/m³', 'Harga/ton', 'Harga/colli'],
+        combo = ttk.Combobox(tree, textvariable=combo_var,
+                            values=['Manual', 'Harga/m³', 'Harga/ton', 'Harga/colli', 'Harga/container'],
                             state='readonly')
         
         combo.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
@@ -2607,6 +2677,12 @@ class ContainerWindow:
             return barang_pricing['harga_colli_pd']
         elif method == 'Harga/colli_dd' and barang_pricing['harga_colli_dd'] > 0:
             return barang_pricing['harga_colli_dd']
+        elif method == 'Harga/container_pp' and barang_pricing['harga_container_pp'] > 0:
+            return barang_pricing['harga_container_pp']
+        elif method == 'Harga/container_pd' and barang_pricing['harga_container_pd'] > 0:
+            return barang_pricing['harga_container_pd']
+        elif method == 'Harga/container_dd' and barang_pricing['harga_container_dd'] > 0:
+            return barang_pricing['harga_container_dd']
         else:
             return 0
 
@@ -2639,7 +2715,13 @@ class ContainerWindow:
 
             return base_total
 
-                
+        elif method.startswith('Harga/container_'):
+            # container-based combinations: price × container_barang × colli
+            container_qty = pricing_info.get('container_barang') or 1
+            base_total = price * container_qty * colli_amount
+
+            return base_total
+
         elif method == 'Manual':
             # Manual: price × colli
             return price * colli_amount
@@ -2653,11 +2735,12 @@ class ContainerWindow:
         selected_satuan = tk.StringVar()
         selected_door = tk.StringVar()
         
-        # Step 1: Satuan selection buttons  
+        # Step 1: Satuan selection buttons
         satuan_types = [
             ("m³", "m3", '#3498db'),
-            ("ton", "ton", '#e74c3c'), 
-            ("colli", "colli", '#27ae60')
+            ("ton", "ton", '#e74c3c'),
+            ("colli", "colli", '#27ae60'),
+            ("container", "container", '#ff6b6b')
         ]
         
         def select_satuan(satuan_key):
@@ -3239,10 +3322,15 @@ class ContainerWindow:
         for item in selected_items:
             try:
                 barang_data = self.db.execute_one("""
-                    SELECT b.*, s.nama_customer AS sender_name, r.nama_customer AS receiver_name
+                    SELECT 
+                        b.*,
+                        COALESCE(s.nama_customer, b.pengirim) AS sender_name,
+                        COALESCE(r.nama_customer, b.penerima) AS receiver_name
                     FROM barang b 
-                    JOIN customers s ON b.pengirim = s.customer_id
-                    JOIN customers r ON b.penerima = r.customer_id
+                    LEFT JOIN customers s 
+                        ON (CAST(b.pengirim AS TEXT) = CAST(s.customer_id AS TEXT) OR b.pengirim = s.nama_customer)
+                    LEFT JOIN customers r 
+                        ON (CAST(b.penerima AS TEXT) = CAST(r.customer_id AS TEXT) OR b.penerima = r.nama_customer)
                     WHERE b.barang_id = ?
                 """, (item['id'],))
                 
@@ -3273,9 +3361,13 @@ class ContainerWindow:
                 'harga_colli_pp': barang_detail.get('col_pp', 0) or 0,
                 'harga_colli_pd': barang_detail.get('col_pd', 0) or 0,
                 'harga_colli_dd': barang_detail.get('col_dd', 0) or 0,
+                'harga_container_pp': barang_detail.get('container_pp', 0) or 0,
+                'harga_container_pd': barang_detail.get('container_pd', 0) or 0,
+                'harga_container_dd': barang_detail.get('container_dd', 0) or 0,
                 # Base measurements
                 'm3_barang': barang_detail.get('m3_barang', 0) or 0,
                 'ton_barang': barang_detail.get('ton_barang', 0) or 0,
+                'container_barang': barang_detail.get('container_barang') or 1,
                 # Tax info - check if barang has tax
                 'has_tax': barang_detail.get('pajak', 0) == 1
             }
@@ -3301,6 +3393,8 @@ class ContainerWindow:
                 total_baru = current_price * colli * (barang_detail.get('m3_barang', 0) or 0)
             elif (selected_items[0]['satuan'] == 'ton'):
                 total_baru = current_price * colli * (barang_detail.get('ton_barang', 0) or 0)
+            elif (selected_items[0]['satuan'] == 'container'):
+                total_baru = current_price * colli * (barang_detail.get('container_barang', 0) or 0)
             else:
                 total_baru = current_price * colli
             
@@ -3417,6 +3511,10 @@ class ContainerWindow:
         elif method.startswith('Harga/ton_'):
             # ton-based combinations: price × ton_barang × colli  
             total = price * pricing_info['ton_barang'] * colli_amount
+        elif method.startswith('Harga/container_'):
+            # container-based combinations: price × container_barang × colli
+            container_qty = pricing_info.get('container_barang') or 1
+            total = price * container_qty * colli_amount
         elif method.startswith('Harga/colli_'):
             # colli-based combinations: price × colli
             total = price * colli_amount
@@ -3568,6 +3666,12 @@ class ContainerWindow:
                 return pricing_info['harga_colli_pd']
             elif method == 'Harga/colli_dd' and pricing_info.get('harga_colli_dd', 0) > 0:
                 return pricing_info['harga_colli_dd']
+            elif method == 'Harga/container_pp' and pricing_info.get('harga_container_pp', 0) > 0:
+                return pricing_info['harga_container_pp']
+            elif method == 'Harga/container_pd' and pricing_info.get('harga_container_pd', 0) > 0:
+                return pricing_info['harga_container_pd']
+            elif method == 'Harga/container_dd' and pricing_info.get('harga_container_dd', 0) > 0:
+                return pricing_info['harga_container_dd']
             else:
                 # Return original price if no valid combination found
                 return data.get('original_price', 0)
@@ -3584,11 +3688,12 @@ class ContainerWindow:
         selected_satuan = tk.StringVar()
         selected_door = tk.StringVar()
         
-        # Step 1: Satuan selection buttons  
+        # Step 1: Satuan selection buttons
         satuan_types = [
             ("m³", "m3", '#3498db'),
-            ("ton", "ton", '#e74c3c'), 
-            ("colli", "colli", '#27ae60')
+            ("ton", "ton", '#e74c3c'),
+            ("colli", "colli", '#27ae60'),
+            ("container", "container", '#ff6b6b')
         ]
         
         def select_satuan(satuan_key):
@@ -4321,14 +4426,21 @@ class ContainerWindow:
                                     ton_barang = float(barang_data['ton_barang']) if barang_data['ton_barang'] else 0.0
                                 except (KeyError, TypeError, ValueError):
                                     ton_barang = 0.0
-                                
-                                print(f"   Satuan: {satuan}, M3: {m3_barang}, Ton: {ton_barang}")
-                                
+
+                                try:
+                                    container_barang = float(barang_data['container_barang']) if barang_data['container_barang'] else 0.0
+                                except (KeyError, TypeError, ValueError):
+                                    container_barang = 0.0
+
+                                print(f"   Satuan: {satuan}, M3: {m3_barang}, Ton: {ton_barang}, Container: {container_barang}")
+
                                 # Calculate new total based on pricing method
                                 if satuan == 'm3':
                                     new_total = harga_unit * new_colli * m3_barang
                                 elif satuan == 'ton':
                                     new_total = harga_unit * new_colli * ton_barang
+                                elif satuan == 'container':
+                                    new_total = harga_unit * new_colli * container_barang
                                 else:
                                     new_total = harga_unit * new_colli
                             else:
@@ -4530,13 +4642,17 @@ class ContainerWindow:
             satuan = barang_data.get('satuan', 'manual')
             m3_barang = float(barang_data.get('m3_barang', 0) or 0)
             ton_barang = float(barang_data.get('ton_barang', 0) or 0)
-            
+            container_barang = float(barang_data.get('container_barang', 0) or 0)
+
             if satuan == 'm3' and m3_barang > 0:
                 # m3-based pricing: harga_unit * m3_barang * colli
                 return harga_unit * m3_barang * new_colli
             elif satuan == 'ton' and ton_barang > 0:
-                # ton-based pricing: harga_unit * ton_barang * colli  
+                # ton-based pricing: harga_unit * ton_barang * colli
                 return harga_unit * ton_barang * new_colli
+            elif satuan == 'container' and container_barang > 0:
+                # container-based pricing: harga_unit * container_barang * colli
+                return harga_unit * container_barang * new_colli
             else:
                 # colli-based or manual pricing: harga_unit * colli
                 return harga_unit * new_colli

@@ -52,9 +52,10 @@ class BarangWindow:
                 self.tree.column('Volume', width=int(available_width * 0.05))
                 self.tree.column('Berat', width=int(available_width * 0.05))
                 # Price columns
-                for col in ['Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 
+                for col in ['Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD',
                            'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD',
-                           'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD']:
+                           'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD',
+                           'Harga/Container_PP', 'Harga/Container_PD', 'Harga/Container_DD']:
                     self.tree.column(col, width=int(available_width * 0.045))
                 self.tree.column('Pajak', width=int(available_width * 0.04))
                 self.tree.column('Created', width=int(available_width * 0.08))
@@ -438,7 +439,33 @@ class BarangWindow:
         tk.Label(colli_dd_frame, text="Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
         self.harga_colli_dd_entry = tk.Entry(colli_dd_frame, font=('Arial', 9), width=15)
         self.harga_colli_dd_entry.pack(side='right', padx=(5, 0))
-        
+
+        # === HARGA PER CONTAINER SECTION ===
+        container_section = tk.LabelFrame(pricing_subframe, text="📦 Harga per Container", font=('Arial', 10, 'bold'),
+                                         bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
+        container_section.pack(fill='x', pady=(0, 10))
+
+        # Harga container - Pelabuhan ke Pelabuhan
+        container_pp_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_pp_frame.pack(fill='x', pady=2)
+        tk.Label(container_pp_frame, text="Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_pp_entry = tk.Entry(container_pp_frame, font=('Arial', 9), width=15)
+        self.harga_container_pp_entry.pack(side='right', padx=(5, 0))
+
+        # Harga container - Pelabuhan ke Door
+        container_pd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_pd_frame.pack(fill='x', pady=2)
+        tk.Label(container_pd_frame, text="Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_pd_entry = tk.Entry(container_pd_frame, font=('Arial', 9), width=15)
+        self.harga_container_pd_entry.pack(side='right', padx=(5, 0))
+
+        # Harga container - Door ke Door
+        container_dd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_dd_frame.pack(fill='x', pady=2)
+        tk.Label(container_dd_frame, text="Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_dd_entry = tk.Entry(container_dd_frame, font=('Arial', 9), width=15)
+        self.harga_container_dd_entry.pack(side='right', padx=(5, 0))
+
         # Note
         note_label = tk.Label(
             price_frame,
@@ -608,8 +635,10 @@ class BarangWindow:
         tree_container.pack(fill='both', expand=True, pady=5)
         
         # Updated columns
-        columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton', 
-                'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD', 'COLLI_PP', 'COLLI_PD', 'COLLI_DD', 'Pajak')
+        columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton',
+                'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD',
+                'COLLI_PP', 'COLLI_PD', 'COLLI_DD',
+                'CONTAINER_PP', 'CONTAINER_PD', 'CONTAINER_DD', 'Pajak')
         
         # ✅ GUNAKAN TREEVIEW BIASA (sesuai kode asli Anda)
         self.preview_tree = ttk.Treeview(tree_container, 
@@ -636,6 +665,9 @@ class BarangWindow:
             'COLLI_PP': 'Colli P→P',
             'COLLI_PD': 'Colli P→D',
             'COLLI_DD': 'Colli D→D',
+            'CONTAINER_PP': 'Container P→P',
+            'CONTAINER_PD': 'Container P→D',
+            'CONTAINER_DD': 'Container D→D',
             'Pajak': 'Pajak'
         }
         
@@ -661,6 +693,9 @@ class BarangWindow:
             'COLLI_PP': 100,
             'COLLI_PD': 100,
             'COLLI_DD': 100,
+            'CONTAINER_PP': 120,
+            'CONTAINER_PD': 120,
+            'CONTAINER_DD': 120,
             'Pajak': 70
         }
         
@@ -1022,10 +1057,11 @@ class BarangWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat', 
-               'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP', 
-               'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD', 
-               'Harga/Col_DD', 'Pajak', 'Created')
+        columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat',
+               'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP',
+               'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD',
+               'Harga/Col_DD', 'Harga/Container_PP', 'Harga/Container_PD', 'Harga/Container_DD',
+               'Pajak', 'Created')
         
         self.tree = PaginatedTreeView(
             parent=tree_container,
@@ -1053,6 +1089,9 @@ class BarangWindow:
         self.tree.heading('Harga/Col_PP', text='Harga/Col_PP (Rp)')
         self.tree.heading('Harga/Col_PD', text='Harga/Col_PD (Rp)')
         self.tree.heading('Harga/Col_DD', text='Harga/Col_DD (Rp)')
+        self.tree.heading('Harga/Container_PP', text='Harga/Container_PP (Rp)')
+        self.tree.heading('Harga/Container_PD', text='Harga/Container_PD (Rp)')
+        self.tree.heading('Harga/Container_DD', text='Harga/Container_DD (Rp)')
         self.tree.heading('Pajak', text='Pajak')
         self.tree.heading('Created', text='Tanggal Dibuat')
         
@@ -1072,6 +1111,9 @@ class BarangWindow:
         self.tree.column('Harga/Col_PP', width=100)
         self.tree.column('Harga/Col_PD', width=100)
         self.tree.column('Harga/Col_DD', width=100)
+        self.tree.column('Harga/Container_PP', width=130)
+        self.tree.column('Harga/Container_PD', width=130)
+        self.tree.column('Harga/Container_DD', width=130)
         self.tree.column('Pajak', width=100)
         self.tree.column('Created', width=120)
         
@@ -1525,7 +1567,14 @@ class BarangWindow:
         harga_col_pp_var = tk.StringVar(value=str(barang_data.get('col_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_col_pp_entry = tk.Entry(harga_col_pp_frame, textvariable=harga_col_pp_var, font=('Arial', 10), width=20)
         harga_col_pp_entry.pack(side='left', padx=(5, 0))
-        
+
+        harga_container_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
+        harga_container_pp_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_pp_frame, text="Harga/container (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_pp_var = tk.StringVar(value=str(barang_data.get('container_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_pp_entry = tk.Entry(harga_container_pp_frame, textvariable=harga_container_pp_var, font=('Arial', 10), width=20)
+        harga_container_pp_entry.pack(side='left', padx=(5, 0))
+
         # PD Prices
         tk.Label(form_frame, text="Harga Pickup to Door (PD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
 
@@ -1554,6 +1603,13 @@ class BarangWindow:
         harga_col_pd_entry = tk.Entry(harga_col_pd_frame, textvariable=harga_col_pd_var, font=('Arial', 10), width=20)
         harga_col_pd_entry.pack(side='left', padx=(5, 0))
 
+        harga_container_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
+        harga_container_pd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_pd_frame, text="Harga/container (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_pd_var = tk.StringVar(value=str(barang_data.get('container_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_pd_entry = tk.Entry(harga_container_pd_frame, textvariable=harga_container_pd_var, font=('Arial', 10), width=20)
+        harga_container_pd_entry.pack(side='left', padx=(5, 0))
+
         # DD Prices
         tk.Label(form_frame, text="Harga Door to Door (DD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
 
@@ -1581,6 +1637,13 @@ class BarangWindow:
         harga_col_dd_var = tk.StringVar(value=str(barang_data.get('col_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
         harga_col_dd_entry = tk.Entry(harga_col_dd_frame, textvariable=harga_col_dd_var, font=('Arial', 10), width=20)
         harga_col_dd_entry.pack(side='left', padx=(5, 0))
+
+        harga_container_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
+        harga_container_dd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_dd_frame, text="Harga/container (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_dd_var = tk.StringVar(value=str(barang_data.get('container_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_dd_entry = tk.Entry(harga_container_dd_frame, textvariable=harga_container_dd_var, font=('Arial', 10), width=20)
+        harga_container_dd_entry.pack(side='left', padx=(5, 0))
         
         # Pajak checkbox - tambahkan setelah harga_col_dd_entry
         tk.Label(form_frame, text="Pajak:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(20, 5))
@@ -1781,6 +1844,9 @@ class BarangWindow:
                 'm3_dd': process_value(harga_m3_dd_var.get()),
                 'ton_dd': process_value(harga_ton_dd_var.get()),
                 'col_dd': process_value(harga_col_dd_var.get()),
+                'container_pp': process_value(harga_container_pp_var.get()),
+                'container_pd': process_value(harga_container_pd_var.get()),
+                'container_dd': process_value(harga_container_dd_var.get()),
                 'pajak': pajak_var.get()
             }
             self.save_changes(updated_barang)
@@ -2371,7 +2437,11 @@ class BarangWindow:
                 'harga_col_pp': ['colli_pp', 'harga_col_pp', 'harga colli pp', 'colli p→p', 'colli pelabuhan-pelabuhan'],
                 'harga_col_pd': ['colli_pd', 'harga_col_pd', 'harga colli pd', 'colli p→d', 'colli pelabuhan-door'],
                 'harga_col_dd': ['colli_dd', 'harga_col_dd', 'harga colli dd', 'colli d→d', 'colli door-door'],
-                
+
+                'harga_container_pp': ['container_pp', 'harga_container_pp', 'harga container pp', 'container p→p', 'container pelabuhan-pelabuhan'],
+                'harga_container_pd': ['container_pd', 'harga_container_pd', 'harga container pd', 'container p→d', 'container pelabuhan-door'],
+                'harga_container_dd': ['container_dd', 'harga_container_dd', 'harga container dd', 'container d→d', 'container door-door'],
+
                 # Legacy fallback fields
                 'harga_m3': ['harga/m3', 'harga per m3', 'harga_m3', 'price_m3'],
                 'harga_ton': ['harga/ton', 'harga per ton', 'harga_ton', 'price_ton'],
@@ -2484,6 +2554,9 @@ class BarangWindow:
                 harga_col_pp = get_field_value('harga_col_pp')
                 harga_col_pd = get_field_value('harga_col_pd')
                 harga_col_dd = get_field_value('harga_col_dd')
+                harga_container_pp = get_field_value('harga_container_pp')
+                harga_container_pd = get_field_value('harga_container_pd')
+                harga_container_dd = get_field_value('harga_container_dd')
                 pajak = get_field_value('pajak', '0')
                 
                 # Fallback to legacy pricing if new fields not found
@@ -2507,6 +2580,7 @@ class BarangWindow:
                 print(f"Pricing - M3(PP/PD/DD): {harga_m3_pp}/{harga_m3_pd}/{harga_m3_dd}")
                 print(f"Pricing - TON(PP/PD/DD): {harga_ton_pp}/{harga_ton_pd}/{harga_ton_dd}")
                 print(f"Pricing - COL(PP/PD/DD): {harga_col_pp}/{harga_col_pd}/{harga_col_dd}")
+                print(f"Pricing - CONTAINER(PP/PD/DD): {harga_container_pp}/{harga_container_pd}/{harga_container_dd}")
                 
                 if pengirim and penerima and nama_barang:
                     # ✅ UPDATED: Check if pengirim and penerima exist
@@ -2537,7 +2611,7 @@ class BarangWindow:
                     
                     self.preview_tree.insert('', tk.END, values=(
                         display_pengirim,           # Pengirim
-                        display_penerima,           # Penerima  
+                        display_penerima,           # Penerima
                         nama_barang,                # Nama
                         panjang,                    # P
                         lebar,                      # L
@@ -2553,6 +2627,9 @@ class BarangWindow:
                         format_currency(harga_col_pp),  # COLLI_PP
                         format_currency(harga_col_pd),  # COLLI_PD
                         format_currency(harga_col_dd),   # COLLI_DD
+                        format_currency(harga_container_pp),  # CONTAINER_PP
+                        format_currency(harga_container_pd),  # CONTAINER_PD
+                        format_currency(harga_container_dd),  # CONTAINER_DD
                         pajak
                     ))
                     preview_count += 1
@@ -2633,6 +2710,9 @@ class BarangWindow:
                 'COLLI_PP': [25000, 30000, 35000],
                 'COLLI_PD': [35000, 40000, 45000],
                 'COLLI_DD': [50000, 55000, 60000],
+                'CONTAINER_PP': [8500000, 9000000, 8800000],
+                'CONTAINER_PD': [10500000, 11000000, 10800000],
+                'CONTAINER_DD': [12500000, 13000000, 12800000],
                 'Pajak': [1, 0, 1]
             }
             
@@ -3414,6 +3494,9 @@ class BarangWindow:
             'col_pp': get_safe_value('harga_col_pp', 'float'),
             'col_pd': get_safe_value('harga_col_pd', 'float'),
             'col_dd': get_safe_value('harga_col_dd', 'float'),
+            'container_pp': get_safe_value('harga_container_pp', 'float'),
+            'container_pd': get_safe_value('harga_container_pd', 'float'),
+            'container_dd': get_safe_value('harga_container_dd', 'float'),
             'pajak': get_safe_value('pajak', 'float', 0.0),
         }
 
@@ -3591,7 +3674,12 @@ class BarangWindow:
             harga_col_pp = get_numeric_value(self.harga_colli_pp_entry, "Harga Colli PP") if hasattr(self, 'harga_colli_pp_entry') else None
             harga_col_pd = get_numeric_value(self.harga_colli_pd_entry, "Harga Colli PD") if hasattr(self, 'harga_colli_pd_entry') else None
             harga_col_dd = get_numeric_value(self.harga_colli_dd_entry, "Harga Colli DD") if hasattr(self, 'harga_colli_dd_entry') else None
-            
+
+            # Container pricing
+            harga_container_pp = get_numeric_value(self.harga_container_pp_entry, "Harga Container PP") if hasattr(self, 'harga_container_pp_entry') else None
+            harga_container_pd = get_numeric_value(self.harga_container_pd_entry, "Harga Container PD") if hasattr(self, 'harga_container_pd_entry') else None
+            harga_container_dd = get_numeric_value(self.harga_container_dd_entry, "Harga Container DD") if hasattr(self, 'harga_container_dd_entry') else None
+
             kena_pajak = self.tax_var.get()
             
             # Create barang in database using the new pengirim-penerima system
@@ -3614,6 +3702,9 @@ class BarangWindow:
                 col_pp=harga_col_pp,
                 col_pd=harga_col_pd,
                 col_dd=harga_col_dd,
+                container_pp=harga_container_pp,
+                container_pd=harga_container_pd,
+                container_dd=harga_container_dd,
                 pajak=kena_pajak
             )
             
@@ -3625,6 +3716,8 @@ class BarangWindow:
                 pricing_methods.append("Ton")
             if any([harga_col_pp, harga_col_pd, harga_col_dd]):
                 pricing_methods.append("Colli")
+            if any([harga_container_pp, harga_container_pd, harga_container_dd]):
+                pricing_methods.append("Container")
             
             pricing_info = f" dengan metode pricing: {', '.join(pricing_methods)}" if pricing_methods else ""
             
@@ -3720,7 +3813,8 @@ class BarangWindow:
             pricing_entries = [
                 'harga_m3_pp_entry', 'harga_m3_pd_entry', 'harga_m3_dd_entry',
                 'harga_ton_pp_entry', 'harga_ton_pd_entry', 'harga_ton_dd_entry',
-                'harga_colli_pp_entry', 'harga_colli_pd_entry', 'harga_colli_dd_entry'
+                'harga_colli_pp_entry', 'harga_colli_pd_entry', 'harga_colli_dd_entry',
+                'harga_container_pp_entry', 'harga_container_pd_entry', 'harga_container_dd_entry'
             ]
             
             for entry_name in pricing_entries:
@@ -3770,6 +3864,10 @@ class BarangWindow:
                 harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') and barang.get('col_pd') != '-' else '-'
                 harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') and barang.get('col_dd') != '-' else '-'
 
+                harga_container_pp = f"Rp {barang.get('container_pp', 0):,.0f}" if barang.get('container_pp') and barang.get('container_pp') != '-' else '-'
+                harga_container_pd = f"Rp {barang.get('container_pd', 0):,.0f}" if barang.get('container_pd') and barang.get('container_pd') != '-' else '-'
+                harga_container_dd = f"Rp {barang.get('container_dd', 0):,.0f}" if barang.get('container_dd') and barang.get('container_dd') != '-' else '-'
+
                 # Format date
                 created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
                 
@@ -3800,6 +3898,9 @@ class BarangWindow:
                     harga_col_pp,
                     harga_col_pd,
                     harga_col_dd,
+                    harga_container_pp,
+                    harga_container_pd,
+                    harga_container_dd,
                     barang.get('pajak', 0),
                     created_date
                 )

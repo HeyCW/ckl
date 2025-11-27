@@ -41,44 +41,51 @@ class JobOrderWindow:
     
     def parse_party(self, party_text):
         import re
-        
+
         if not party_text or party_text == '-':
-            return (0, 0, '-')
-        
-        count_40 = 0
+            return (0, 0, 0, '-')
+
         count_20 = 0
-        
-        # Pattern untuk angka saja: "40" atau "20" (default 2 container untuk 40, 1 untuk 20)
-        if re.fullmatch(r"40", party_text.strip()):
-            count_40 = 2
-        elif re.fullmatch(r"20", party_text.strip()):
+        count_21 = 0
+        count_40 = 0
+
+        # Pattern untuk container type yang exact match (case insensitive)
+        party_upper = party_text.strip().upper()
+
+        # Deteksi single container type
+        if party_upper == "20'" or party_upper == "20":
             count_20 = 1
-        
-        # Pattern untuk "40HC", "40'HC", "20HC", "20'HC" (default 2 container)
-        if re.search(r"\b40['\"]?HC\b", party_text, re.IGNORECASE):
-            count_40 = 2
-        elif re.search(r"\b20['\"]?HC\b", party_text, re.IGNORECASE):
-            count_20 = 2
-        
+        elif party_upper == "21'" or party_upper == "21":
+            count_21 = 1
+        elif party_upper == "40'" or party_upper == "40":
+            count_40 = 1
+
         # Pattern untuk "3X40", "5x40", "3x40'", dll
-        matches_40 = re.findall(r"(\d+)\s*[xX]\s*40['\"]?", party_text)
+        matches_40 = re.findall(r"(\d+)\s*[xX]\s*40['\"]?", party_text, re.IGNORECASE)
         if matches_40:
             count_40 = sum(int(m) for m in matches_40)
-        
+
         # Pattern untuk "2X20", "4x20", "2x20'", dll
         matches_20 = re.findall(r"(\d+)\s*[xX]\s*20['\"]?", party_text)
         if matches_20:
             count_20 = sum(int(m) for m in matches_20)
-        
+
+        # Pattern untuk "2X21", "4x21", "2x21'", dll
+        matches_21 = re.findall(r"(\d+)\s*[xX]\s*21['\"]?", party_text)
+        if matches_21:
+            count_21 = sum(int(m) for m in matches_21)
+
         # Build display text
         parts = []
-        if count_40 > 0:
-            parts.append(f"{count_40}x 40'")
         if count_20 > 0:
-            parts.append(f"{count_20}x 20'")
-        
+            parts.append(f"{count_20} X 20'")
+        if count_21 > 0:
+            parts.append(f"{count_21} X 21'")
+        if count_40 > 0:
+            parts.append(f"{count_40} X 40'")
+
         if parts:
-            total = count_40 + count_20
+            total = count_20 + count_21 + count_40
             # Format lengkap dengan total untuk display di header
             display_full = " + ".join(parts) + f" (Total: {total} container{'s' if total > 1 else ''})"
             # Format singkat untuk kolom UNIT (tanpa total)
@@ -86,8 +93,8 @@ class JobOrderWindow:
         else:
             display_full = party_text  # Fallback ke text asli jika tidak bisa di-parse
             display_short = party_text
-        
-        return (count_40, count_20, display_full, display_short)
+
+        return (count_20, count_21, count_40, display_full, display_short)
     
     def setup_ui(self):
         """Setup user interface"""
@@ -494,27 +501,33 @@ class JobOrderWindow:
             containers = self.db.execute(query, (joa,))
             container_ids = [c['container_id'] for c in containers]
 
-            # Hitung jumlah 40 dan 20 dari kolom party
-            total_40, total_20 = 0, 0
+            # Hitung jumlah container per tipe (20', 21', 40')
+            total_20, total_21, total_40 = 0, 0, 0
             for cont in containers:
-                p = cont['party'] or ''
+                p = (cont['party'] or '').strip().upper()
+                # Prioritas: 40' > 21' > 20'
                 if '40' in p:
                     total_40 += 1
+                elif '21' in p:
+                    total_21 += 1
                 elif '20' in p:
                     total_20 += 1
 
             # Buat string party
             party_parts = []
-            if total_40 > 0:
-                party_parts.append(f"{total_40} X 40'")
             if total_20 > 0:
                 party_parts.append(f"{total_20} X 20'")
+            if total_21 > 0:
+                party_parts.append(f"{total_21} X 21'")
+            if total_40 > 0:
+                party_parts.append(f"{total_40} X 40'")
             party_display = " + ".join(party_parts) if party_parts else "-"
 
-            joa_info['party_count_40'] = total_40
             joa_info['party_count_20'] = total_20
+            joa_info['party_count_21'] = total_21
+            joa_info['party_count_40'] = total_40
             joa_info['party'] = party_display
-            print(f"Calculated Party: {party_display} (40'={total_40}, 20'={total_20})")
+            print(f"Calculated Party: {party_display} (20'={total_20}, 21'={total_21}, 40'={total_40})")
 
             # Update header
             self.shipping_line_label.config(text=joa_info.get('shipping_line', '-') or '-')
@@ -661,7 +674,9 @@ class JobOrderWindow:
 
             # POL costs
             for (cost_type, size), data in cost_summary_pol.items():
-                qty = total_40 if size == '40' else total_20 if size == '20' else 1
+                # Determine quantity based on container size/type
+                qty_map = {'20': total_20, '21': total_21, '40': total_40}
+                qty = qty_map.get(size, 1)
                 unit = f"{qty}x {size}'" if size else "1 invoice"
                 total = data['unit_cost'] * qty
                 ket = f"{cost_type} {size}" if size else cost_type
@@ -669,15 +684,17 @@ class JobOrderWindow:
                 purchase_pol_total += total
                 purchase_total += total
                 self.pol_tree.insert('', 'end', values=(
-                    ket, 
-                    unit, 
-                    f"Rp {data['unit_cost']:,.0f}", 
+                    ket,
+                    unit,
+                    f"Rp {data['unit_cost']:,.0f}",
                     f"Rp {total:,.0f}"
                 ))
 
             # POD costs
             for (cost_type, size), data in cost_summary_pod.items():
-                qty = total_40 if size == '40' else total_20 if size == '20' else 1
+                # Determine quantity based on container size/type
+                qty_map = {'20': total_20, '21': total_21, '40': total_40}
+                qty = qty_map.get(size, 1)
                 unit = f"{qty}x {size}'" if size else "1 invoice"
                 total = data['unit_cost'] * qty
                 ket = f"{cost_type} {size}" if size else cost_type
@@ -685,9 +702,9 @@ class JobOrderWindow:
                 purchase_pod_total += total
                 purchase_total += total
                 self.pod_tree.insert('', 'end', values=(
-                    ket, 
-                    unit, 
-                    f"Rp {data['unit_cost']:,.0f}", 
+                    ket,
+                    unit,
+                    f"Rp {data['unit_cost']:,.0f}",
                     f"Rp {total:,.0f}"
                 ))
 
