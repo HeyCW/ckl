@@ -880,7 +880,16 @@ class ContainerWindow:
         self.colli_var = tk.StringVar(value="1")
         self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, width=8)
         self.colli_entry.pack(side='left', padx=(5, 10))
-        
+
+        # Satuan input
+        satuan_frame = tk.Frame(left_frame, bg='#ecf0f1')
+        satuan_frame.pack(fill='x', pady=5)
+        tk.Label(satuan_frame, text="📏 Satuan:").pack(side='left')
+        self.satuan_var = tk.StringVar(value="pcs")
+        satuan_options = ["pallet", "koli", "package", "dos", "pcs"]
+        self.satuan_combo = ttk.Combobox(satuan_frame, textvariable=self.satuan_var,
+                                         values=satuan_options, state='readonly', width=10)
+        self.satuan_combo.pack(side='left', padx=(5, 10))
 
         # ✅ TANGGAL - DATEPICKER DENGAN FORMAT INDONESIA
         tanggal_frame = tk.Frame(left_frame, bg='#ecf0f1')
@@ -1017,7 +1026,7 @@ class ContainerWindow:
                                     padx=10, pady=5, command=self.remove_barang_from_container)
         remove_barang_btn.pack(side='left', padx=(0, 10))
 
-        edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli & Tanggal",
+        edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli, Satuan & Tanggal",
                                 font=('Arial', 7, 'bold'), bg='#16a085', fg='white',
                                 padx=10, pady=5, command=self.edit_barang_colli_in_container)
         edit_colli_btn.pack(side='left', padx=(0, 10))
@@ -4173,9 +4182,9 @@ class ContainerWindow:
 
 
     def show_edit_colli_dialog(self, selected_items, container_id):
-        """Show dialog to edit colli amounts and dates with tax recalculation - DATEPICKER VERSION"""
+        """Show dialog to edit colli, satuan, and dates with tax recalculation - DATEPICKER VERSION"""
         edit_window = tk.Toplevel(self.window)
-        edit_window.title("🔢 Edit Jumlah Colli & Tanggal")
+        edit_window.title("🔢 Edit Colli, Satuan & Tanggal")
         edit_window.geometry("600x500")
         edit_window.configure(bg='#ecf0f1')
         edit_window.transient(self.window)
@@ -4199,20 +4208,20 @@ class ContainerWindow:
         # Header
         header = tk.Label(
             edit_window,
-            text="🔢 EDIT JUMLAH COLLI & TANGGAL",
+            text="🔢 EDIT COLLI, SATUAN & TANGGAL",
             font=('Arial', 16, 'bold'),
             bg='#16a085',
             fg='white',
             pady=15
         )
         header.pack(fill='x')
-        
+
         # Info frame
         info_frame = tk.Frame(edit_window, bg='#ecf0f1')
         info_frame.pack(fill='x', padx=20, pady=10)
-        
-        tk.Label(info_frame, 
-                text=f"📝 Mengedit colli dan tanggal untuk {len(selected_items)} barang | 💡 Harga total dan pajak akan dihitung ulang",
+
+        tk.Label(info_frame,
+                text=f"📝 Mengedit colli, satuan, dan tanggal untuk {len(selected_items)} barang | 💡 Harga total dan pajak akan dihitung ulang",
                 font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50').pack()
         
         # Main frame with scrollbar for multiple items
@@ -4267,24 +4276,54 @@ class ContainerWindow:
             current_colli_label.pack(side='left', padx=(5, 10))
             
             colli_var = tk.StringVar(value=str(item['current_colli']))
-            colli_entry = tk.Entry(colli_frame, textvariable=colli_var, 
+            colli_entry = tk.Entry(colli_frame, textvariable=colli_var,
                                 font=('Arial', 10), width=10)
             colli_entry.pack(side='left', padx=5)
-            
+
+            # Satuan input
+            satuan_frame = tk.Frame(item_frame, bg='#ffffff')
+            satuan_frame.pack(fill='x', padx=10, pady=10)
+
+            tk.Label(satuan_frame, text="📏 Satuan:",
+                    font=('Arial', 10, 'bold'), bg='#ffffff').pack(side='left')
+
+            # Get current satuan from database
+            try:
+                current_satuan_data = self.db.execute_one("""
+                    SELECT satuan FROM detail_container
+                    WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
+                """, (item['id'], container_id, item['assigned_at']))
+
+                current_satuan = current_satuan_data[0] if current_satuan_data and current_satuan_data[0] else 'pcs'
+            except Exception as satuan_error:
+                print(f"Error getting current satuan: {satuan_error}")
+                current_satuan = 'pcs'
+
+            current_satuan_label = tk.Label(satuan_frame,
+                                        text=f"(Saat ini: {current_satuan})",
+                                        font=('Arial', 9), bg='#ffffff', fg='#7f8c8d')
+            current_satuan_label.pack(side='left', padx=(5, 10))
+
+            satuan_var = tk.StringVar(value=current_satuan)
+            satuan_options = ["pallet", "koli", "package", "dos", "pcs"]
+            satuan_combo = ttk.Combobox(satuan_frame, textvariable=satuan_var,
+                                       values=satuan_options, state='readonly', width=10)
+            satuan_combo.pack(side='left', padx=5)
+
             # ✅ TANGGAL INPUT - DATEPICKER
             date_frame = tk.Frame(item_frame, bg='#ffffff')
             date_frame.pack(fill='x', padx=10, pady=5)
-            
-            tk.Label(date_frame, text="📅 Tanggal:", 
+
+            tk.Label(date_frame, text="📅 Tanggal:",
                     font=('Arial', 10, 'bold'), bg='#ffffff').pack(side='left')
-            
+
             # Get current date from database (in YYYY-MM-DD format)
             try:
                 current_date_data = self.db.execute_one("""
-                    SELECT tanggal FROM detail_container 
+                    SELECT tanggal FROM detail_container
                     WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
                 """, (item['id'], container_id, item['assigned_at']))
-                
+
                 current_date_db = current_date_data[0] if current_date_data and current_date_data[0] else datetime.now().strftime('%Y-%m-%d')
             except Exception as date_error:
                 print(f"Error getting current date: {date_error}")
@@ -4324,6 +4363,8 @@ class ContainerWindow:
             edit_entries[item['id']] = {
                 'colli_var': colli_var,
                 'colli_entry': colli_entry,
+                'satuan_var': satuan_var,
+                'satuan_combo': satuan_combo,
                 'date_entry': date_entry,  # ✅ DateEntry object
                 'item': item
             }
@@ -4346,10 +4387,14 @@ class ContainerWindow:
                     try:
                         new_colli = int(entry_data['colli_var'].get())
                         old_colli = int(entry_data['item']['current_colli'])
-                        
+
+                        # Get new satuan from dropdown
+                        new_satuan = entry_data['satuan_var'].get()
+
                         print(f"\n📦 Processing Barang ID: {barang_id}")
                         print(f"   Old Colli: {old_colli}, New Colli: {new_colli}")
-                        
+                        print(f"   New Satuan: {new_satuan}")
+
                         # ✅ GET TANGGAL DARI DateEntry (sudah format DD/MM/YYYY)
                         new_date_indonesian = entry_data['date_entry'].get_date().strftime('%d/%m/%Y')
                         print(f"   New Date (Indonesian): {new_date_indonesian}")
@@ -4384,46 +4429,45 @@ class ContainerWindow:
                         
                         
                         try:
-                            old_date_data = self.db.execute_one("""
-                                SELECT assigned_at FROM detail_container 
+                            old_data = self.db.execute_one("""
+                                SELECT tanggal, satuan FROM detail_container
                                 WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
                             """, (barang_id, container_id, entry_data['item']['assigned_at']))
-                            
-                            
-                            old_date_db = old_date_data[0] if old_date_data and old_date_data[0] else None
+
+                            old_date_db = old_data[0] if old_data and old_data[0] else None
+                            old_satuan = old_data[1] if old_data and len(old_data) > 1 and old_data[1] else 'pcs'
+
                             date_changed = new_date_db != old_date_db
-                            
+                            satuan_changed = new_satuan != old_satuan
+
                             print(f"   Old Date (DB): {old_date_db}")
-                            print(f"   Date Changed: {date_changed}, Colli Changed: {colli_changed}")
-                        except Exception as get_date_error:
-                            print(f"⚠️ Error getting old date: {get_date_error}")
+                            print(f"   Old Satuan: {old_satuan}")
+                            print(f"   Date Changed: {date_changed}, Colli Changed: {colli_changed}, Satuan Changed: {satuan_changed}")
+                        except Exception as get_data_error:
+                            print(f"⚠️ Error getting old data: {get_data_error}")
                             date_changed = True
-                        
-                        if colli_changed or date_changed:
+                            satuan_changed = True
+
+                        if colli_changed or date_changed or satuan_changed:
                             # Calculate new total price
                             harga_unit = float(str(entry_data['item']['harga_unit']).replace(',', ''))
                             
                             print(f"   Harga Unit: {harga_unit}")
                             
-                            # Get barang data to determine pricing method
+                            # Get barang data for calculation
                             barang_data = self.db.execute_one("""
-                                SELECT b.*, dc.satuan, dc.door_type 
+                                SELECT b.*, dc.door_type
                                 FROM barang b
                                 JOIN detail_container dc ON b.barang_id = dc.barang_id
                                 WHERE b.barang_id = ? AND dc.container_id = ?
                             """, (barang_id, container_id))
-                            
+
                             if barang_data:
-                                try:
-                                    satuan = barang_data['satuan'] if barang_data['satuan'] else 'manual'
-                                except (KeyError, TypeError):
-                                    satuan = 'manual'
-                                
                                 try:
                                     m3_barang = float(barang_data['m3_barang']) if barang_data['m3_barang'] else 0.0
                                 except (KeyError, TypeError, ValueError):
                                     m3_barang = 0.0
-                                    
+
                                 try:
                                     ton_barang = float(barang_data['ton_barang']) if barang_data['ton_barang'] else 0.0
                                 except (KeyError, TypeError, ValueError):
@@ -4434,14 +4478,14 @@ class ContainerWindow:
                                 except (KeyError, TypeError, ValueError):
                                     container_barang = 0.0
 
-                                print(f"   Satuan: {satuan}, M3: {m3_barang}, Ton: {ton_barang}, Container: {container_barang}")
+                                print(f"   New Satuan: {new_satuan}, M3: {m3_barang}, Ton: {ton_barang}, Container: {container_barang}")
 
-                                # Calculate new total based on pricing method
-                                if satuan == 'm3':
+                                # Calculate new total based on NEW satuan from dropdown
+                                if new_satuan == 'm3':
                                     new_total = harga_unit * new_colli * m3_barang
-                                elif satuan == 'ton':
+                                elif new_satuan == 'ton':
                                     new_total = harga_unit * new_colli * ton_barang
-                                elif satuan == 'container':
+                                elif new_satuan == 'container':
                                     new_total = harga_unit * new_colli * container_barang
                                 else:
                                     new_total = harga_unit * new_colli
@@ -4450,13 +4494,13 @@ class ContainerWindow:
                             
                             print(f"   New Total: {new_total}")
                             
-                            # ✅ UPDATE WITH DATABASE FORMAT DATE (YYYY-MM-DD)
+                            # ✅ UPDATE WITH DATABASE FORMAT DATE (YYYY-MM-DD) AND SATUAN
                             print(f"   🔄 Updating database...")
                             self.db.execute("""
-                                UPDATE detail_container 
-                                SET colli_amount = ?, total_harga = ?, tanggal = ?
+                                UPDATE detail_container
+                                SET colli_amount = ?, total_harga = ?, tanggal = ?, satuan = ?
                                 WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
-                            """, (new_colli, new_total, new_date_db, barang_id, container_id, 
+                            """, (new_colli, new_total, new_date_db, new_satuan, barang_id, container_id,
                                 entry_data['item']['assigned_at']))
                             
                             print(f"   ✅ Database updated successfully!")
@@ -4538,6 +4582,8 @@ class ContainerWindow:
                             change_desc = []
                             if colli_changed:
                                 change_desc.append(f"Colli: {old_colli} → {new_colli}")
+                            if satuan_changed:
+                                change_desc.append(f"Satuan: {old_satuan} → {new_satuan}")
                             if date_changed:
                                 try:
                                     old_date_obj = datetime.strptime(old_date_db, '%Y-%m-%d')
@@ -5099,7 +5145,7 @@ class ContainerWindow:
         self.sender_search_var.set("")
         self.receiver_search_var.set("")
         self.colli_var.set("1")
-        
+        self.satuan_var.set("pcs")
 
         self.tanggal_entry.set_date(datetime.now().date())
         
@@ -5231,12 +5277,15 @@ class ContainerWindow:
                     })
                     
                     print(f"Processing item {barang_id}: {price_data}")
-                    
+
+                    # Get satuan from dropdown instead of pricing method
+                    satuan_value = self.satuan_var.get()
+
                     # ✅ KIRIM TANGGAL DATABASE FORMAT (YYYY-MM-DD)
                     success = self.db.assign_barang_to_container_with_pricing(
-                        barang_id, 
-                        container_id, 
-                        price_data['metode_pricing'].split('_')[0].split('/')[1] if 'metode_pricing' in price_data else 'manual',
+                        barang_id,
+                        container_id,
+                        satuan_value,  # Use satuan from dropdown
                         price_data['metode_pricing'].split('_')[1] if 'metode_pricing' in price_data else 'manual',
                         colli_amount,
                         price_data['harga_per_unit'],

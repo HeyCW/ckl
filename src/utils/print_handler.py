@@ -25,7 +25,44 @@ class PrintHandler:
     def __init__(self, db):
         self.pdf_generator = PDFPackingListGenerator(db)
         self.db = db
-   
+
+    def _calculate_row_height(self, row_data, column_widths, font_size=12, min_height=18):
+        """
+        Calculate optimal row height based on text content and column widths.
+        Accounts for text wrapping in cells.
+        """
+        max_lines = 1
+
+        # Average character width for Times New Roman at size 12 (in Excel width units)
+        # Approximately 1.2 width units per character
+        char_width = font_size / 10
+
+        for i, cell_value in enumerate(row_data):
+            if i >= len(column_widths):
+                continue
+
+            col_width = column_widths[i]
+            text = str(cell_value) if cell_value not in [None, ''] else ''
+
+            if not text:
+                continue
+
+            # Calculate how many characters fit in the column
+            chars_per_line = max(1, int(col_width / char_width))
+
+            # Calculate number of lines needed for this cell
+            text_length = len(text)
+            lines_needed = max(1, (text_length + chars_per_line - 1) // chars_per_line)
+
+            max_lines = max(max_lines, lines_needed)
+
+        # Calculate row height: base height per line + padding
+        # For font size 12, each line is approximately 15 points
+        height_per_line = font_size * 1.25
+        total_height = max_lines * height_per_line
+
+        return max(min_height, total_height)
+
     def print_container_invoice(self, container_id):
         """Generate and export container invoice to Excel optimized for printing"""
         try:
@@ -180,9 +217,25 @@ class PrintHandler:
                 cell.alignment = center_align
                 cell.border = thin_border
                 ws.row_dimensions[current_row].height = 20
-        
+
             current_row += 1
-        
+
+            # Define column widths for row height calculation
+            estimated_widths = [
+                10,  # Tgl
+                25,  # Pengirim
+                25,  # Penerima
+                35,  # Nama Barang
+                18,  # Kubikasi
+                10,  # M3
+                10,  # Ton
+                8,   # Col
+                10,  # Satuan
+                12,  # Door
+                14,  # Unit Price
+                14   # Price
+            ]
+
             # Get tax information
             print("\n=== GETTING TAX INFORMATION BY RECEIVER ===")
             tax_summary = {}
@@ -424,11 +477,14 @@ class PrintHandler:
                         kubikasi, m3_total, ton_total, colli_val, satuan,
                         door, unit_price_val, harga_val
                     ]
-                
+
+                    # Calculate dynamic row height based on content
+                    row_height = self._calculate_row_height(row_data, estimated_widths, font_size=12, min_height=18)
+
                     for col, value in enumerate(row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
                         cell.font = small_font
-                        ws.row_dimensions[current_row].height = 25
+                        ws.row_dimensions[current_row].height = row_height
                     
                         if col == 1:
                             cell.alignment = center_align
@@ -698,22 +754,7 @@ class PrintHandler:
                     ws.row_dimensions[current_row].height = 20
                     current_row += 2
         
-            # AUTO-ADJUST Column widths
-            estimated_widths = [
-                10,  # Tgl
-                25,  # Pengirim
-                25,  # Penerima  
-                35,  # Nama Barang
-                18,  # Kubikasi
-                10,  # M3
-                10,  # Ton
-                8,   # Col
-                10,  # Satuan
-                12,  # Door
-                14,  # Unit Price
-                14   # Price
-            ]
-            
+            # AUTO-ADJUST Column widths (using the widths defined earlier)
             for i, width in enumerate(estimated_widths, 1):
                 ws.column_dimensions[get_column_letter(i)].width = width
         
@@ -1066,9 +1107,25 @@ class PrintHandler:
                 cell.alignment = center_align
                 cell.border = thin_border
                 ws.row_dimensions[current_row].height = 12
-        
+
             current_row += 1
-        
+
+            # Define column widths for row height calculation
+            estimated_widths = [
+                5,   # No
+                12,  # Tanggal
+                20,  # Pengirim
+                20,  # Penerima
+                25,  # Nama Barang
+                15,  # Jenis Barang
+                15,  # Dimensi
+                8,   # M3
+                8,   # Ton
+                6,   # Colli
+                8,   # Satuan
+                15   # Door
+            ]
+
             def get_sort_key(barang_row):
                 try:
                     if hasattr(barang_row, 'keys'):
@@ -1194,12 +1251,15 @@ class PrintHandler:
                         i, display_date, display_pengirim, display_penerima, nama_barang, jenis_barang,
                         dimensi, m3_val, ton_val, colli_val, satuan, door
                     ]
-                
+
+                    # Calculate dynamic row height based on content
+                    row_height = self._calculate_row_height(row_data, estimated_widths, font_size=7, min_height=10)
+
                     for col, value in enumerate(row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
                         cell.font = small_font
                         cell.border = thin_border
-                        ws.row_dimensions[current_row].height = 10
+                        ws.row_dimensions[current_row].height = row_height
                     
                         if col == 1:
                             cell.alignment = center_align
@@ -1244,22 +1304,8 @@ class PrintHandler:
             
             ws[f'A{current_row}'] = summary_text
             ws[f'A{current_row}'].font = small_font
-        
-            estimated_widths = [
-                5,   # No
-                12,  # Tanggal
-                20,  # Pengirim
-                20,  # Penerima
-                25,  # Nama Barang
-                15,  # Jenis Barang
-                15,  # Dimensi
-                8,   # M3
-                8,   # Ton
-                6,   # Colli
-                8,   # Satuan
-                15   # Door
-            ]
-            
+
+            # Set column widths (using the widths defined earlier)
             for i, width in enumerate(estimated_widths, 1):
                 ws.column_dimensions[get_column_letter(i)].width = width
         
