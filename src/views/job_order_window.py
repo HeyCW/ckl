@@ -552,14 +552,14 @@ class JobOrderWindow:
             sales_total, pol_total, pod_total = 0, 0, 0
             placeholders = ','.join(['?' for _ in container_ids])
 
-            # Cari distinct customer (pengirim)
+            # Cari distinct customer (penerima)
             customer_query = f"""
-                SELECT DISTINCT 
-                    b.pengirim as customer_id,
-                    COALESCE(c.nama_customer, b.pengirim) as customer_name
+                SELECT DISTINCT
+                    b.penerima as customer_id,
+                    COALESCE(c.nama_customer, b.penerima) as customer_name
                 FROM barang b
                 JOIN detail_container dc ON b.barang_id = dc.barang_id
-                JOIN customers c ON c.customer_id = b.pengirim
+                JOIN customers c ON c.customer_id = b.penerima
                 WHERE dc.container_id IN ({placeholders})
                 ORDER BY customer_name
             """
@@ -572,7 +572,7 @@ class JobOrderWindow:
 
                 # Ambil barang untuk customer ini
                 barang_query = f"""
-                    SELECT 
+                    SELECT
                         b.barang_id,
                         b.nama_barang,
                         b.m3_barang,
@@ -582,7 +582,7 @@ class JobOrderWindow:
                         dc.total_harga
                     FROM barang b
                     JOIN detail_container dc ON b.barang_id = dc.barang_id
-                    WHERE b.pengirim = ? AND dc.container_id IN ({placeholders})
+                    WHERE b.penerima = ? AND dc.container_id IN ({placeholders})
                 """
                 barangs = self.db.execute(barang_query, (customer_id, *container_ids))
 
