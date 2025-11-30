@@ -435,8 +435,10 @@ class ContainerWindow:
             anchor='w'
         ).pack(side='left', padx=(0, 5))
         
-        self.party_entry = tk.Entry(row2_frame, font=('Arial', 10), width=20)
+        party_options = ["20'", "21'", "40'"]
+        self.party_entry = ttk.Combobox(row2_frame, values=party_options, state='readonly', font=('Arial', 10), width=17)
         self.party_entry.pack(side='left', padx=(0, 20))
+        self.party_entry.set('')  # allow empty selection by default
         
         # Ref JOA
         tk.Label(
@@ -6613,9 +6615,13 @@ class ContainerWindow:
             tk.Label(row, text="Party:", font=('Arial', 11, 'bold'), 
                     bg='#ffffff', width=15, anchor='w').pack(side='left')
             
-            party_entry = tk.Entry(row, font=('Arial', 11), width=35)
+            party_options = ["20'", "21'", "40'"]
+            party_entry = ttk.Combobox(row, values=party_options, state='readonly', font=('Arial', 11), width=32)
             party_entry.pack(side='left', padx=(10, 0))
-            party_entry.insert(0, safe_get(container[4]))
+            if safe_get(container[4]) in party_options:
+                party_entry.set(safe_get(container[4]))
+            else:
+                party_entry.set('')
 
             # 4. Container
             row = tk.Frame(form_frame, bg='#ffffff')
@@ -6883,7 +6889,7 @@ class ContainerWindow:
     def clear_form(self):
         """Clear form fields"""
         self.container_entry.delete(0, tk.END)
-        self.party_entry.delete(0, tk.END)
+        self.party_entry.set('')
         self.seal_entry.delete(0, tk.END)
         self.ref_joa_entry.delete(0, tk.END)
         

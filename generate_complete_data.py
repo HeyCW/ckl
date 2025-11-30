@@ -3,6 +3,7 @@ Script untuk generate complete data:
 - 3 container dengan party berbeda (20', 21', 40') sharing JOA yang sama
 - Barang untuk setiap container
 - Biaya delivery untuk setiap container
+- Auto create kapals jika belum ada (tanpa perlu seed terpisah)
 """
 
 import sqlite3
@@ -11,17 +12,43 @@ import random
 
 DB_PATH = "data/app.db"
 
+
+def ensure_kapals_exist(conn):
+    """Create sample kapals if table is empty so generator always works"""
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM kapals")
+    count = cursor.fetchone()[0]
+    if count > 0:
+        print(f"OK: Sudah ada {count} kapal")
+        return
+
+    sample_kapals = [
+        ('SPIL', 'KM TANTO', 'Makassar', '2025-01-15', '2025-01-10', '2025-01-11', '2025-01-13'),
+        ('TANTO', 'KM MERATUS', 'Surabaya', '2025-01-18', '2025-01-13', '2025-01-14', '2025-01-16'),
+        ('PELNI', 'KM PELNI NUSANTARA', 'Bali', '2025-01-20', '2025-01-15', '2025-01-16', '2025-01-18'),
+    ]
+    cursor.executemany("""
+        INSERT INTO kapals (shipping_line, feeder, destination, etd_sub, cls, open, full)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, sample_kapals)
+    conn.commit()
+    print(f"Created {len(sample_kapals)} kapal sample")
+
+
 def generate_containers_with_shared_joa():
     """Generate 3 containers (20', 21', 40') dengan JOA yang sama"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    # Pastikan kapal tersedia
+    ensure_kapals_exist(conn)
 
     print("\n" + "="*60)
     print("GENERATE CONTAINERS DENGAN SHARED JOA")
     print("="*60)
 
     # Ambil kapal yang ada
-    cursor.execute("SELECT kapal_id, feeder, etd_sub FROM kapals ORDER BY kapal_id LIMIT 5")
+    cursor.execute("SELECT kapal_id, feeder, etd_sub, destination FROM kapals ORDER BY kapal_id LIMIT 5")
     kapals = cursor.fetchall()
 
     if not kapals:
@@ -47,6 +74,7 @@ def generate_containers_with_shared_joa():
         kapal_id = kapal[0]
         feeder = kapal[1]
         etd = kapal[2] or datetime.now().strftime('%Y-%m-%d')
+        destination = kapal[3] or "Surabaya"
 
         print(f"\n[SET {joa_set + 1}] JOA: {ref_joa} | Kapal: {feeder}")
 
@@ -81,7 +109,8 @@ def generate_containers_with_shared_joa():
                     'party': party_type,
                     'ref_joa': ref_joa,
                     'kapal_id': kapal_id,
-                    'feeder': feeder
+                    'feeder': feeder,
+                    'destination': destination
                 })
 
                 print(f"  OK: {party_type:4} | {container_num} | {seal}")
@@ -128,15 +157,21 @@ def add_delivery_costs_to_containers(containers):
 
         print(f"\n[{container_no}] Party: {party}")
 
-        # Setiap container dapat 3-5 jenis biaya random
+        # Set setiap container dapat 3-5 jenis biaya random
         num_costs = random.randint(3, 5)
         selected_types = random.sample(delivery_types, num_costs)
 
         container_total = 0
+        # Lokasi hanya boleh Surabaya atau destination kapal
+        lokasi_options = ['Surabaya']
+        if container.get('destination'):
+            lokasi_options.append(container['destination'])
 
         for cost_type in selected_types:
             delivery_name = cost_type['delivery']
-            description = cost_type['desc']
+            party_label = container.get('party', '').replace("'", "")
+            description = f"{cost_type['delivery']} {party_label}".strip()
+            cost_description = cost_type['desc']
 
             # Generate cost dalam range
             cost = round(random.uniform(cost_type['range'][0], cost_type['range'][1]), 0)
@@ -149,6 +184,9 @@ def add_delivery_costs_to_containers(containers):
 
             cost = round(cost, 0)
 
+            # Lokasi random antara Surabaya atau destination kapal
+            location = random.choice(lokasi_options)
+
             # Tanggal random dalam 30 hari terakhir
             days_ago = random.randint(0, 30)
             created_date = (datetime.now() - timedelta(days=days_ago)).strftime('%Y-%m-%d')
@@ -158,9 +196,9 @@ def add_delivery_costs_to_containers(containers):
                     INSERT INTO container_delivery_costs (
                         container_id, delivery, description, cost_description, cost, created_date
                     ) VALUES (?, ?, ?, ?, ?, ?)
-                """, (container_id, delivery_name, description, delivery_name, cost, created_date))
+                """, (container_id, location, description, cost_description, cost, created_date))
 
-                print(f"  + {delivery_name:15} | Rp {cost:>12,.0f} | {description}")
+                print(f"  + {delivery_name:15} | {location:15} | Rp {cost:>12,.0f} | {cost_description}")
                 container_total += cost
                 total_inserted += 1
 
