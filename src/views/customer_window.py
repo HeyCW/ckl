@@ -33,7 +33,33 @@ class CustomerWindow:
         """Return scaled font size"""
         scale = self.get_scale_factor()
         return max(8, int(base_size * scale))
-    
+
+    def make_button_keyboard_accessible(self, button):
+        """Make button accessible via Tab and Enter keys"""
+        button.config(takefocus=True)
+
+        def on_enter_or_space(event):
+            button.invoke()
+            return 'break'
+
+        button.bind('<Return>', on_enter_or_space)
+        button.bind('<space>', on_enter_or_space)
+        return button
+
+    def make_text_widget_tabbable(self, text_widget):
+        """Make Text widget navigate to next widget on Tab key"""
+        def on_tab(event):
+            text_widget.tk_focusNext().focus()
+            return 'break'  # Prevent default Tab behavior (indentation)
+
+        def on_shift_tab(event):
+            text_widget.tk_focusPrev().focus()
+            return 'break'
+
+        text_widget.bind('<Tab>', on_tab)
+        text_widget.bind('<Shift-Tab>', on_shift_tab)
+        return text_widget
+
     def on_window_resize(self, event):
         """Handle window resize to adjust column widths"""
         if hasattr(self, 'tree') and event.widget == self.window:
@@ -120,6 +146,7 @@ class CustomerWindow:
             pady=10,
             command=self.window.destroy
         )
+        self.make_button_keyboard_accessible(close_btn)
         close_btn.pack(pady=10)
         
         # Bind resize event
@@ -145,11 +172,12 @@ class CustomerWindow:
         
         tk.Label(form_frame, text="Alamat Customer:", font=('Arial', self.scaled_font(12), 'bold'), bg='#ecf0f1').pack(anchor='w')
         self.address_entry = tk.Text(form_frame, font=('Arial', self.scaled_font(12)), height=4)
+        self.make_text_widget_tabbable(self.address_entry)
         self.address_entry.pack(fill='x', pady=(5, 10))
-        
+
         btn_frame = tk.Frame(form_frame, bg='#ecf0f1')
         btn_frame.pack(fill='x', pady=20)
-        
+
         add_btn = tk.Button(
             btn_frame,
             text="➕ Tambah Customer",
@@ -160,6 +188,7 @@ class CustomerWindow:
             pady=5,
             command=self.add_customer
         )
+        self.make_button_keyboard_accessible(add_btn)
         add_btn.pack(side='left', padx=(0, 10))
         
         clear_btn = tk.Button(
@@ -172,6 +201,7 @@ class CustomerWindow:
             pady=5,
             command=self.clear_form
         )
+        self.make_button_keyboard_accessible(clear_btn)
         clear_btn.pack(side='left')
         
         self.name_entry.focus()
@@ -230,6 +260,7 @@ class CustomerWindow:
             pady=5,
             command=self.browse_file
         )
+        self.make_button_keyboard_accessible(browse_btn)
         browse_btn.pack(side='right', padx=(5, 0))
         
         preview_frame = tk.Frame(main_container, bg='#ecf0f1')
@@ -294,6 +325,7 @@ class CustomerWindow:
             pady=5,
             command=self.download_template
         )
+        self.make_button_keyboard_accessible(download_template_btn)
         download_template_btn.pack(side='left')
         
         self.status_label = tk.Label(
@@ -327,6 +359,7 @@ class CustomerWindow:
             pady=5,
             command=self.load_customers
         )
+        self.make_button_keyboard_accessible(refresh_btn)
         refresh_btn.pack(side='right')
         
         search_frame = tk.Frame(list_container, bg='#ffffff', relief='solid', bd=1)
@@ -366,6 +399,7 @@ class CustomerWindow:
             pady=2,
             command=self.clear_search
         )
+        self.make_button_keyboard_accessible(clear_search_btn)
         clear_search_btn.pack(side='left', padx=5)
         
         action_frame = tk.Frame(list_container, bg='#ecf0f1')
@@ -381,6 +415,7 @@ class CustomerWindow:
             pady=5,
             command=self.update_customer
         )
+        self.make_button_keyboard_accessible(update_btn)
         update_btn.pack(side='left', padx=(0, 10))
         
         delete_btn = tk.Button(
@@ -393,6 +428,7 @@ class CustomerWindow:
             pady=5,
             command=self.delete_customer
         )
+        self.make_button_keyboard_accessible(delete_btn)
         delete_btn.pack(side='left', padx=(0, 10))
         
         export_btn = tk.Button(
@@ -405,6 +441,7 @@ class CustomerWindow:
             pady=5,
             command=self.export_customers
         )
+        self.make_button_keyboard_accessible(export_btn)
         export_btn.pack(side='left')
         
         self.info_label = tk.Label(
@@ -618,6 +655,7 @@ class CustomerWindow:
         
         tk.Label(form_frame, text="Alamat Customer:", font=('Arial', self.scaled_font(12), 'bold'), bg='#ecf0f1').pack(anchor='w')
         alamat_text = tk.Text(form_frame, font=('Arial', self.scaled_font(11)), height=6)
+        self.make_text_widget_tabbable(alamat_text)
         alamat_text.insert('1.0', customer_data['alamat_customer'] or '')
         alamat_text.pack(fill='x', pady=(5, 20))
         
@@ -663,8 +701,9 @@ class CustomerWindow:
             pady=8,
             command=on_save
         )
+        self.make_button_keyboard_accessible(save_btn)
         save_btn.pack(side='right', padx=(10, 0))
-        
+
         cancel_btn = tk.Button(
             btn_frame,
             text="❌ Batal",
@@ -675,6 +714,7 @@ class CustomerWindow:
             pady=8,
             command=update_window.destroy
         )
+        self.make_button_keyboard_accessible(cancel_btn)
         cancel_btn.pack(side='right')
         
         nama_entry.focus()
@@ -1462,6 +1502,7 @@ def test_customer_window():
             padx=20,
             pady=10
         )
+        self.make_button_keyboard_accessible(test_btn)
         test_btn.pack(expand=True)
         
         root.mainloop()

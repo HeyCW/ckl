@@ -38,7 +38,19 @@ class ContainerWindow:
         """Return scaled font size"""
         scale = self.get_scale_factor()
         return max(8, int(base_size * scale))
-    
+
+    def make_button_keyboard_accessible(self, button):
+        """Make button accessible via Tab and Enter keys"""
+        button.config(takefocus=True)
+
+        def on_enter_or_space(event):
+            button.invoke()
+            return 'break'  # Prevent default behavior
+
+        button.bind('<Return>', on_enter_or_space)
+        button.bind('<space>', on_enter_or_space)
+        return button
+
     def on_window_resize(self, event):
         """Handle window resize to adjust column widths"""
         if hasattr(self, 'container_tree') and event.widget == self.window:
@@ -469,6 +481,7 @@ class ContainerWindow:
             pady=8,
             command=self.add_container
         )
+        self.make_button_keyboard_accessible(add_btn)
         add_btn.pack(side='left', padx=(0, 10))
         
         clear_btn = tk.Button(
@@ -481,6 +494,7 @@ class ContainerWindow:
             pady=8,
             command=self.clear_form
         )
+        self.make_button_keyboard_accessible(clear_btn)
         clear_btn.pack(side='left', padx=(0, 10))
         
         edit_btn = tk.Button(
@@ -493,6 +507,7 @@ class ContainerWindow:
             pady=8,
             command=self.edit_container
         )
+        self.make_button_keyboard_accessible(edit_btn)
         edit_btn.pack(side='left', padx=(0, 10))
         
         delete_btn = tk.Button(
@@ -505,6 +520,7 @@ class ContainerWindow:
             pady=8,
             command=self.delete_container
         )
+        self.make_button_keyboard_accessible(delete_btn)
         delete_btn.pack(side='left', padx=(0, 10))
         
         summary_btn = tk.Button(
@@ -517,6 +533,7 @@ class ContainerWindow:
             pady=8,
             command=self.view_selected_container_summary
         )
+        self.make_button_keyboard_accessible(summary_btn)
         summary_btn.pack(side='left')
         
         # ============================================
@@ -629,6 +646,7 @@ class ContainerWindow:
             pady=8,
             command=self.print_selected_container_invoice
         )
+        self.make_button_keyboard_accessible(print_invoice_btn)
         print_invoice_btn.pack(side='left', padx=(0, 10))
         
         # Print Invoice PDF button
@@ -642,6 +660,7 @@ class ContainerWindow:
             pady=8,
             command=self.print_selected_container_invoice_pdf
         )
+        self.make_button_keyboard_accessible(print_invoice_pdf_btn)
         print_invoice_pdf_btn.pack(side='left', padx=(0, 10))
         
         # Print Customer Packing List button
@@ -655,6 +674,7 @@ class ContainerWindow:
             pady=8,
             command=self.print_selected_customer_packing_list
         )
+        self.make_button_keyboard_accessible(print_packing_btn)
         print_packing_btn.pack(side='left', padx=(0, 10))
         
              
@@ -683,6 +703,7 @@ class ContainerWindow:
             pady=8,
             command=self.print_selected_container_invoice
         )
+        self.make_button_keyboard_accessible(print_invoice_btn)
         print_invoice_btn.pack(side='left', padx=(0, 10))
         
         print_invoice_pdf_btn = tk.Button(
@@ -695,6 +716,7 @@ class ContainerWindow:
             pady=8,
             command=self.print_selected_container_invoice_pdf
         )
+        self.make_button_keyboard_accessible(print_invoice_pdf_btn)
         print_invoice_pdf_btn.pack(side='left', padx=(0, 10))
         
         
@@ -709,6 +731,7 @@ class ContainerWindow:
             pady=8,
             command=self.print_selected_customer_packing_list
         )
+        self.make_button_keyboard_accessible(print_packing_btn)
         print_packing_btn.pack(side='left', padx=(0, 10))
     
     def print_selected_container_invoice(self):
@@ -970,6 +993,7 @@ class ContainerWindow:
         self.delivery_cost_entry.pack(side='left', padx=(5, 10))
         add_delivery_btn = tk.Button(cost_row, text="➕ Tambah Biaya", bg='#e67e22', fg='white',
                                     padx=15, pady=5, command=self.add_delivery_cost)
+        self.make_button_keyboard_accessible(add_delivery_btn)
         add_delivery_btn.pack(side='left', padx=(10, 0))
 
         destination_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
@@ -1019,36 +1043,43 @@ class ContainerWindow:
         add_barang_btn = tk.Button(actions_frame, text="💰 Tambah Barang + Harga ke Container",
                                 font=('Arial', 7, 'bold'), bg='#27ae60', fg='white',
                                 padx=10, pady=5, command=self.add_selected_barang_to_container)
+        self.make_button_keyboard_accessible(add_barang_btn)
         add_barang_btn.pack(side='left', padx=(0, 10))
 
         remove_barang_btn = tk.Button(actions_frame, text="➖ Hapus Barang dari Container",
                                     font=('Arial', 7, 'bold'), bg='#e74c3c', fg='white',
                                     padx=10, pady=5, command=self.remove_barang_from_container)
+        self.make_button_keyboard_accessible(remove_barang_btn)
         remove_barang_btn.pack(side='left', padx=(0, 10))
 
         edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli, Satuan & Tanggal",
                                 font=('Arial', 7, 'bold'), bg='#16a085', fg='white',
                                 padx=10, pady=5, command=self.edit_barang_colli_in_container)
+        self.make_button_keyboard_accessible(edit_colli_btn)
         edit_colli_btn.pack(side='left', padx=(0, 10))
 
         edit_price_btn = tk.Button(actions_frame, text="✏️ Edit Harga",
                                 font=('Arial', 7, 'bold'), bg='#f39c12', fg='white',
                                 padx=10, pady=5, command=self.edit_barang_price_in_container)
+        self.make_button_keyboard_accessible(edit_price_btn)
         edit_price_btn.pack(side='left', padx=(0, 10))
 
         manage_delivery_btn = tk.Button(actions_frame, text="🚚 Kelola Biaya Pengantaran",
                                         font=('Arial', 7, 'bold'), bg='#e67e22', fg='white',
                                         padx=10, pady=5, command=self.manage_delivery_costs)
+        self.make_button_keyboard_accessible(manage_delivery_btn)
         manage_delivery_btn.pack(side='left', padx=(0, 10))
 
         summary_btn = tk.Button(actions_frame, text="📊 Lihat Summary Container",
                                 font=('Arial', 7, 'bold'), bg='#9b59b6', fg='white',
                                 padx=10, pady=5, command=self.view_container_summary)
+        self.make_button_keyboard_accessible(summary_btn)
         summary_btn.pack(side='left', padx=(0, 10))
 
         clear_selection_btn = tk.Button(actions_frame, text="🗑️ Bersihkan Pilihan",
                                         font=('Arial', 7, 'bold'), bg='#95a5a6', fg='white',
                                         padx=10, pady=5, command=self.clear_selection)
+        self.make_button_keyboard_accessible(clear_selection_btn)
         clear_selection_btn.pack(side='left', padx=(0, 10))
 
         # Muat data pelanggan/pengirim
@@ -1489,12 +1520,14 @@ class ContainerWindow:
         edit_btn = tk.Button(action_frame, text="✏️ Edit Biaya", font=('Arial', 11, 'bold'),
                             bg='#f39c12', fg='white', padx=20, pady=8,
                             command=lambda: edit_delivery_cost(delivery_tree))
+        self.make_button_keyboard_accessible(edit_btn)
         edit_btn.pack(side='left', padx=(0, 10))
         
         # Delete button
         delete_btn = tk.Button(action_frame, text="🗑️ Hapus Biaya", font=('Arial', 11, 'bold'),
                             bg='#e74c3c', fg='white', padx=20, pady=8,
                             command=lambda: delete_delivery_cost(delivery_tree))
+        self.make_button_keyboard_accessible(delete_btn)
         delete_btn.pack(side='left', padx=(0, 10))
         
         # Total label
@@ -1595,12 +1628,16 @@ class ContainerWindow:
             # Buttons
             btn_frame = tk.Frame(edit_dialog, bg='#ecf0f1')
             btn_frame.pack(pady=20)
-            
-            tk.Button(btn_frame, text="💾 Simpan", font=('Arial', 11, 'bold'),
-                    bg='#27ae60', fg='white', padx=20, pady=8, command=save_edit).pack(side='left', padx=(0, 10))
-            
-            tk.Button(btn_frame, text="❌ Batal", font=('Arial', 11, 'bold'),
-                    bg='#95a5a6', fg='white', padx=20, pady=8, command=edit_dialog.destroy).pack(side='left')
+
+            save_btn = tk.Button(btn_frame, text="💾 Simpan", font=('Arial', 11, 'bold'),
+                    bg='#27ae60', fg='white', padx=20, pady=8, command=save_edit)
+            self.make_button_keyboard_accessible(save_btn)
+            save_btn.pack(side='left', padx=(0, 10))
+
+            cancel_btn = tk.Button(btn_frame, text="❌ Batal", font=('Arial', 11, 'bold'),
+                    bg='#95a5a6', fg='white', padx=20, pady=8, command=edit_dialog.destroy)
+            self.make_button_keyboard_accessible(cancel_btn)
+            cancel_btn.pack(side='left')
         
         # Fungsi hapus biaya
         def delete_delivery_cost(tree):
@@ -2142,6 +2179,7 @@ class ContainerWindow:
             cursor='hand2',
             command=apply_custom_amount
         )
+        self.make_button_keyboard_accessible(custom_btn)
         custom_btn.pack(side='left', padx=(0, 5))
         
         # Bind Enter key to apply
@@ -2280,6 +2318,7 @@ class ContainerWindow:
             cursor='hand2',
             command=apply_custom_amount
         )
+        self.make_button_keyboard_accessible(custom_btn)
         custom_btn.pack(side='left', padx=(0, 5))
         
         # Bind Enter key to apply - BOTH regular and numpad enter
@@ -3805,6 +3844,7 @@ class ContainerWindow:
             cursor='hand2',
             command=apply_custom_amount
         )
+        self.make_button_keyboard_accessible(custom_btn)
         custom_btn.pack(side='left', padx=(0, 5))
         
         # Bind Enter key
@@ -4659,13 +4699,17 @@ class ContainerWindow:
         
         
         # Create buttons
-        tk.Button(btn_frame, text="💾 Simpan Perubahan", 
+        save_btn = tk.Button(btn_frame, text="💾 Simpan Perubahan",
                 font=('Arial', 12, 'bold'), bg='#27ae60', fg='white',
-                padx=25, pady=10, command=save_colli_and_date_changes).pack(side='left', padx=(0, 10))
-        
-        tk.Button(btn_frame, text="❌ Batal", 
+                padx=25, pady=10, command=save_colli_and_date_changes)
+        self.make_button_keyboard_accessible(save_btn)
+        save_btn.pack(side='left', padx=(0, 10))
+
+        cancel_btn = tk.Button(btn_frame, text="❌ Batal",
                 font=('Arial', 12, 'bold'), bg='#e74c3c', fg='white',
-                padx=25, pady=10, command=edit_window.destroy).pack(side='left')
+                padx=25, pady=10, command=edit_window.destroy)
+        self.make_button_keyboard_accessible(cancel_btn)
+        cancel_btn.pack(side='left')
         
         # Focus on first entry
         if edit_entries:
@@ -6860,13 +6904,17 @@ class ContainerWindow:
             btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
             btn_frame.pack(fill='x', pady=15, padx=20)
 
-            tk.Button(btn_frame, text="💾 Simpan Perubahan", bg='#27ae60', fg='white',
-                    font=('Arial', 12, 'bold'), padx=20, pady=10, 
-                    command=save_container).pack(side='left', padx=(0,10))
+            save_btn = tk.Button(btn_frame, text="💾 Simpan Perubahan", bg='#27ae60', fg='white',
+                    font=('Arial', 12, 'bold'), padx=20, pady=10,
+                    command=save_container)
+            self.make_button_keyboard_accessible(save_btn)
+            save_btn.pack(side='left', padx=(0,10))
 
-            tk.Button(btn_frame, text="❌ Tutup", bg='#e74c3c', fg='white',
-                    font=('Arial', 12, 'bold'), padx=20, pady=10, 
-                    command=edit_window.destroy).pack(side='right')
+            close_btn = tk.Button(btn_frame, text="❌ Tutup", bg='#e74c3c', fg='white',
+                    font=('Arial', 12, 'bold'), padx=20, pady=10,
+                    command=edit_window.destroy)
+            self.make_button_keyboard_accessible(close_btn)
+            close_btn.pack(side='right')
 
         except Exception as e:
             print(f"\n{'='*60}")

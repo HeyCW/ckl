@@ -35,7 +35,19 @@ class BarangWindow:
         """Return scaled font size"""
         scale = self.get_scale_factor()
         return max(8, int(base_size * scale))
-    
+
+    def make_button_keyboard_accessible(self, button):
+        """Make button accessible via Tab and Enter keys"""
+        button.config(takefocus=True)
+
+        def on_enter_or_space(event):
+            button.invoke()
+            return 'break'
+
+        button.bind('<Return>', on_enter_or_space)
+        button.bind('<space>', on_enter_or_space)
+        return button
+
     def on_window_resize(self, event):
         """Handle window resize to adjust column widths"""
         if hasattr(self, 'tree') and event.widget == self.window:
@@ -135,6 +147,7 @@ class BarangWindow:
             pady=10,
             command=self.window.destroy
         )
+        self.make_button_keyboard_accessible(close_btn)
         close_btn.pack(pady=10)
         
         # Bind resize event
@@ -513,6 +526,7 @@ class BarangWindow:
             pady=5,
             command=self.add_barang
         )
+        self.make_button_keyboard_accessible(add_btn)
         add_btn.pack(side='left', padx=(0, 10))
         
         clear_btn = tk.Button(
@@ -525,6 +539,7 @@ class BarangWindow:
             pady=5,
             command=self.clear_form
         )
+        self.make_button_keyboard_accessible(clear_btn)
         clear_btn.pack(side='left')
         
         # Store canvas reference for later use if needed
@@ -622,6 +637,7 @@ class BarangWindow:
             pady=5,
             command=self.browse_file
         )
+        self.make_button_keyboard_accessible(browse_btn)
         browse_btn.pack(side='right', padx=(5, 0))
         
         # Preview area dengan scroll isolation
@@ -893,6 +909,7 @@ class BarangWindow:
             pady=5,
             command=self.download_template
         )
+        self.make_button_keyboard_accessible(download_template_btn)
         download_template_btn.pack(side='left')
         
         # Status label
@@ -963,6 +980,7 @@ class BarangWindow:
             pady=2,
             command=self.clear_barang_filter
         )
+        self.make_button_keyboard_accessible(clear_search_btn)
         clear_search_btn.pack(side='right', padx=5)
         
         # Search controls frame - Second row
@@ -1012,6 +1030,7 @@ class BarangWindow:
             pady=5,
             command=self.update_barang
         )
+        self.make_button_keyboard_accessible(update_btn)
         update_btn.pack(side='left', padx=(0, 10))
         
         # Delete button
@@ -1025,6 +1044,7 @@ class BarangWindow:
             pady=5,
             command=self.delete_barang
         )
+        self.make_button_keyboard_accessible(delete_btn)
         delete_btn.pack(side='left', padx=(0, 10))
         
         # Export button
@@ -1038,6 +1058,7 @@ class BarangWindow:
             pady=5,
             command=self.export_barang
         )
+        self.make_button_keyboard_accessible(export_btn)
         export_btn.pack(side='left')
         
         # Info label
@@ -2247,6 +2268,7 @@ class BarangWindow:
             pady=5,
             command=error_window.destroy
         )
+        self.make_button_keyboard_accessible(close_btn)
         close_btn.pack(pady=20)
     
     def center_window(self):
