@@ -276,9 +276,12 @@ class PDFPackingListGenerator:
                 receiver = filter_criteria.get('receiver_name', 'Unknown')[:10]
                 receiver = "".join(c for c in receiver if c.isalnum() or c in (' ', '-', '_')).rstrip()
                 filter_suffix = f"_{receiver}"
-            
-            invoice_suffix_file = f"_{invoice_suffix}" if invoice_suffix else ""
-            
+
+            # Clean invoice_suffix from invalid filename characters
+            clean_invoice_suffix = str(invoice_suffix).replace('\\', '_').replace('/', '_') if invoice_suffix else ""
+
+            invoice_suffix_file = f"_{clean_invoice_suffix}" if clean_invoice_suffix else ""
+
             filename = f"PackingList_Container_{container_id}{filter_suffix}{invoice_suffix_file}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             print(f"[DEBUG] Generated filename: {filename}")
             
@@ -328,7 +331,16 @@ class PDFPackingListGenerator:
                 fontSize=8,
                 alignment=TA_LEFT
             )
-            
+
+            # Kubikasi style - very small font
+            kubikasi_style = ParagraphStyle(
+                'Kubikasi',
+                parent=styles['Normal'],
+                fontSize=6,
+                alignment=TA_LEFT,
+                leading=7
+            )
+
             # Safe way to get container values
             def safe_get(key, default='-'):
                 try:
@@ -590,7 +602,10 @@ class PDFPackingListGenerator:
                 ('ALIGN', (5, 1), (7, -2), 'RIGHT'),   # M3, Ton, Col
                 ('ALIGN', (8, 1), (8, -2), 'LEFT'),    # Catatan
                 ('VALIGN', (0, 1), (-1, -2), 'TOP'),
-                
+
+                # Kubikasi column - smaller font
+                ('FONTSIZE', (4, 1), (4, -2), 4),
+
                 # Total row
                 ('FONTSIZE', (0, -1), (-1, -1), 9),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
@@ -904,9 +919,13 @@ class PDFPackingListGenerator:
                 receiver = filter_criteria.get('receiver_name', 'Unknown')[:10]
                 receiver = "".join(c for c in receiver if c.isalnum() or c in (' ', '-', '_')).rstrip()
                 filter_suffix = f"_{receiver}"
-            
-            suffix_file = f"_{invoice_suffix}" if invoice_suffix else ""
-            filename = f"Invoice_Combined_JOA_{ref_joa}{suffix_file}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+            # Clean ref_joa and invoice_suffix from invalid filename characters
+            clean_ref_joa = str(ref_joa).replace('\\', '_').replace('/', '_')
+            clean_invoice_suffix = str(invoice_suffix).replace('\\', '_').replace('/', '_') if invoice_suffix else ""
+
+            suffix_file = f"_{clean_invoice_suffix}" if clean_invoice_suffix else ""
+            filename = f"Invoice_Combined_JOA_{clean_ref_joa}{suffix_file}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             print(f"[DEBUG] Generated filename: {filename}")
             
             # Ask user where to save
@@ -939,14 +958,16 @@ class PDFPackingListGenerator:
             styles = getSampleStyleSheet()
             
             # Custom styles
-            title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=18,
+            title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14,
                                         alignment=TA_RIGHT, fontName='Helvetica-Bold', spaceAfter=0)
-            company_info_style = ParagraphStyle('CompanyInfo', parent=styles['Normal'], fontSize=10,
-                                            alignment=TA_LEFT, spaceAfter=10, leading=14)
-            invoice_info_style = ParagraphStyle('InvoiceInfo', parent=styles['Normal'], fontSize=10,
+            company_info_style = ParagraphStyle('CompanyInfo', parent=styles['Normal'], fontSize=8,
+                                            alignment=TA_LEFT, spaceAfter=10, leading=12)
+            invoice_info_style = ParagraphStyle('InvoiceInfo', parent=styles['Normal'], fontSize=8,
                                             alignment=TA_RIGHT, spaceAfter=10)
-            item_text_style = ParagraphStyle('ItemText', parent=styles['Normal'], fontSize=9,
-                                            leading=12, alignment=TA_LEFT, wordWrap='CJK')
+            item_text_style = ParagraphStyle('ItemText', parent=styles['Normal'], fontSize=7,
+                                            leading=10, alignment=TA_LEFT, wordWrap='CJK')
+            kubikasi_style = ParagraphStyle('Kubikasi', parent=styles['Normal'], fontSize=6,
+                                            leading=8, alignment=TA_LEFT, wordWrap='CJK')
             
             # ========================================
             # HEADER: Logo (kiri) + Company Info (tengah) + Title (kanan)
@@ -1063,14 +1084,14 @@ class PDFPackingListGenerator:
                 customer_data = [
                     ['Bill To (Nama Customer)', ':', receiver, '', 'Invoice Number', ':', invoice_number],
                     ['', '', '', '', '', '', ''],
-                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', 'Tanggal (ETD)', ':', formatted_etd],  
-                    ['Destination (Tujuan)', ':', destination_upper, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
+                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', 'Tanggal (ETD)', ':', formatted_etd],
+                    ['Destination (Tujuan)', ':', destination_upper, '', 'Party (Volume)', ':', safe_get('party')],
                 ]
                 
                 # Adjusted column widths - kecilkan kolom kiri, besarkan kolom kanan untuk invoice number
                 customer_table = Table(customer_data, colWidths=[4*cm, 0.3*cm, 4.5*cm, 0.8*cm, 3.2*cm, 0.3*cm, 5.4*cm])
                 customer_table.setStyle(TableStyle([
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('FONTSIZE', (0, 0), (-1, -1), 8),
                     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                     ('ALIGN', (0, 0), (0, -1), 'LEFT'),
                     ('ALIGN', (1, 0), (1, -1), 'LEFT'),
@@ -1246,8 +1267,8 @@ class PDFPackingListGenerator:
                         pass
 
                     kubikasi_text = f"{p}*{l}*{t}"
-                    kubikasi = Paragraph(kubikasi_text, item_text_style)
-                    
+                    kubikasi = Paragraph(kubikasi_text, kubikasi_style)
+
                     # Values
                     m3_per_unit = safe_barang_get('m3_barang', 0)
                     ton_per_unit = safe_barang_get('ton_barang', 0)
@@ -1279,11 +1300,8 @@ class PDFPackingListGenerator:
                     except (ValueError, TypeError):
                         pass
                     
-                    # Format values - CONDITIONAL DECIMAL FORMATTING ✅
-                    if total_m3_item >= 1:
-                        m3_val = f"{total_m3_item:.0f}"  # Tanpa desimal jika >= 1
-                    else:
-                        m3_val = f"{total_m3_item:.3f}"  # 3 desimal jika < 1
+                    # Format values - 3 desimal untuk m3 dan ton
+                    m3_val = f"{total_m3_item:.3f}"
 
                     ton_val = format_ton(total_ton_item)
 
@@ -1343,9 +1361,9 @@ class PDFPackingListGenerator:
             
             # Add total row - MERGE 5 KOLOM (termasuk pengirim) ✅
             total_row_index = len(table_data)
-            
-            # Format total M3 dan Ton dengan conditional decimal ✅
-            total_m3_formatted = f"{total_m3:.0f}" if total_m3 >= 1 else f"{total_m3:.3f}"
+
+            # Format total M3 dan Ton dengan 3 desimal
+            total_m3_formatted = f"{total_m3:.3f}"
             total_ton_formatted = format_ton(total_ton)
             
             table_data.append([
@@ -1363,15 +1381,15 @@ class PDFPackingListGenerator:
             
             # Create table - DENGAN LEBAR KOLOM DISESUAIKAN ✅
             items_table = Table(table_data, colWidths=[
-                1.2*cm,  # No (dikurangi)
-                1.8*cm,  # Container (dikurangi)
+                1.2*cm,  # No
+                1.8*cm,  # Container
                 2.5*cm,  # Pengirim ✅ BARU
-                3.5*cm,  # Jenis Barang (dikurangi karena tanpa pengirim)
-                2.5*cm,  # Kubikasi (dikurangi)
-                1.3*cm,  # M3 (dikurangi)
-                1.3*cm,  # Ton (dikurangi)
-                1.0*cm,  # Col (dikurangi)
-                2.0*cm,  # Unit Price (dikurangi)
+                3.5*cm,  # Jenis Barang
+                2.5*cm,  # Kubikasi
+                1.3*cm,  # M3
+                1.3*cm,  # Ton
+                1.0*cm,  # Col
+                2.0*cm,  # Unit Price
                 2.4*cm   # Total Price
             ])
             
@@ -1380,23 +1398,26 @@ class PDFPackingListGenerator:
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),  # Font lebih kecil karena lebih banyak kolom
+                ('FONTSIZE', (0, 0), (-1, 0), 7),  # Font lebih kecil karena lebih banyak kolom
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
-                
+
                 # Data rows
-                ('FONTSIZE', (0, 1), (-1, total_row_index - 1), 8),  # Font lebih kecil
+                ('FONTSIZE', (0, 1), (-1, total_row_index - 1), 6),  # Font lebih kecil
                 ('FONTNAME', (0, 1), (-1, total_row_index - 1), 'Helvetica'),
                 ('ALIGN', (0, 1), (1, total_row_index - 1), 'CENTER'),  # No & Container
                 ('ALIGN', (2, 1), (2, total_row_index - 1), 'LEFT'),    # Pengirim ✅
                 ('ALIGN', (3, 1), (4, total_row_index - 1), 'LEFT'),    # Jenis Barang & Kubikasi
                 ('ALIGN', (5, 1), (-1, total_row_index - 1), 'RIGHT'),  # M3, Ton, Col, Prices
                 ('VALIGN', (0, 1), (-1, total_row_index - 1), 'TOP'),
-                
+
+                # Kubikasi column - smaller font
+                ('FONTSIZE', (4, 1), (4, total_row_index - 1), 5),
+
                 # Total row - MERGE 5 KOLOM (0-4, termasuk pengirim) ✅
                 ('SPAN', (0, total_row_index), (4, total_row_index)),  # ✅ Merge 5 kolom
-                ('FONTSIZE', (0, total_row_index), (-1, total_row_index), 10),
+                ('FONTSIZE', (0, total_row_index), (-1, total_row_index), 8),
                 ('FONTNAME', (0, total_row_index), (-1, total_row_index), 'Helvetica-Bold'),
                 ('BACKGROUND', (0, total_row_index), (-1, total_row_index), colors.lightgrey),
                 ('ALIGN', (0, total_row_index), (0, total_row_index), 'CENTER'),
@@ -1634,9 +1655,13 @@ class PDFPackingListGenerator:
                 receiver = filter_criteria.get('receiver_name', 'Unknown')[:10]
                 receiver = "".join(c for c in receiver if c.isalnum() or c in (' ', '-', '_')).rstrip()
                 filter_suffix = f"_{receiver}"
-            
-            suffix_file = f"_{invoice_suffix}" if invoice_suffix else ""
-            filename = f"PackingList_Combined_JOA_{ref_joa}{suffix_file}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+            # Clean ref_joa and invoice_suffix from invalid filename characters
+            clean_ref_joa = str(ref_joa).replace('\\', '_').replace('/', '_')
+            clean_invoice_suffix = str(invoice_suffix).replace('\\', '_').replace('/', '_') if invoice_suffix else ""
+
+            suffix_file = f"_{clean_invoice_suffix}" if clean_invoice_suffix else ""
+            filename = f"PackingList_Combined_JOA_{clean_ref_joa}{suffix_file}{filter_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             print(f"[DEBUG] Filename: {filename}")
             
             file_path = filedialog.asksaveasfilename(
@@ -1671,7 +1696,9 @@ class PDFPackingListGenerator:
                                             alignment=TA_RIGHT, spaceAfter=10)
             item_text_style = ParagraphStyle('ItemText', parent=styles['Normal'], fontSize=8,
                                             leading=11, alignment=TA_LEFT, wordWrap='CJK')
-            
+            kubikasi_style = ParagraphStyle('Kubikasi', parent=styles['Normal'], fontSize=5,
+                                            leading=7, alignment=TA_LEFT, wordWrap='CJK')
+
             # ========================================
             # HEADER: Logo + Company Info + Title
             # ========================================
@@ -1779,8 +1806,8 @@ class PDFPackingListGenerator:
                 customer_data = [
                     ['Bill To (Nama Customer)', ':', receiver, '', 'Invoice Number', ':', invoice_number],
                     ['', '', '', '', '', '', ''],
-                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', 'Tanggal (ETD)', ':', formatted_etd],  
-                    ['Destination (Tujuan)', ':', destination_upper, '', 'Party (Volume)', ':', f"{safe_get('party')} m3"],
+                    ['Feeder (Nama Kapal)', ':', safe_get('feeder'), '', 'Tanggal (ETD)', ':', formatted_etd],
+                    ['Destination (Tujuan)', ':', destination_upper, '', 'Party (Volume)', ':', safe_get('party')],
                 ]
                 
                 customer_table = Table(customer_data, colWidths=[4*cm, 0.3*cm, 5*cm, 1*cm, 3.5*cm, 0.3*cm, 4.9*cm])
@@ -1887,8 +1914,8 @@ class PDFPackingListGenerator:
                         pass
                     
                     kubikasi_text = f"{p}*{l}*{t}"
-                    kubikasi = Paragraph(kubikasi_text, item_text_style)
-                    
+                    kubikasi = Paragraph(kubikasi_text, kubikasi_style)
+
                     # Values
                     colli = safe_barang_get('colli_amount', 0)
                     m3_per_unit = safe_barang_get('m3_barang', 0)
@@ -1914,11 +1941,8 @@ class PDFPackingListGenerator:
                     total_ton += total_ton_item
                     total_colli += colli_int
                     
-                    # Format values - CONDITIONAL DECIMAL FORMATTING ✅
-                    if total_m3_item >= 1:
-                        m3_val = f"{total_m3_item:.0f}"  # Tanpa desimal jika >= 1
-                    else:
-                        m3_val = f"{total_m3_item:.3f}"  # 3 desimal jika < 1
+                    # Format values - 3 desimal untuk m3 dan ton
+                    m3_val = f"{total_m3_item:.3f}"
 
                     ton_val = format_ton(total_ton_item)
 
@@ -1943,8 +1967,8 @@ class PDFPackingListGenerator:
                     print(f"[ERROR] Item error: {e}")
                     continue
             
-            # TOTAL row - DENGAN CONDITIONAL DECIMAL FORMATTING ✅
-            total_m3_formatted = f"{total_m3:.0f}" if total_m3 >= 1 else f"{total_m3:.3f}"
+            # TOTAL row - 3 desimal untuk m3 dan ton
+            total_m3_formatted = f"{total_m3:.3f}"
             total_ton_formatted = format_ton(total_ton)
             
             table_data.append([
@@ -1992,7 +2016,10 @@ class PDFPackingListGenerator:
                 ('ALIGN', (5, 1), (7, -2), 'RIGHT'),   # M3, Ton, Col
                 ('ALIGN', (8, 1), (8, -2), 'LEFT'),    # Catatan
                 ('VALIGN', (0, 1), (-1, -2), 'TOP'),
-                
+
+                # Kubikasi column - smaller font
+                ('FONTSIZE', (4, 1), (4, -2), 4),
+
                 # Total row
                 ('FONTSIZE', (0, -1), (-1, -1), 10),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
