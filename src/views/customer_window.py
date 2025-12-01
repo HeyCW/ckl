@@ -733,10 +733,10 @@ class CustomerWindow:
         
         try:
             barang_count = self.db.execute_one(
-                "SELECT COUNT(*) as count FROM barang WHERE customer_id = ?",
-                (customer_id,)
+                "SELECT COUNT(*) as count FROM barang WHERE pengirim = ? OR penerima = ?",
+                (customer_id, customer_id)
             )
-            
+
             has_barang = barang_count['count'] > 0 if barang_count else False
             
             confirm_msg = f"Yakin ingin menghapus customer?\n\n" + \

@@ -896,6 +896,20 @@ class ContainerWindow:
         self.receiver_search_var.trace('w', self.schedule_filter)
         self.receiver_search_combo.bind('<KeyRelease>', self.on_receiver_keyrelease)
 
+        # Barang selection dengan debouncing
+        barang_frame = tk.Frame(left_frame, bg='#ecf0f1')
+        barang_frame.pack(fill='x', pady=5)
+        tk.Label(barang_frame, text="📦 Pilih Barang:").pack(side='left')
+        self.barang_search_var = tk.StringVar()
+        self.barang_search_combo = ttk.Combobox(barang_frame,
+                                                textvariable=self.barang_search_var,
+                                                width=25)
+        self.barang_search_combo.pack(side='left', padx=(5, 20))
+
+        # Gunakan debounced filter
+        self.barang_search_var.trace('w', self.schedule_filter)
+        self.barang_search_combo.bind('<KeyRelease>', self.on_barang_keyrelease)
+
         # Colli input
         colli_frame = tk.Frame(left_frame, bg='#ecf0f1')
         colli_frame.pack(fill='x', pady=5)
@@ -1082,10 +1096,12 @@ class ContainerWindow:
         self.make_button_keyboard_accessible(clear_selection_btn)
         clear_selection_btn.pack(side='left', padx=(0, 10))
 
-        # Muat data pelanggan/pengirim
+        # Muat data pelanggan/pengirim/barang
         self.original_pengirim_values = []
+        self.original_barang_values = []
         self.load_customers()
         self.load_pengirim()
+        self.load_barang()
 
         # === Content frame bawah: dua panel (left=available, middle=container) ===
         content_frame = tk.Frame(parent, bg='#ecf0f1')
@@ -1187,10 +1203,11 @@ class ContainerWindow:
         """Execute the actual filter"""
         sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
         receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
-        
-        print(f"Executing filter - Sender: {sender}, Receiver: {receiver}")
-        self.load_customer_barang_tree(sender, receiver)
-        
+        barang = self.barang_search_var.get() if self.barang_search_var.get() != "" else None
+
+        print(f"Executing filter - Sender: {sender}, Receiver: {receiver}, Barang: {barang}")
+        self.load_customer_barang_tree(sender, receiver, barang)
+
         self.filter_timer = None
 
     def on_sender_keyrelease(self, event):
@@ -1210,7 +1227,7 @@ class ContainerWindow:
     def on_receiver_keyrelease(self, event):
         """Handle receiver combobox key release for dropdown filtering"""
         typed = self.receiver_search_var.get().lower()
-        
+
         if not hasattr(self, 'original_receiver_values') or not self.original_receiver_values:
             try:
                 customers = self.db.execute("SELECT customer_id, nama_customer FROM customers ORDER BY customer_id")
@@ -1218,13 +1235,32 @@ class ContainerWindow:
             except Exception as e:
                 print(f"Error loading receivers: {e}")
                 self.original_receiver_values = []
-        
+
         if typed == '':
             self.receiver_search_combo['values'] = self.original_receiver_values
         else:
-            filtered = [item for item in self.original_receiver_values 
+            filtered = [item for item in self.original_receiver_values
                     if typed in item.lower()]
             self.receiver_search_combo['values'] = filtered
+
+    def on_barang_keyrelease(self, event):
+        """Handle barang combobox key release for dropdown filtering"""
+        typed = self.barang_search_var.get().lower()
+
+        if not hasattr(self, 'original_barang_values') or not self.original_barang_values:
+            try:
+                barang_list = self.db.execute("SELECT DISTINCT nama_barang FROM barang ORDER BY nama_barang")
+                self.original_barang_values = [barang[0] for barang in barang_list if barang[0]]
+            except Exception as e:
+                print(f"Error loading barang: {e}")
+                self.original_barang_values = []
+
+        if typed == '':
+            self.barang_search_combo['values'] = self.original_barang_values
+        else:
+            filtered = [item for item in self.original_barang_values
+                    if typed in item.lower()]
+            self.barang_search_combo['values'] = filtered
 
     # TAMBAHKAN method untuk invalidate cache
     def invalidate_barang_cache(self):
@@ -1792,14 +1828,15 @@ class ContainerWindow:
         """Handle selection of sender or receiver to load available barang"""
         # *args akan menangkap semua argument tambahan dari trace()
         # trace() mengirim: (var_name, index, mode)
-        
+
         sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
         receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
-        
-        print(f"Sender/Receiver selection changed - Sender: {sender}, Receiver: {receiver}")
-        
-        # Call the updated method with both parameters
-        self.load_customer_barang_tree(sender, receiver)
+        barang = self.barang_search_var.get() if self.barang_search_var.get() != "" else None
+
+        print(f"Sender/Receiver/Barang selection changed - Sender: {sender}, Receiver: {receiver}, Barang: {barang}")
+
+        # Call the updated method with all parameters
+        self.load_customer_barang_tree(sender, receiver, barang)
 
     def show_sender_receiver_summary_dialog(self, container, summary_data):
         """Show container summary dialog with sender/receiver breakdown"""
@@ -1862,8 +1899,8 @@ class ContainerWindow:
             summary_tree.heading('Penerima', text='Penerima')
             summary_tree.heading('Items', text='Jumlah Item')
             summary_tree.heading('Colli', text='Total Colli')
-            summary_tree.heading('Volume', text='Volume (m³)')
-            summary_tree.heading('Berat', text='Berat (ton)')
+            summary_tree.heading('Volume', text='Total Volume (m³)')
+            summary_tree.heading('Berat', text='Total Berat (ton)')
             summary_tree.heading('Total_Harga', text='Total Harga')
             
             summary_tree.column('Pengirim', width=120)
@@ -5045,12 +5082,22 @@ class ContainerWindow:
             self.original_pengirim_values = customer_list
         except Exception as e:
             print(f"Error loading pengirim customers: {e}")
-    
-    def load_customer_barang_tree(self, sender_name=None, receiver_name=None):
-        """Load barang based on sender and/or receiver selection - OPTIMIZED"""
+
+    def load_barang(self):
+        """Load distinct barang names for search dropdown"""
         try:
-            print(f"Loading customer barang tree with sender: {sender_name}, receiver: {receiver_name}")
-            
+            barang_list = self.db.execute("SELECT DISTINCT nama_barang FROM barang ORDER BY nama_barang")
+            barang_names = [barang[0] for barang in barang_list if barang[0]]
+            self.barang_search_combo['values'] = barang_names
+            self.original_barang_values = barang_names
+        except Exception as e:
+            print(f"Error loading barang: {e}")
+
+    def load_customer_barang_tree(self, sender_name=None, receiver_name=None, barang_name=None):
+        """Load barang based on sender, receiver, and/or barang name selection - OPTIMIZED"""
+        try:
+            print(f"Loading customer barang tree with sender: {sender_name}, receiver: {receiver_name}, barang: {barang_name}")
+
             # PERBAIKAN: Cache data barang untuk menghindari query berulang
             if not hasattr(self, '_cached_barang_data') or self._cache_invalid:
                 all_barang = self.db.get_all_barang()
@@ -5059,15 +5106,16 @@ class ContainerWindow:
                 self._cache_invalid = False
             else:
                 all_barang = self._cached_barang_data
-            
+
             # PERBAIKAN: Pre-load customer data untuk menghindari query berulang
             if not hasattr(self, '_cached_customers'):
                 self._cached_customers = {}
-            
+
             # Filter data
             filtered_data = []
             sender_lower = sender_name.lower() if sender_name else None
             receiver_lower = receiver_name.lower() if receiver_name else None
+            barang_lower = barang_name.lower() if barang_name else None
             
             for barang in all_barang:
                 try:
@@ -5108,12 +5156,17 @@ class ContainerWindow:
                     
                     # Filter check
                     show_item = True
-                    
+
                     if sender_lower and sender_lower not in pengirim.lower():
                         show_item = False
-                    
+
                     if receiver_lower and receiver_lower not in penerima.lower():
                         show_item = False
+
+                    if barang_lower:
+                        nama_barang = str(barang.get('nama_barang', '')).lower()
+                        if barang_lower not in nama_barang:
+                            show_item = False
                     
                     if show_item:
                         # Format for display
@@ -5158,13 +5211,16 @@ class ContainerWindow:
         try:
             # Ambil data dari database
             barang_list = self.db.get_all_barang()
-            
+
+            # Refresh barang dropdown list
+            self.load_barang()
+
             # Format data
             formatted_data = []
             for barang in barang_list:
                 if barang is None:
                     continue
-                
+
                 row_data = (
                     str(barang.get('barang_id', '')),
                     str(barang.get('sender_name', '')),
@@ -5177,7 +5233,7 @@ class ContainerWindow:
                 formatted_data.append(row_data)
             self.available_tree.set_data(formatted_data)
             print(f"Loaded {len(formatted_data)} items to PaginatedTreeView")
-            
+
         except Exception as e:
             print(f"Error loading barang: {e}")
             self.available_tree.set_data([])  # Set empty jika error
@@ -5188,11 +5244,12 @@ class ContainerWindow:
         self.selected_container_var.set("")
         self.sender_search_var.set("")
         self.receiver_search_var.set("")
+        self.barang_search_var.set("")
         self.colli_var.set("1")
         self.satuan_var.set("pcs")
 
         self.tanggal_entry.set_date(datetime.now().date())
-        
+
         self.load_available_barang()
         self.load_container_barang(None)
     
@@ -5420,12 +5477,13 @@ class ContainerWindow:
             # STEP 11: Refresh Displays
             # ============================================
             if success_count > 0:
-                # Refresh displays based on current sender/receiver filter
+                # Refresh displays based on current sender/receiver/barang filter
                 sender = self.sender_search_var.get() if self.sender_search_var.get() != "" else None
                 receiver = self.receiver_search_var.get() if self.receiver_search_var.get() != "" else None
-                
+                barang = self.barang_search_var.get() if self.barang_search_var.get() != "" else None
+
                 # Refresh available barang list with current filters
-                self.load_customer_barang_tree(sender, receiver)
+                self.load_customer_barang_tree(sender, receiver, barang)
                     
                 # Refresh container barang list
                 self.load_container_barang(container_id)
@@ -6119,10 +6177,11 @@ class ContainerWindow:
                             'count': 0, 'volume': 0, 'weight': 0, 'colli': 0, 'nilai': 0
                         }
                     
+                    colli = int(safe_get(barang, 'colli_amount', 0) or 0)
                     penerima_summary[penerima]['count'] += 1
-                    penerima_summary[penerima]['volume'] += float(safe_get(barang, 'm3_barang', 0) or 0)
-                    penerima_summary[penerima]['weight'] += float(safe_get(barang, 'ton_barang', 0) or 0)
-                    penerima_summary[penerima]['colli'] += int(safe_get(barang, 'colli_amount', 0) or 0)
+                    penerima_summary[penerima]['volume'] += float(safe_get(barang, 'm3_barang', 0) or 0) * colli
+                    penerima_summary[penerima]['weight'] += float(safe_get(barang, 'ton_barang', 0) or 0) * colli
+                    penerima_summary[penerima]['colli'] += colli
                     penerima_summary[penerima]['nilai'] += float(safe_get(barang, 'total_harga', 0) or 0)
                     
                 except Exception as e:
@@ -6138,11 +6197,11 @@ class ContainerWindow:
             penerima_tree = ttk.Treeview(penerima_tree_container,
                                         columns=('Penerima', 'Jumlah_Barang', 'Volume', 'Berat', 'Total_Colli', 'Total_Nilai'),
                                         show='headings', height=15)
-            
+
             penerima_tree.heading('Penerima', text='Penerima')
             penerima_tree.heading('Jumlah_Barang', text='Jumlah Barang')
-            penerima_tree.heading('Volume', text='Volume (m³)')
-            penerima_tree.heading('Berat', text='Berat (ton)')
+            penerima_tree.heading('Volume', text='Total Volume (m³)')
+            penerima_tree.heading('Berat', text='Total Berat (ton)')
             penerima_tree.heading('Total_Colli', text='Total Colli')
             penerima_tree.heading('Total_Nilai', text='Total Nilai (Rp)')
             
@@ -6177,8 +6236,8 @@ class ContainerWindow:
             items_detail_tree = ttk.Treeview(items_tree_container,
                                         columns=('Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal'),
                                         show='headings', height=15)
-            
-            headers = ['Pengirim', 'Penerima', 'Nama Barang', 'P×L×T (cm)', 'Volume (m³)', 'Berat (ton)', 'Colli', 'Harga/Unit', 'Total Harga', 'Tanggal']
+
+            headers = ['Pengirim', 'Penerima', 'Nama Barang', 'P×L×T (cm)', 'Total Volume (m³)', 'Total Berat (ton)', 'Colli', 'Harga/Unit', 'Total Harga', 'Tanggal']
             widths = [100, 100, 150, 100, 80, 80, 60, 100, 100, 90]
             
             for col, header, width in zip(items_detail_tree['columns'], headers, widths):
@@ -6212,15 +6271,23 @@ class ContainerWindow:
                     
                     harga_unit = safe_get(barang, 'harga_per_unit', 0)
                     total_harga = safe_get(barang, 'total_harga', 0)
-                    
+
                     harga_unit_display = f"{float(harga_unit):,.0f}" if str(harga_unit).replace('.', '').replace('-', '').isdigit() and harga_unit != '-' else str(harga_unit)
                     total_harga_display = f"{float(total_harga):,.0f}" if str(total_harga).replace('.', '').replace('-', '').isdigit() and total_harga != '-' else str(total_harga)
-                    
+
+                    # Calculate total volume and weight (m3_barang * colli, ton_barang * colli)
+                    colli = int(safe_get(barang, 'colli_amount', 0))
+                    m3_per_unit = float(safe_get(barang, 'm3_barang', 0)) if safe_get(barang, 'm3_barang', '-') != '-' else 0
+                    ton_per_unit = float(safe_get(barang, 'ton_barang', 0)) if safe_get(barang, 'ton_barang', '-') != '-' else 0
+
+                    total_volume = m3_per_unit * colli
+                    total_weight = ton_per_unit * colli
+
                     items_detail_tree.insert('', tk.END, values=(
                         pengirim, penerima, safe_get(barang, 'nama_barang', '-'),
-                        dimensi, safe_get(barang, 'm3_barang', '-'),
-                        safe_get(barang, 'ton_barang', '-'),
-                        safe_get(barang, 'colli_amount', 0),
+                        dimensi, f"{total_volume:.4f}",
+                        f"{total_weight:.4f}",
+                        colli,
                         harga_unit_display, total_harga_display, tanggal
                     ))
                 except Exception as item_error:

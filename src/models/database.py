@@ -844,6 +844,112 @@ class BarangDatabase(SQLiteDatabase):
             logger.error(f"Failed to create barang {nama_barang}: {e}")
             raise DatabaseError(f"Failed to create barang: {e}")
 
+    def create_barang_batch(self, barang_list):
+        """
+        Create multiple barang in a single transaction for better performance.
+
+        Args:
+            barang_list: List of dicts, each containing barang data:
+                {
+                    'pengirim': int, 'penerima': int, 'nama_barang': str,
+                    'panjang_barang': float, 'lebar_barang': float, etc.
+                }
+
+        Returns:
+            dict: {
+                'success_count': int,
+                'failed_count': int,
+                'created_ids': [int, ...],
+                'errors': [{'index': int, 'nama_barang': str, 'error': str}, ...]
+            }
+        """
+        if not barang_list:
+            raise ValueError("Barang list cannot be empty")
+
+        result = {
+            'success_count': 0,
+            'failed_count': 0,
+            'created_ids': [],
+            'errors': []
+        }
+
+        try:
+            # Open single connection and transaction for all inserts
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            try:
+                for idx, barang_data in enumerate(barang_list):
+                    try:
+                        # Validate required fields
+                        if not barang_data.get('pengirim') or not barang_data.get('penerima') or not barang_data.get('nama_barang'):
+                            raise ValueError("Pengirim, Penerima, and Nama Barang are required")
+
+                        # Insert barang
+                        cursor.execute('''
+                            INSERT INTO barang (pengirim, penerima, nama_barang,
+                                            panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, container_barang,
+                                            m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd,
+                                            col_pp, col_pd, col_dd, container_pp, container_pd, container_dd, pajak)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            barang_data.get('pengirim'),
+                            barang_data.get('penerima'),
+                            barang_data.get('nama_barang'),
+                            barang_data.get('panjang_barang'),
+                            barang_data.get('lebar_barang'),
+                            barang_data.get('tinggi_barang'),
+                            barang_data.get('m3_barang'),
+                            barang_data.get('ton_barang'),
+                            barang_data.get('container_barang'),
+                            barang_data.get('m3_pp'),
+                            barang_data.get('m3_pd'),
+                            barang_data.get('m3_dd'),
+                            barang_data.get('ton_pp'),
+                            barang_data.get('ton_pd'),
+                            barang_data.get('ton_dd'),
+                            barang_data.get('col_pp'),
+                            barang_data.get('col_pd'),
+                            barang_data.get('col_dd'),
+                            barang_data.get('container_pp'),
+                            barang_data.get('container_pd'),
+                            barang_data.get('container_dd'),
+                            barang_data.get('pajak')
+                        ))
+
+                        barang_id = cursor.lastrowid
+                        result['created_ids'].append(barang_id)
+                        result['success_count'] += 1
+
+                    except Exception as e:
+                        # Record individual item error but continue processing
+                        result['failed_count'] += 1
+                        result['errors'].append({
+                            'index': idx,
+                            'nama_barang': barang_data.get('nama_barang', 'Unknown'),
+                            'error': str(e)
+                        })
+                        logger.warning(f"Failed to insert barang at index {idx}: {str(e)}")
+
+                # Commit all successful inserts in one transaction
+                conn.commit()
+                logger.info(f"Batch insert completed: {result['success_count']} success, {result['failed_count']} failed")
+
+            except Exception as e:
+                # Rollback on transaction-level error
+                conn.rollback()
+                logger.error(f"Batch insert transaction failed, rolling back: {e}")
+                raise DatabaseError(f"Batch insert transaction failed: {e}")
+
+            finally:
+                conn.close()
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Batch insert failed: {e}")
+            raise DatabaseError(f"Failed to batch insert barang: {e}")
+
     def update_barang(self, barang_data):
         """Update existing barang with error handling"""
         if not barang_data or not barang_data.get('barang_id'):

@@ -3356,61 +3356,81 @@ class BarangWindow:
                 self.status_label.config(text="Upload dibatalkan oleh user", fg='#95a5a6')
                 return
             
-            # Step 8: Upload to database with simple progress tracking
-            self.status_label.config(text="Mengupload data ke database...", fg='#3498db')
+            # Step 8: Upload to database with BATCH INSERT for better performance
+            self.status_label.config(text="Menyiapkan data untuk batch upload...", fg='#3498db')
             self.window.update()
-            
-            success_count = 0
-            upload_errors = []
-            
-            total_upload_items = len(valid_data_for_upload)
-            
+
+            # ✅ NEW: Prepare all data for batch insert
+            barang_batch_list = []
+            batch_metadata = []  # Store metadata for error reporting
+
             for idx, (original_idx, row, validation_data) in enumerate(valid_data_for_upload):
-                
                 try:
-                    # Simple progress update
-                    progress = int((idx + 1) / total_upload_items * 100)
-                    self.status_label.config(
-                        text=f"Uploading... {progress}% ({idx + 1}/{total_upload_items})",
-                        fg='#3498db'
-                    )
-                    self.window.update()
-                    
                     # Get validated data
                     pengirim_id = validation_data['pengirim_id']
-                    print("Pengirim ID:", pengirim_id)
                     penerima_id = validation_data['penerima_id']
                     nama_barang = validation_data['nama_barang']
-                    
+
                     # Extract all fields with enhanced error handling
                     extracted_data = self.extract_row_data(row, column_mapping)
-                    
-                    print(f"Processing row {original_idx + 1}: {nama_barang}")
-                    print(f"  Pengirim ID: {pengirim_id}, Penerima ID: {penerima_id}")
-                    print(f"  Extracted data keys: {list(extracted_data.keys())}")
-                    
-                    # Create barang in database
-                    barang_id = self.db.create_barang(
-                        pengirim=pengirim_id,
-                        penerima=penerima_id,
-                        nama_barang=nama_barang,
-                        **extracted_data  # Spread all extracted data
-                    )
-                    
-                    success_count += 1
-                    print(f"Barang created successfully with ID: {barang_id}")
-                    
-                except Exception as e:
-                    error_detail = str(e)
-                    print(f"Error creating barang '{nama_barang}': {error_detail}")
-                    
-                    upload_errors.append({
-                        'nama_barang': nama_barang[:50],  # Truncate long names
-                        'pengirim': validation_data.get('pengirim_name', 'N/A')[:30],
-                        'penerima': validation_data.get('penerima_name', 'N/A')[:30],
-                        'error': f"Database error: {error_detail}"[:200],  # Truncate long errors
-                        'row_number': original_idx + 2
+
+                    # Combine into single dict for batch insert
+                    barang_dict = {
+                        'pengirim': pengirim_id,
+                        'penerima': penerima_id,
+                        'nama_barang': nama_barang,
+                        **extracted_data
+                    }
+
+                    barang_batch_list.append(barang_dict)
+                    batch_metadata.append({
+                        'original_idx': original_idx,
+                        'validation_data': validation_data
                     })
+
+                except Exception as e:
+                    print(f"Error preparing barang data at index {idx}: {str(e)}")
+
+            # ✅ NEW: Perform batch insert in single transaction
+            print(f"Starting batch insert of {len(barang_batch_list)} items...")
+            self.status_label.config(
+                text=f"Mengupload {len(barang_batch_list)} barang ke database...",
+                fg='#3498db'
+            )
+            self.window.update()
+
+            try:
+                batch_result = self.db.create_barang_batch(barang_batch_list)
+
+                success_count = batch_result['success_count']
+                upload_errors = []
+
+                # Convert batch errors to upload error format
+                for error_info in batch_result['errors']:
+                    idx = error_info['index']
+                    if idx < len(batch_metadata):
+                        metadata = batch_metadata[idx]
+                        upload_errors.append({
+                            'nama_barang': error_info['nama_barang'][:50],
+                            'pengirim': metadata['validation_data'].get('pengirim_name', 'N/A')[:30],
+                            'penerima': metadata['validation_data'].get('penerima_name', 'N/A')[:30],
+                            'error': f"Database error: {error_info['error']}"[:200],
+                            'row_number': metadata['original_idx'] + 2
+                        })
+
+                print(f"Batch insert completed: {success_count} success, {len(upload_errors)} failed")
+
+            except Exception as e:
+                # If batch insert completely fails, treat all as errors
+                print(f"Batch insert failed completely: {str(e)}")
+                success_count = 0
+                upload_errors = [{
+                    'nama_barang': 'Batch Upload',
+                    'pengirim': 'N/A',
+                    'penerima': 'N/A',
+                    'error': f"Batch insert failed: {str(e)}"[:200],
+                    'row_number': 0
+                }]
             
             # Step 9: Show comprehensive results
             if upload_errors:
