@@ -33,9 +33,11 @@ class PrintHandler:
         """
         max_lines = 1
 
-        # Average character width for Times New Roman at size 12 (in Excel width units)
-        # Approximately 1.2 width units per character
-        char_width = font_size / 10
+        # For Times New Roman font size 12:
+        # - Average character width in Excel units is approximately 1.1
+        # - Excel column width is measured in characters
+        # - We need to be more conservative to ensure text doesn't get cut off
+        char_width = 1.1  # More accurate for Times New Roman
 
         for i, cell_value in enumerate(row_data):
             if i >= len(column_widths):
@@ -48,18 +50,31 @@ class PrintHandler:
                 continue
 
             # Calculate how many characters fit in the column
-            chars_per_line = max(1, int(col_width / char_width))
-
+            # Reduce by 10% to account for cell padding and be more conservative
+            chars_per_line = max(1, int((col_width / char_width) * 0.95))
             # Calculate number of lines needed for this cell
-            text_length = len(text)
-            lines_needed = max(1, (text_length + chars_per_line - 1) // chars_per_line)
+            # Split by actual line breaks first (if any)
+            lines = text.split('\n')
+            total_lines_needed = 0
 
-            max_lines = max(max_lines, lines_needed)
+            for line in lines:
+                line_length = len(line)
+                if line_length == 0:
+                    total_lines_needed += 1
+                else:
+                    # Calculate wrapped lines for this line
+                    wrapped_lines = max(1, (line_length + chars_per_line - 1) // chars_per_line)
+                    total_lines_needed += wrapped_lines
 
-        # Calculate row height: base height per line + padding
-        # For font size 12, each line is approximately 15 points
-        height_per_line = font_size * 1.25
-        total_height = max_lines * height_per_line
+            max_lines = max(max_lines, total_lines_needed)
+
+        # Calculate row height with more generous spacing
+        # For font size 12: each line needs about 16-17 points for comfortable spacing
+        height_per_line = font_size * 1.2  # Increased from 1.25 to 1.4
+
+        # Add base padding for cell borders and spacing
+        base_padding = 1
+        total_height = (max_lines * height_per_line) + base_padding
 
         return max(min_height, total_height)
 
@@ -135,6 +150,8 @@ class PrintHandler:
             profit_header_font = Font(name='Times New Roman', size=12, bold=True)
             profit_font = Font(name='Times New Roman', size=12)
             tax_font = Font(name='Times New Roman', size=12, italic=True)
+            kubikasi_header_font = Font(name='Times New Roman', size=11, bold=True)
+            kubikasi_font = Font(name='Times New Roman', size=10)
         
             center_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
             left_align = Alignment(horizontal='left', vertical='center', wrap_text=True)
@@ -213,7 +230,7 @@ class PrintHandler:
         
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=current_row, column=col, value=header)
-                cell.font = table_header_font
+                cell.font = kubikasi_header_font if header == 'Kubikasi' else table_header_font
                 cell.alignment = center_align
                 cell.border = thin_border
                 ws.row_dimensions[current_row].height = 20
@@ -483,7 +500,7 @@ class PrintHandler:
 
                     for col, value in enumerate(row_data, 1):
                         cell = ws.cell(row=current_row, column=col, value=value)
-                        cell.font = small_font
+                        cell.font = kubikasi_font if col == 5 else small_font
                         ws.row_dimensions[current_row].height = row_height
                     
                         if col == 1:
@@ -605,19 +622,19 @@ class PrintHandler:
                         # Cell A
                         ws[f'A{current_row}'] = cost_name
                         ws[f'A{current_row}'].font = profit_font
-                        ws[f'A{current_row}'].alignment = left_align
+                        ws[f'A{current_row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
                         ws[f'A{current_row}'].border = thin_border
 
                         # Cell B-K - Apply border to ALL cells BEFORE merging
                         for col in range(2, 12):  # B=2 to K=11
                             cell = ws.cell(row=current_row, column=col)
                             cell.border = thin_border
-                        
+
                         # Now merge and set content
                         ws.merge_cells(f'B{current_row}:K{current_row}')
                         ws[f'B{current_row}'] = cost_desc
                         ws[f'B{current_row}'].font = profit_font
-                        ws[f'B{current_row}'].alignment = left_align
+                        ws[f'B{current_row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
                         # Cell L
                         ws[f'L{current_row}'] = cost_amount
@@ -625,8 +642,15 @@ class PrintHandler:
                         ws[f'L{current_row}'].alignment = right_align
                         ws[f'L{current_row}'].number_format = '#,##0'
                         ws[f'L{current_row}'].border = thin_border
-                        
-                        ws.row_dimensions[current_row].height = 18
+
+                        # Calculate dynamic row height based on content
+                        # Column A width = estimated_widths[0] = 10
+                        # Columns B-K merged width = sum of estimated_widths[1:11]
+                        merged_width = sum(estimated_widths[1:11])  # Dynamic calculation
+                        row_data_for_height = [cost_name, cost_desc]
+                        column_widths_for_height = [estimated_widths[0], merged_width]
+                        row_height = self._calculate_row_height(row_data_for_height, column_widths_for_height, font_size=12, min_height=15)  # dari 18 ke 15
+                        ws.row_dimensions[current_row].height = row_height
                         current_row += 1
 
                     # Total Surabaya
@@ -691,19 +715,19 @@ class PrintHandler:
                         # Cell A
                         ws[f'A{current_row}'] = cost_name
                         ws[f'A{current_row}'].font = profit_font
-                        ws[f'A{current_row}'].alignment = left_align
+                        ws[f'A{current_row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
                         ws[f'A{current_row}'].border = thin_border
 
                         # Cell B-K - Apply border to ALL cells BEFORE merging
                         for col in range(2, 12):  # B=2 to K=11
                             cell = ws.cell(row=current_row, column=col)
                             cell.border = thin_border
-                        
+
                         # Now merge and set content
                         ws.merge_cells(f'B{current_row}:K{current_row}')
                         ws[f'B{current_row}'] = cost_desc
                         ws[f'B{current_row}'].font = profit_font
-                        ws[f'B{current_row}'].alignment = left_align
+                        ws[f'B{current_row}'].alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
                         # Cell L
                         ws[f'L{current_row}'] = cost_amount
@@ -711,8 +735,15 @@ class PrintHandler:
                         ws[f'L{current_row}'].alignment = right_align
                         ws[f'L{current_row}'].number_format = '#,##0'
                         ws[f'L{current_row}'].border = thin_border
-                        
-                        ws.row_dimensions[current_row].height = 18
+
+                        # Calculate dynamic row height based on content  
+                        # Column A width = estimated_widths[0] = 10
+                        # Columns B-K merged width = sum of estimated_widths[1:11]
+                        merged_width = sum(estimated_widths[1:11])  # Dynamic calculation
+                        row_data_for_height = [cost_name, cost_desc]
+                        column_widths_for_height = [estimated_widths[0], merged_width]
+                        row_height = self._calculate_row_height(row_data_for_height, column_widths_for_height, font_size=12, min_height=18)
+                        ws.row_dimensions[current_row].height = row_height
                         current_row += 1
                     
                     # Total Destinasi

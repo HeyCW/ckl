@@ -676,8 +676,22 @@ class ContainerWindow:
         )
         self.make_button_keyboard_accessible(print_packing_btn)
         print_packing_btn.pack(side='left', padx=(0, 10))
-        
-             
+
+        # Preview IPL Excel button
+        preview_ipl_btn = tk.Button(
+            btn_frame,
+            text="📊 Preview IPL Excel",
+            font=('Arial', 10, 'bold'),
+            bg="#3498db",  # Blue
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.preview_selected_ipl_excel
+        )
+        self.make_button_keyboard_accessible(preview_ipl_btn)
+        preview_ipl_btn.pack(side='left', padx=(0, 10))
+
+
     def add_print_buttons_to_container_tab(self, parent):
         """Add print buttons to container tab"""
         print_frame = tk.Frame(parent, bg='#ecf0f1')
@@ -733,7 +747,21 @@ class ContainerWindow:
         )
         self.make_button_keyboard_accessible(print_packing_btn)
         print_packing_btn.pack(side='left', padx=(0, 10))
-    
+
+        # Preview IPL Excel button
+        preview_ipl_btn = tk.Button(
+            btn_frame,
+            text="📊 Preview IPL Excel",
+            font=('Arial', 8, 'bold'),
+            bg="#3498db",  # Blue
+            fg='white',
+            padx=20,
+            pady=8,
+            command=self.preview_selected_ipl_excel
+        )
+        self.make_button_keyboard_accessible(preview_ipl_btn)
+        preview_ipl_btn.pack(side='left', padx=(0, 10))
+
     def print_selected_container_invoice(self):
         """Print invoice for selected container"""
         selection = self.container_tree.selection()
@@ -830,8 +858,624 @@ class ContainerWindow:
                 
         except Exception as e:
             messagebox.showerror("Error", f"Gagal print packing list PDF: {str(e)}")
-            print(f"Error in print_selected_customer_packing_list: {e}")    
-    
+            print(f"Error in print_selected_customer_packing_list: {e}")
+
+    def preview_selected_ipl_excel(self):
+        """Preview Invoice Packing List (IPL) Excel for selected container(s)"""
+        try:
+            selected_items = self.container_tree.selection()
+            if not selected_items:
+                messagebox.showwarning("Peringatan", "Pilih satu container untuk preview IPL Excel!")
+                return
+
+            # Get first selected container only
+            item = self.container_tree.item(selected_items[0])
+            container_id = item['values'][0]
+
+            # Show preview window
+            self.show_ipl_preview_window(container_id)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal preview IPL Excel: {str(e)}")
+            print(f"Error in preview_selected_ipl_excel: {e}")
+
+    def show_ipl_preview_window(self, container_id):
+        """Show IPL preview in a new window with table format"""
+        from datetime import datetime
+        import tkinter.ttk as ttk
+
+        try:
+            # Get container details
+            container = self.db.get_container_by_id(container_id)
+            if not container:
+                messagebox.showerror("Error", "Container tidak ditemukan!")
+                return
+
+            # Get barang in container with pricing
+            container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
+
+            if not container_barang:
+                messagebox.showwarning("Peringatan", "Container kosong, tidak ada data untuk ditampilkan!")
+                return
+
+            # Create preview window
+            preview_window = tk.Toplevel(self.window)
+            preview_window.title(f"Preview IPL - {container.get('container', 'N/A')}")
+            preview_window.configure(bg='white')
+
+            # Get screen dimensions
+            screen_width = preview_window.winfo_screenwidth()
+            screen_height = preview_window.winfo_screenheight()
+
+            # Set window size (80% of screen)
+            window_width = int(screen_width * 0.8)
+            window_height = int(screen_height * 0.85)
+
+            # Position window at right side of screen to not block main window
+            x_position = int(screen_width * 0.15)
+            y_position = int(screen_height * 0.05)
+
+            preview_window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+
+            # Make window resizable
+            preview_window.resizable(True, True)
+            preview_window.minsize(800, 600)  # Minimum size
+
+            # Don't use grab_set() so main window remains accessible
+            # preview_window.transient(self.window)  # Commented out to allow independent movement
+
+            # Main container with scrollbar
+            main_frame = tk.Frame(preview_window, bg='white')
+            main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+
+            # Canvas with scrollbar
+            canvas = tk.Canvas(main_frame, bg='white')
+            scrollbar = tk.Scrollbar(main_frame, orient='vertical', command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas, bg='white')
+
+            # Store canvas window id for resizing
+            canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+            # Update scrollregion when content changes
+            def update_scrollregion(event=None):
+                canvas.configure(scrollregion=canvas.bbox("all"))
+
+            # Update canvas window width when canvas is resized
+            def on_canvas_resize(event):
+                # Make the scrollable_frame match canvas width
+                canvas.itemconfig(canvas_window, width=event.width)
+                update_scrollregion()
+
+            scrollable_frame.bind("<Configure>", update_scrollregion)
+            canvas.bind("<Configure>", on_canvas_resize)
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            # Header Section
+            header_frame = tk.Frame(scrollable_frame, bg='white')
+            header_frame.pack(fill='x', pady=(0, 20))
+
+            # Title
+            title_label = tk.Label(
+                header_frame,
+                text="INVOICE PACKING LIST",
+                font=('Arial', 16, 'bold'),
+                bg='white'
+            )
+            title_label.pack()
+
+            # Company info
+            company_label = tk.Label(
+                header_frame,
+                text="PT. CAHAYA KARUNIA LOGISTIK | Jl Teluk Bone Selatan No 05 | Phone: 031-60166017",
+                font=('Arial', 10),
+                bg='white'
+            )
+            company_label.pack(pady=(5, 0))
+
+            # Container Information Section
+            info_frame = tk.Frame(scrollable_frame, bg='white', relief='solid', borderwidth=1)
+            info_frame.pack(fill='x', pady=(0, 20), padx=20)
+
+            # Safe get function
+            def safe_get(key, default='-'):
+                try:
+                    if hasattr(container, 'get'):
+                        return container.get(key, default) or default
+                    else:
+                        return container[key] if key in container and container[key] else default
+                except:
+                    return default
+
+            # Format date function
+            def format_date(date_value):
+                if not date_value or date_value == '-':
+                    return '-'
+                try:
+                    if isinstance(date_value, str) and len(date_value) == 10:
+                        date_obj = datetime.strptime(date_value, '%Y-%m-%d')
+                        return date_obj.strftime('%d-%m-%Y')
+                    return str(date_value)
+                except:
+                    return str(date_value)
+
+            # Container info data
+            container_info = [
+                ("Container No", safe_get('container')),
+                ("Feeder", safe_get('feeder')),
+                ("Destination", safe_get('destination')),
+                ("Party", safe_get('party')),
+                ("ETD Sub", format_date(safe_get('etd_sub'))),
+                ("CLS", format_date(safe_get('cls'))),
+                ("Open", format_date(safe_get('open'))),
+                ("Full", format_date(safe_get('full'))),
+                ("Seal", safe_get('seal')),
+                ("Ref JOA", safe_get('ref_joa'))
+            ]
+
+            # Display container info in grid (2 columns x 5 rows)
+            for i, (label, value) in enumerate(container_info):
+                row = i % 5
+                col = i // 5
+
+                label_widget = tk.Label(
+                    info_frame,
+                    text=f"{label}:",
+                    font=('Arial', 10, 'bold'),
+                    bg='white',
+                    anchor='e',
+                    width=15
+                )
+                label_widget.grid(row=row, column=col*2, padx=(10, 5), pady=5, sticky='e')
+
+                value_widget = tk.Label(
+                    info_frame,
+                    text=str(value),
+                    font=('Arial', 10),
+                    bg='white',
+                    anchor='w',
+                    width=20
+                )
+                value_widget.grid(row=row, column=col*2+1, padx=(0, 10), pady=5, sticky='w')
+
+            # Table Section
+            table_frame = tk.Frame(scrollable_frame, bg='white')
+            table_frame.pack(fill='both', expand=True, padx=20)
+
+            # Create Treeview
+            columns = ('Tgl', 'Pengirim', 'Penerima', 'Nama Barang', 'Kubikasi', 'M3', 'Ton', 'Col', 'Satuan', 'Door', 'Unit Price', 'Price')
+
+            tree = ttk.Treeview(table_frame, columns=columns, show='headings', height=20)
+
+            # Define column widths and headings
+            column_widths = {
+                'Tgl': 80,
+                'Pengirim': 150,
+                'Penerima': 150,
+                'Nama Barang': 200,
+                'Kubikasi': 120,
+                'M3': 80,
+                'Ton': 80,
+                'Col': 60,
+                'Satuan': 80,
+                'Door': 100,
+                'Unit Price': 100,
+                'Price': 100
+            }
+
+            for col in columns:
+                tree.heading(col, text=col)
+                tree.column(col, width=column_widths.get(col, 100), anchor='center')
+
+            # Add data to tree
+            total_m3 = 0
+            total_ton = 0
+            total_colli = 0
+            total_nilai = 0
+
+            # Get tax information by receiver
+            tax_summary = {}
+            try:
+                receivers = set()
+                for barang_row in container_barang:
+                    barang = dict(barang_row)
+                    receiver = barang.get('receiver_name', '')
+                    if receiver:
+                        receivers.add(receiver)
+
+                for receiver in receivers:
+                    tax_query = """
+                        SELECT
+                            bt.penerima,
+                            AVG(bt.ppn_rate) as avg_ppn_rate,
+                            AVG(bt.pph23_rate) as avg_pph_rate,
+                            SUM(bt.ppn_amount) as total_ppn_amount,
+                            SUM(bt.pph23_amount) as total_pph_amount,
+                            SUM(bt.total_nilai_barang) as total_nilai
+                        FROM barang_tax bt
+                        WHERE bt.container_id = ? AND bt.penerima = ?
+                        GROUP BY bt.penerima
+                    """
+                    result = self.db.execute(tax_query, (container_id, receiver))
+
+                    if result and len(result) > 0:
+                        row = result[0]
+                        tax_summary[receiver] = {
+                            'ppn_rate': (row['avg_ppn_rate'] or 0) * 100,
+                            'pph_rate': (row['avg_pph_rate'] or 0) * 100,
+                            'ppn_amount': row['total_ppn_amount'] or 0,
+                            'pph_amount': row['total_pph_amount'] or 0,
+                            'has_tax': True
+                        }
+                    else:
+                        tax_summary[receiver] = {
+                            'ppn_rate': 0,
+                            'pph_rate': 0,
+                            'ppn_amount': 0,
+                            'pph_amount': 0,
+                            'has_tax': False
+                        }
+            except Exception as e:
+                print(f"Error getting tax info: {e}")
+
+            current_receiver = None
+            current_receiver_subtotal = 0
+            total_ppn_all = 0
+            total_pph_all = 0
+
+            for barang_row in container_barang:
+                barang = dict(barang_row)
+
+                def safe_barang_get(key, default='-'):
+                    try:
+                        value = barang.get(key, default)
+                        return value if value not in [None, '', 'NULL', 'null'] else default
+                    except Exception:
+                        return default
+
+                tanggal = safe_barang_get('tanggal', datetime.now())
+                if isinstance(tanggal, str):
+                    try:
+                        tanggal = datetime.strptime(tanggal, '%Y-%m-%d')
+                    except:
+                        try:
+                            tanggal = datetime.strptime(tanggal, '%Y-%m-%d %H:%M:%S')
+                        except:
+                            tanggal = datetime.now()
+
+                formatted_date = tanggal.strftime('%d-%b') if isinstance(tanggal, datetime) else '-'
+
+                pengirim = str(safe_barang_get('sender_name', '-'))
+                penerima = str(safe_barang_get('receiver_name', '-'))
+                nama_barang = str(safe_barang_get('nama_barang', '-'))
+                door = str(safe_barang_get('door_type', safe_barang_get('alamat_tujuan', '-')))[:10].upper()
+
+                # Parse numeric values - use correct field names
+                p = safe_barang_get('panjang_barang', '-')
+                l = safe_barang_get('lebar_barang', '-')
+                t = safe_barang_get('tinggi_barang', '-')
+
+                if str(p) != '-':
+                    p = str(p).replace(',', '')
+                if str(l) != '-':
+                    l = str(l).replace(',', '')
+                if str(t) != '-':
+                    t = str(t).replace(',', '')
+
+                kubikasi_val = f"{p}×{l}×{t}"
+
+                m3 = safe_barang_get('m3_barang', 0)
+                ton = safe_barang_get('ton_barang', 0)
+                colli = safe_barang_get('colli_amount', 0)
+                satuan = str(safe_barang_get('satuan', safe_barang_get('unit', 'pcs')))
+                unit_price = safe_barang_get('harga_per_unit', safe_barang_get('unit_price', 0))
+                total_harga = safe_barang_get('total_harga', 0)
+
+                # Convert to proper types
+                m3_val = float(m3) if m3 not in [None, '', '-'] else 0
+                ton_val = float(ton) if ton not in [None, '', '-'] else 0
+                colli_val = int(colli) if colli not in [None, '', '-'] else 0
+                unit_price_val = float(unit_price) if unit_price not in [None, '', '-'] else 0
+                price = float(total_harga) if total_harga not in [None, '', '-'] else 0
+
+                # Calculate totals (m3 and ton multiplied by colli)
+                m3_total = m3_val * colli_val if colli_val > 0 else m3_val
+                ton_total = ton_val * colli_val if colli_val > 0 else ton_val
+
+                # Check if receiver changed for tax calculation
+                if current_receiver != penerima:
+                    # Insert tax rows for previous receiver
+                    if current_receiver and current_receiver_subtotal > 0:
+                        if current_receiver in tax_summary:
+                            tax_data = tax_summary[current_receiver]
+                            if tax_data['has_tax']:
+                                ppn_amount = current_receiver_subtotal * (tax_data['ppn_rate'] / 100)
+                                pph_amount = current_receiver_subtotal * (tax_data['pph_rate'] / 100)
+
+                                if tax_data['ppn_rate'] > 0:
+                                    tree.insert('', 'end', values=(
+                                        '', '', '', f"PPN {tax_data['ppn_rate']:.1f}%", '', '', '', '', '', '', '',
+                                        f"{ppn_amount:,.0f}"
+                                    ), tags=('tax',))
+                                    total_ppn_all += ppn_amount
+
+                                if tax_data['pph_rate'] > 0:
+                                    tree.insert('', 'end', values=(
+                                        '', '', '', 'PPH 23', '', '', '', '', '', '', '',
+                                        f"{-pph_amount:,.0f}"
+                                    ), tags=('tax',))
+                                    total_pph_all += pph_amount
+
+                    current_receiver = penerima
+                    current_receiver_subtotal = 0
+
+                # Add row to tree
+                tree.insert('', 'end', values=(
+                    formatted_date,
+                    pengirim,
+                    penerima,
+                    nama_barang,
+                    kubikasi_val,
+                    f"{m3_total:.3f}",
+                    f"{ton_total:.3f}",
+                    colli_val,
+                    satuan,
+                    door,
+                    f"{unit_price_val:,.0f}",
+                    f"{price:,.0f}"
+                ))
+
+                # Update totals
+                total_m3 += m3_total
+                total_ton += ton_total
+                total_colli += colli_val
+                total_nilai += price
+                current_receiver_subtotal += price
+
+            # Insert tax rows for last receiver
+            if current_receiver and current_receiver_subtotal > 0:
+                if current_receiver in tax_summary:
+                    tax_data = tax_summary[current_receiver]
+                    if tax_data['has_tax']:
+                        ppn_amount = current_receiver_subtotal * (tax_data['ppn_rate'] / 100)
+                        pph_amount = current_receiver_subtotal * (tax_data['pph_rate'] / 100)
+
+                        if tax_data['ppn_rate'] > 0:
+                            tree.insert('', 'end', values=(
+                                '', '', '', f"PPN {tax_data['ppn_rate']:.1f}%", '', '', '', '', '', '', '',
+                                f"{ppn_amount:,.0f}"
+                            ), tags=('tax',))
+                            total_ppn_all += ppn_amount
+
+                        if tax_data['pph_rate'] > 0:
+                            tree.insert('', 'end', values=(
+                                '', '', '', 'PPH 23', '', '', '', '', '', '', '',
+                                f"{-pph_amount:,.0f}"
+                            ), tags=('tax',))
+                            total_pph_all += pph_amount
+
+            # Style tax rows
+            tree.tag_configure('tax', background='#fffacd', font=('Arial', 10, 'italic'))
+
+            # Add scrollbars to tree
+            tree_scroll_y = tk.Scrollbar(table_frame, orient='vertical', command=tree.yview)
+            tree_scroll_x = tk.Scrollbar(table_frame, orient='horizontal', command=tree.xview)
+            tree.configure(yscrollcommand=tree_scroll_y.set, xscrollcommand=tree_scroll_x.set)
+
+            tree.grid(row=0, column=0, sticky='nsew')
+            tree_scroll_y.grid(row=0, column=1, sticky='ns')
+            tree_scroll_x.grid(row=1, column=0, sticky='ew')
+
+            table_frame.grid_rowconfigure(0, weight=1)
+            table_frame.grid_columnconfigure(0, weight=1)
+
+            # Biaya Section - Get delivery costs from database
+            try:
+                # Query biaya Surabaya
+                surabaya_costs = self.db.execute("""
+                    SELECT description, cost_description, cost
+                    FROM container_delivery_costs
+                    WHERE container_id = ? AND delivery = 'Surabaya'
+                    ORDER BY id
+                """, (container_id,))
+
+                # Query biaya tujuan lain (bukan Surabaya)
+                tujuan_costs = self.db.execute("""
+                    SELECT delivery, description, cost_description, cost
+                    FROM container_delivery_costs
+                    WHERE container_id = ? AND delivery != 'Surabaya'
+                    ORDER BY delivery, id
+                """, (container_id,))
+
+                # Calculate max height needed for tables
+                max_rows = max(len(surabaya_costs) if surabaya_costs else 0, 
+                             len(tujuan_costs) if tujuan_costs else 0)
+                table_height = max(max_rows + 1, 5)  # +1 for total row, minimum 5
+
+                # Create costs frame with grid layout for alignment
+                costs_main_frame = tk.Frame(scrollable_frame, bg='white')
+                costs_main_frame.pack(fill='both', expand=True, pady=(20, 10), padx=20)
+
+                # Create 2 columns layout using grid with equal stretch
+                costs_left_frame = tk.Frame(costs_main_frame, bg='white')
+                costs_left_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 10))
+
+                costs_right_frame = tk.Frame(costs_main_frame, bg='white')
+                costs_right_frame.grid(row=0, column=1, sticky='nsew', padx=(10, 0))
+
+                # Configure grid weights for equal distribution and stretching
+                costs_main_frame.grid_rowconfigure(0, weight=1)
+                costs_main_frame.grid_columnconfigure(0, weight=1, uniform='costs')
+                costs_main_frame.grid_columnconfigure(1, weight=1, uniform='costs')
+
+                # Biaya Surabaya Table
+                if surabaya_costs:
+                    surabaya_frame = tk.Frame(costs_left_frame, bg='white', relief='solid', borderwidth=1)
+                    surabaya_frame.pack(fill='both', expand=True, anchor='n')
+
+                    tk.Label(
+                        surabaya_frame,
+                        text="BIAYA SURABAYA",
+                        font=('Arial', 12, 'bold'),
+                        bg='#e8f4f8',
+                        fg='#2c3e50'
+                    ).pack(fill='x', pady=(5, 0))
+
+                    # Create treeview for Surabaya costs
+                    surabaya_tree_frame = tk.Frame(surabaya_frame, bg='white')
+                    surabaya_tree_frame.pack(fill='both', expand=True, padx=5, pady=5)
+
+                    surabaya_tree = ttk.Treeview(
+                        surabaya_tree_frame,
+                        columns=('Deskripsi', 'Keterangan', 'Biaya'),
+                        show='headings',
+                        height=table_height
+                    )
+
+                    surabaya_tree.heading('Deskripsi', text='Deskripsi')
+                    surabaya_tree.heading('Keterangan', text='Keterangan')
+                    surabaya_tree.heading('Biaya', text='Biaya (Rp)')
+
+                    surabaya_tree.column('Deskripsi', width=200, anchor='w')
+                    surabaya_tree.column('Keterangan', width=200, anchor='w')
+                    surabaya_tree.column('Biaya', width=120, anchor='e')
+
+                    total_surabaya = 0
+                    for cost_row in surabaya_costs:
+                        biaya = float(cost_row['cost']) if cost_row['cost'] else 0
+                        total_surabaya += biaya
+                        surabaya_tree.insert('', 'end', values=(
+                            cost_row['description'] or '-',
+                            cost_row['cost_description'] or '-',
+                            f"{biaya:,.0f}"
+                        ))
+
+                    # Add total row
+                    surabaya_tree.insert('', 'end', values=(
+                        'TOTAL', '', f"{total_surabaya:,.0f}"
+                    ), tags=('total',))
+                    surabaya_tree.tag_configure('total', background='#ffffcc', font=('Arial', 10, 'bold'))
+
+                    surabaya_scroll_y = ttk.Scrollbar(surabaya_tree_frame, orient='vertical', command=surabaya_tree.yview)
+                    surabaya_scroll_x = ttk.Scrollbar(surabaya_tree_frame, orient='horizontal', command=surabaya_tree.xview)
+                    surabaya_tree.configure(yscrollcommand=surabaya_scroll_y.set, xscrollcommand=surabaya_scroll_x.set)
+
+                    surabaya_tree.grid(row=0, column=0, sticky='nsew')
+                    surabaya_scroll_y.grid(row=0, column=1, sticky='ns')
+                    surabaya_scroll_x.grid(row=1, column=0, sticky='ew')
+
+                    surabaya_tree_frame.grid_rowconfigure(0, weight=1)
+                    surabaya_tree_frame.grid_columnconfigure(0, weight=1)
+
+                # Biaya Tujuan Table
+                if tujuan_costs:
+                    # Group by destination
+                    tujuan_groups = {}
+                    for cost_row in tujuan_costs:
+                        dest = cost_row['delivery']
+                        if dest not in tujuan_groups:
+                            tujuan_groups[dest] = []
+                        tujuan_groups[dest].append(cost_row)
+
+                    for destination, costs in tujuan_groups.items():
+                        tujuan_frame = tk.Frame(costs_right_frame, bg='white', relief='solid', borderwidth=1)
+                        tujuan_frame.pack(fill='both', expand=True, anchor='n', pady=(0, 10))
+
+                        tk.Label(
+                            tujuan_frame,
+                            text=f"BIAYA {destination.upper()}",
+                            font=('Arial', 12, 'bold'),
+                            bg='#fff4e6',
+                            fg='#2c3e50'
+                        ).pack(fill='x', pady=(5, 0))
+
+                        # Create treeview for destination costs
+                        tujuan_tree_frame = tk.Frame(tujuan_frame, bg='white')
+                        tujuan_tree_frame.pack(fill='both', expand=True, padx=5, pady=5)
+
+                        tujuan_tree = ttk.Treeview(
+                            tujuan_tree_frame,
+                            columns=('Deskripsi', 'Keterangan', 'Biaya'),
+                            show='headings',
+                            height=table_height
+                        )
+
+                        tujuan_tree.heading('Deskripsi', text='Deskripsi')
+                        tujuan_tree.heading('Keterangan', text='Keterangan')
+                        tujuan_tree.heading('Biaya', text='Biaya (Rp)')
+
+                        tujuan_tree.column('Deskripsi', width=200, anchor='w')
+                        tujuan_tree.column('Keterangan', width=200, anchor='w')
+                        tujuan_tree.column('Biaya', width=120, anchor='e')
+
+                        total_tujuan = 0
+                        for cost_row in costs:
+                            biaya = float(cost_row['cost']) if cost_row['cost'] else 0
+                            total_tujuan += biaya
+                            tujuan_tree.insert('', 'end', values=(
+                                cost_row['description'] or '-',
+                                cost_row['cost_description'] or '-',
+                                f"{biaya:,.0f}"
+                            ))
+
+                        # Add total row
+                        tujuan_tree.insert('', 'end', values=(
+                            'TOTAL', '', f"{total_tujuan:,.0f}"
+                        ), tags=('total',))
+                        tujuan_tree.tag_configure('total', background='#ffffcc', font=('Arial', 10, 'bold'))
+
+                        tujuan_scroll_y = ttk.Scrollbar(tujuan_tree_frame, orient='vertical', command=tujuan_tree.yview)
+                        tujuan_scroll_x = ttk.Scrollbar(tujuan_tree_frame, orient='horizontal', command=tujuan_tree.xview)
+                        tujuan_tree.configure(yscrollcommand=tujuan_scroll_y.set, xscrollcommand=tujuan_scroll_x.set)
+
+                        tujuan_tree.grid(row=0, column=0, sticky='nsew')
+                        tujuan_scroll_y.grid(row=0, column=1, sticky='ns')
+                        tujuan_scroll_x.grid(row=1, column=0, sticky='ew')
+
+                        tujuan_tree_frame.grid_rowconfigure(0, weight=1)
+                        tujuan_tree_frame.grid_columnconfigure(0, weight=1)
+
+            except Exception as e:
+                print(f"Error loading delivery costs: {e}")
+
+            # Button Section
+            button_frame = tk.Frame(scrollable_frame, bg='white')
+            button_frame.pack(pady=20)
+
+            close_btn = tk.Button(
+                button_frame,
+                text="Tutup",
+                font=('Arial', 12, 'bold'),
+                bg="#e74c3c",
+                fg='white',
+                padx=30,
+                pady=10,
+                command=preview_window.destroy
+            )
+            close_btn.pack()
+
+            # Pack canvas and scrollbar
+            canvas.pack(side='left', fill='both', expand=True)
+            scrollbar.pack(side='right', fill='y')
+
+            # Bind mousewheel
+            def _on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+            canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+            # Cleanup on close
+            def on_close():
+                canvas.unbind_all("<MouseWheel>")
+                preview_window.destroy()
+
+            preview_window.protocol("WM_DELETE_WINDOW", on_close)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal menampilkan preview: {str(e)}")
+            print(f"Error in show_ipl_preview_window: {e}")
+            import traceback
+            traceback.print_exc()
+
     def create_container_barang_tab(self, parent):
         """Create container-barang management tab with pricing, sender/receiver selection, and tax management - OPTIMIZED"""
 

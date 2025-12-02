@@ -28,7 +28,7 @@ def main():
             icon_photo = ImageTk.PhotoImage(icon_image)
         
             # Set sebagai window icon
-            root.iconphoto(False, icon_photo)
+            root.iconphoto(False,    icon_photo)
             
         except Exception as e:
             print(f"Icon tidak ditemukan: {e}")
