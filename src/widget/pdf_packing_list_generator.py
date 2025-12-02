@@ -338,7 +338,7 @@ class PDFPackingListGenerator:
                 parent=styles['Normal'],
                 fontSize=6,
                 alignment=TA_LEFT,
-                leading=7
+                leading=8
             )
 
             # Safe way to get container values
@@ -588,13 +588,13 @@ class PDFPackingListGenerator:
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 0), (-1, 0), 7),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows
-                ('FONTSIZE', (0, 1), (-1, -2), 8),
+                ('FONTSIZE', (0, 1), (-1, -2), 6),
                 ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
                 ('ALIGN', (0, 1), (0, -2), 'CENTER'),  # No.
                 ('ALIGN', (1, 1), (1, -2), 'CENTER'),  # Container
@@ -604,10 +604,10 @@ class PDFPackingListGenerator:
                 ('VALIGN', (0, 1), (-1, -2), 'TOP'),
 
                 # Kubikasi column - smaller font
-                ('FONTSIZE', (4, 1), (4, -2), 4),
+                ('FONTSIZE', (4, 1), (4, -2), 5),
 
                 # Total row
-                ('FONTSIZE', (0, -1), (-1, -1), 9),
+                ('FONTSIZE', (0, -1), (-1, -1), 8),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
                 ('ALIGN', (0, -1), (4, -1), 'CENTER'),
@@ -1381,16 +1381,16 @@ class PDFPackingListGenerator:
             
             # Create table - DENGAN LEBAR KOLOM DISESUAIKAN ✅
             items_table = Table(table_data, colWidths=[
-                1.2*cm,  # No
-                1.8*cm,  # Container
-                2.5*cm,  # Pengirim ✅ BARU
-                3.5*cm,  # Jenis Barang
-                2.5*cm,  # Kubikasi
+                0.8*cm,  # No
+                2.0*cm,  # Container
+                3.0*cm,  # Pengirim ✅ BARU
+                4.0*cm,  # Jenis Barang
+                2.6*cm,  # Kubikasi
                 1.3*cm,  # M3
                 1.3*cm,  # Ton
-                1.0*cm,  # Col
+                0.8*cm,  # Col
                 2.0*cm,  # Unit Price
-                2.4*cm   # Total Price
+                2.0*cm   # Total Price
             ])
             
             # Table styling - DENGAN INDEX KOLOM DISESUAIKAN ✅
@@ -1417,7 +1417,7 @@ class PDFPackingListGenerator:
 
                 # Total row - MERGE 5 KOLOM (0-4, termasuk pengirim) ✅
                 ('SPAN', (0, total_row_index), (4, total_row_index)),  # ✅ Merge 5 kolom
-                ('FONTSIZE', (0, total_row_index), (-1, total_row_index), 8),
+                ('FONTSIZE', (0, total_row_index), (-1, total_row_index), 6),
                 ('FONTNAME', (0, total_row_index), (-1, total_row_index), 'Helvetica-Bold'),
                 ('BACKGROUND', (0, total_row_index), (-1, total_row_index), colors.lightgrey),
                 ('ALIGN', (0, total_row_index), (0, total_row_index), 'CENTER'),
@@ -1694,10 +1694,10 @@ class PDFPackingListGenerator:
                                             alignment=TA_LEFT, spaceAfter=10)
             invoice_info_style = ParagraphStyle('InvoiceInfo', parent=styles['Normal'], fontSize=9,
                                             alignment=TA_RIGHT, spaceAfter=10)
-            item_text_style = ParagraphStyle('ItemText', parent=styles['Normal'], fontSize=8,
-                                            leading=11, alignment=TA_LEFT, wordWrap='CJK')
-            kubikasi_style = ParagraphStyle('Kubikasi', parent=styles['Normal'], fontSize=5,
-                                            leading=7, alignment=TA_LEFT, wordWrap='CJK')
+            item_text_style = ParagraphStyle('ItemText', parent=styles['Normal'], fontSize=7,
+                                            leading=10, alignment=TA_LEFT, wordWrap='CJK')
+            kubikasi_style = ParagraphStyle('Kubikasi', parent=styles['Normal'], fontSize=6,
+                                            leading=8, alignment=TA_LEFT, wordWrap='CJK')
 
             # ========================================
             # HEADER: Logo + Company Info + Title
@@ -1985,15 +1985,15 @@ class PDFPackingListGenerator:
             
             # Create table - ADJUSTED COLUMN WIDTHS
             items_table = Table(table_data, colWidths=[
-                1.2*cm,  # No
+                0.8*cm,  # No
                 2.0*cm,  # Container
-                2.5*cm,  # Pengirim (BARU)
-                4.5*cm,  # Jenis Barang
-                2.0*cm,  # Kubikasi
-                1.4*cm,  # M3
-                1.4*cm,  # Ton
-                1.2*cm,  # Col
-                3.0*cm   # Catatan
+                3.0*cm,  # Pengirim (BARU)
+                4.0*cm,  # Jenis Barang
+                3.0*cm,  # Kubikasi
+                1.5*cm,  # M3
+                1.5*cm,  # Ton
+                1.0*cm,  # Col
+                2.4*cm   # Catatan
             ])
             
             # Table styling
@@ -2001,13 +2001,13 @@ class PDFPackingListGenerator:
                 # Header row
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 0), (-1, 0), 7),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows
-                ('FONTSIZE', (0, 1), (-1, -2), 8),
+                ('FONTSIZE', (0, 1), (-1, -2), 6),
                 ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
                 ('ALIGN', (0, 1), (0, -2), 'CENTER'),  # No
                 ('ALIGN', (1, 1), (1, -2), 'CENTER'),  # Container
@@ -2018,10 +2018,10 @@ class PDFPackingListGenerator:
                 ('VALIGN', (0, 1), (-1, -2), 'TOP'),
 
                 # Kubikasi column - smaller font
-                ('FONTSIZE', (4, 1), (4, -2), 4),
+                ('FONTSIZE', (4, 1), (4, -2), 5),
 
                 # Total row
-                ('FONTSIZE', (0, -1), (-1, -1), 10),
+                ('FONTSIZE', (0, -1), (-1, -1), 8),
                 ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
                 ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
                 

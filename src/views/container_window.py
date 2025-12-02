@@ -1397,9 +1397,12 @@ class ContainerWindow:
         try:
             # Ambil nilai dari entry
             value = self.delivery_cost_var.get().replace(',', '').replace('Rp', '').strip()
-            if value and value.replace('.', '').isdigit():
-                # Format sebagai currency
-                formatted = f"{int(float(value)):,}".replace(',', '.')
+            # Izinkan angka negatif dengan menghapus tanda minus untuk pengecekan
+            check_value = value.replace('-', '').replace('.', '')
+            if value and check_value.isdigit():
+                # Format sebagai currency (preserve tanda minus jika ada)
+                num_value = int(float(value))
+                formatted = f"{num_value:,}".replace(',', '.')
                 # Set kembali ke entry tanpa memicu event lagi
                 current_pos = self.delivery_cost_entry.index(tk.INSERT)
                 self.delivery_cost_var.set(formatted)
@@ -1425,9 +1428,7 @@ class ContainerWindow:
         
         try:
             biaya = float(biaya_str) if biaya_str else 0
-            if biaya <= 0:
-                messagebox.showwarning("Peringatan", "Masukkan nominal biaya yang valid!")
-                return
+            # Izinkan nilai negatif untuk biaya (misalnya untuk koreksi atau refund)
         except:
             messagebox.showwarning("Peringatan", "Format biaya tidak valid!")
             return
