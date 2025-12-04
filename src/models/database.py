@@ -256,6 +256,15 @@ class SQLiteDatabase:
             container_pp REAL,
             container_pd REAL,
             container_dd REAL,
+            container_20_pp REAL,
+            container_20_pd REAL,
+            container_20_dd REAL,
+            container_21_pp REAL,
+            container_21_pd REAL,
+            container_21_dd REAL,
+            container_40hc_pp REAL,
+            container_40hc_pd REAL,
+            container_40hc_dd REAL,
             pajak INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -264,9 +273,36 @@ class SQLiteDatabase:
         try:
             self.execute(query)
             logger.info("Barang table created successfully")
+            self.migrate_barang_container_sizes()
         except Exception as e:
             logger.error(f"Failed to create barang table: {e}")
-            raise  
+            raise
+
+    def migrate_barang_container_sizes(self):
+        """Add container size-specific columns if they don't exist"""
+        try:
+            # Check if new columns exist
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA table_info(barang)")
+                columns = [row[1] for row in cursor.fetchall()]
+
+                # Add new columns if they don't exist
+                new_columns = [
+                    'container_20_pp', 'container_20_pd', 'container_20_dd',
+                    'container_21_pp', 'container_21_pd', 'container_21_dd',
+                    'container_40hc_pp', 'container_40hc_pd', 'container_40hc_dd'
+                ]
+
+                for col in new_columns:
+                    if col not in columns:
+                        cursor.execute(f"ALTER TABLE barang ADD COLUMN {col} REAL")
+                        logger.info(f"Added column {col} to barang table")
+
+                conn.commit()
+                logger.info("Container size migration completed successfully")
+        except Exception as e:
+            logger.warning(f"Migration warning (may be harmless): {e}")  
         
     def create_tax_table(self):
         """Create tax management table for tracking tax calculations"""
@@ -347,16 +383,16 @@ class SQLiteDatabase:
             result = self.execute(query, (container_id,))
             
             if result:
-                print(f"[DB] ✅ Found {len(result)} tax records")
+                print(f"[DB] [OK] Found {len(result)} tax records")
                 for row in result:
                     print(f"     - {row[0]}: PPN={row[1]:,.0f}, PPH={row[2]:,.0f}")
             else:
-                print(f"[DB] ℹ️ No tax records found for container {container_id}")
-            
+                print(f"[DB] [INFO] No tax records found for container {container_id}")
+
             return result or []
-            
+
         except Exception as e:
-            print(f"[DB] ❌ Failed to retrieve tax summary: {str(e)}")
+            print(f"[DB] [ERROR] Failed to retrieve tax summary: {str(e)}")
             import traceback
             traceback.print_exc()
             return []
@@ -386,9 +422,9 @@ class SQLiteDatabase:
         '''
         try:
             self.execute(query)
-            print("✅ Detail container table created/updated successfully")
+            print("[OK] Detail container table created/updated successfully")
         except Exception as e:
-            print(f"❌ Failed to create detail container table: {e}")
+            print(f"[ERROR] Failed to create detail container table: {e}")
             raise
         
         
@@ -822,24 +858,38 @@ class BarangDatabase(SQLiteDatabase):
                  m3_pp=None, m3_pd=None, m3_dd=None,
                  ton_pp=None, ton_pd=None, ton_dd=None,
                  col_pp=None, col_pd=None, col_dd=None,
-                 container_pp=None, container_pd=None, container_dd=None, pajak=None):
+                 container_pp=None, container_pd=None, container_dd=None,
+                 container_20_pp=None, container_20_pd=None, container_20_dd=None,
+                 container_21_pp=None, container_21_pd=None, container_21_dd=None,
+                 container_40hc_pp=None, container_40hc_pd=None, container_40hc_dd=None,
+                 pajak=None):
         """Create new barang with error handling"""
         if not pengirim or not penerima or not nama_barang:
             raise ValueError("Pengirim, Penerima, and Nama Barang are required")
-    
+
         try:
             barang_id = self.execute_insert('''
                 INSERT INTO barang (pengirim, penerima, nama_barang,
                                 panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, container_barang,
                                 m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd,
-                                col_pp, col_pd, col_dd, container_pp, container_pd, container_dd, pajak)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                col_pp, col_pd, col_dd,
+                                container_pp, container_pd, container_dd,
+                                container_20_pp, container_20_pd, container_20_dd,
+                                container_21_pp, container_21_pd, container_21_dd,
+                                container_40hc_pp, container_40hc_pd, container_40hc_dd,
+                                pajak)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (pengirim, penerima, nama_barang, panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, container_barang,
-                m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd, col_pp, col_pd, col_dd, container_pp, container_pd, container_dd, pajak))
-        
+                m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd, col_pp, col_pd, col_dd,
+                container_pp, container_pd, container_dd,
+                container_20_pp, container_20_pd, container_20_dd,
+                container_21_pp, container_21_pd, container_21_dd,
+                container_40hc_pp, container_40hc_pd, container_40hc_dd,
+                pajak))
+
             logger.info(f"Barang created successfully: {nama_barang}")
             return barang_id
-        
+
         except Exception as e:
             logger.error(f"Failed to create barang {nama_barang}: {e}")
             raise DatabaseError(f"Failed to create barang: {e}")
@@ -890,8 +940,13 @@ class BarangDatabase(SQLiteDatabase):
                             INSERT INTO barang (pengirim, penerima, nama_barang,
                                             panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, container_barang,
                                             m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd,
-                                            col_pp, col_pd, col_dd, container_pp, container_pd, container_dd, pajak)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                            col_pp, col_pd, col_dd,
+                                            container_pp, container_pd, container_dd,
+                                            container_20_pp, container_20_pd, container_20_dd,
+                                            container_21_pp, container_21_pd, container_21_dd,
+                                            container_40hc_pp, container_40hc_pd, container_40hc_dd,
+                                            pajak)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ''', (
                             barang_data.get('pengirim'),
                             barang_data.get('penerima'),
@@ -914,6 +969,15 @@ class BarangDatabase(SQLiteDatabase):
                             barang_data.get('container_pp'),
                             barang_data.get('container_pd'),
                             barang_data.get('container_dd'),
+                            barang_data.get('container_20_pp'),
+                            barang_data.get('container_20_pd'),
+                            barang_data.get('container_20_dd'),
+                            barang_data.get('container_21_pp'),
+                            barang_data.get('container_21_pd'),
+                            barang_data.get('container_21_dd'),
+                            barang_data.get('container_40hc_pp'),
+                            barang_data.get('container_40hc_pd'),
+                            barang_data.get('container_40hc_dd'),
                             barang_data.get('pajak')
                         ))
 
@@ -978,7 +1042,12 @@ class BarangDatabase(SQLiteDatabase):
                     SET pengirim = ?, penerima = ?, nama_barang = ?,
                         panjang_barang = ?, lebar_barang = ?, tinggi_barang = ?, m3_barang = ?, ton_barang = ?, container_barang = ?,
                         m3_pp = ?, m3_pd = ?, m3_dd = ?, ton_pp = ?, ton_pd = ?, ton_dd = ?,
-                        col_pp = ?, col_pd = ?, col_dd = ?, container_pp = ?, container_pd = ?, container_dd = ?, pajak = ?, updated_at = CURRENT_TIMESTAMP
+                        col_pp = ?, col_pd = ?, col_dd = ?,
+                        container_pp = ?, container_pd = ?, container_dd = ?,
+                        container_20_pp = ?, container_20_pd = ?, container_20_dd = ?,
+                        container_21_pp = ?, container_21_pd = ?, container_21_dd = ?,
+                        container_40hc_pp = ?, container_40hc_pd = ?, container_40hc_dd = ?,
+                        pajak = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE barang_id = ?
                 ''', (
                     barang_data.get('pengirim'), barang_data.get('penerima'), barang_data.get('nama_barang'),
@@ -988,6 +1057,9 @@ class BarangDatabase(SQLiteDatabase):
                     barang_data.get('ton_pp'), barang_data.get('ton_pd'), barang_data.get('ton_dd'),
                     barang_data.get('col_pp'), barang_data.get('col_pd'), barang_data.get('col_dd'),
                     barang_data.get('container_pp'), barang_data.get('container_pd'), barang_data.get('container_dd'),
+                    barang_data.get('container_20_pp'), barang_data.get('container_20_pd'), barang_data.get('container_20_dd'),
+                    barang_data.get('container_21_pp'), barang_data.get('container_21_pd'), barang_data.get('container_21_dd'),
+                    barang_data.get('container_40hc_pp'), barang_data.get('container_40hc_pd'), barang_data.get('container_40hc_dd'),
                     barang_data.get('pajak'), barang_data['barang_id']
                 ))
             
@@ -1232,7 +1304,7 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
             print(f"{'='*60}\n")
             
             # ============================================
-            # STEP 3: ✅ CHECK PAJAK & CREATE TAX RECORD
+            # STEP 3: CHECK PAJAK & CREATE TAX RECORD
             # ============================================
             tax_id = None
             
@@ -1246,16 +1318,16 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                 penerima_id = barang_data[1]  # penerima column
                 
                 print(f"[DB] Barang pajak status: {has_pajak}")
-                
-                # ✅ Jika barang memiliki pajak (pajak = 1)
+
+                # Jika barang memiliki pajak (pajak = 1)
                 if has_pajak == 1:
                     # Get receiver name
                     receiver_data = self.get_customer_by_id(penerima_id)
                     receiver_name = receiver_data.get('nama_customer', 'Unknown') if receiver_data else 'Unknown'
-                    
-                    print(f"[DB] ✅ Barang has tax! Receiver: {receiver_name}")
-                    
-                    # ✅ Calculate tax amounts
+
+                    print(f"[DB] [OK] Barang has tax! Receiver: {receiver_name}")
+
+                    # Calculate tax amounts
                     ppn_rate = 0.011  # PPN 1.1%
                     pph23_rate = 0.02  # PPH 23 2%
                     ppn_amount = total_harga * ppn_rate
@@ -1267,23 +1339,23 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                     print(f"     PPN (1.1%)   : Rp {ppn_amount:,.0f}")
                     print(f"     PPH23 (2%)   : Rp {pph23_amount:,.0f}")
                     print(f"     Total Tax    : Rp {total_tax:,.0f}")
-                    
-                    # ✅ INSERT TAX RECORD
+
+                    # INSERT TAX RECORD
                     tax_insert_query = """
-                    INSERT INTO barang_tax 
-                    (container_id, barang_id, penerima, total_nilai_barang, 
+                    INSERT INTO barang_tax
+                    (container_id, barang_id, penerima, total_nilai_barang,
                     ppn_rate, pph23_rate, ppn_amount, pph23_amount, total_tax, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """
-                    
+
                     tax_id = self.execute_insert(tax_insert_query, (
                         container_id, barang_id, receiver_name, total_harga,
                         ppn_rate, pph23_rate, ppn_amount, pph23_amount, total_tax
                     ))
-                    
-                    print(f"[DB] ✅ Tax record created with tax_id: {tax_id}")
+
+                    print(f"[DB] [OK] Tax record created with tax_id: {tax_id}")
                 else:
-                    print(f"[DB] ℹ️ Barang does not have tax (pajak = 0)")
+                    print(f"[DB] [INFO] Barang does not have tax (pajak = 0)")
             
             # ============================================
             # STEP 4: INSERT TO DETAIL_CONTAINER
@@ -1296,21 +1368,21 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
             """
             
             self.execute(detail_insert_query, (
-                barang_id, container_id, tax_id, satuan, door_type, colli_amount, 
+                barang_id, container_id, tax_id, satuan, door_type, colli_amount,
                 harga_per_unit, total_harga, tanggal, assigned_at, assigned_at
             ))
-            
-            print(f"[DB] ✅ Successfully assigned barang {barang_id} to container {container_id}")
+
+            print(f"[DB] [OK] Successfully assigned barang {barang_id} to container {container_id}")
             print(f"     Tanggal: {tanggal}, Assigned At: {assigned_at}")
             if tax_id:
                 print(f"     Tax ID: {tax_id}")
             print(f"{'='*60}\n")
-            
+
             return True
-            
+
         except Exception as e:
             print(f"\n{'='*60}")
-            print(f"[DB] ❌ ERROR in assign_barang_to_container_with_pricing:")
+            print(f"[DB] [ERROR] ERROR in assign_barang_to_container_with_pricing:")
             print(f"{'='*60}")
             print(f"Error: {e}")
             import traceback

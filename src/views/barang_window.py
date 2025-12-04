@@ -67,7 +67,9 @@ class BarangWindow:
                 for col in ['Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD',
                            'Harga/Ton_PP', 'Harga/Ton_PD', 'Harga/Ton_DD',
                            'Harga/Col_PP', 'Harga/Col_PD', 'Harga/Col_DD',
-                           'Harga/Container_PP', 'Harga/Container_PD', 'Harga/Container_DD']:
+                           'Harga/Container_20_PP', 'Harga/Container_20_PD', 'Harga/Container_20_DD',
+                           'Harga/Container_21_PP', 'Harga/Container_21_PD', 'Harga/Container_21_DD',
+                           'Harga/Container_40HC_PP', 'Harga/Container_40HC_PD', 'Harga/Container_40HC_DD']:
                     self.tree.column(col, width=int(available_width * 0.045))
                 self.tree.column('Pajak', width=int(available_width * 0.04))
                 self.tree.column('Created', width=int(available_width * 0.08))
@@ -364,19 +366,32 @@ class BarangWindow:
 
         # Bind format_weight_input to ton_entry
         self.ton_entry.bind('<FocusOut>', self.format_weight_input)
-        
+
+        # Container
+        tk.Label(other_frame, text="Container:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        self.container_entry = tk.Entry(other_frame, font=('Arial', 10), width=10)
+        self.container_entry.pack(side='left', padx=5)
+
         # Price frame with multiple pricing options
         price_frame = tk.Frame(form_frame, bg='#ecf0f1')
         price_frame.pack(fill='x', pady=10)
-        
+
         tk.Label(price_frame, text="Harga Satuan:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 10))
-        
-        # Pricing options sub-frame
-        pricing_subframe = tk.Frame(price_frame, bg='#ecf0f1')
-        pricing_subframe.pack(fill='x')
-        
-        # === HARGA PER M³ SECTION ===
-        m3_section = tk.LabelFrame(pricing_subframe, text="💰 Harga per m³", font=('Arial', 10, 'bold'), 
+
+        # Pricing options sub-frame - 2 columns layout
+        pricing_columns_frame = tk.Frame(price_frame, bg='#ecf0f1')
+        pricing_columns_frame.pack(fill='x')
+
+        # LEFT COLUMN: M3, Ton, Colli
+        left_column = tk.Frame(pricing_columns_frame, bg='#ecf0f1')
+        left_column.pack(side='left', fill='both', expand=True, padx=(0, 5))
+
+        # RIGHT COLUMN: Container pricing
+        right_column = tk.Frame(pricing_columns_frame, bg='#ecf0f1')
+        right_column.pack(side='right', fill='both', expand=True, padx=(5, 0))
+
+        # === HARGA PER M³ SECTION (LEFT) ===
+        m3_section = tk.LabelFrame(left_column, text="💰 Harga per m³", font=('Arial', 10, 'bold'),
                                   bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
         m3_section.pack(fill='x', pady=(0, 10))
         
@@ -401,8 +416,8 @@ class BarangWindow:
         self.harga_m3_dd_entry = tk.Entry(m3_dd_frame, font=('Arial', 9), width=15)
         self.harga_m3_dd_entry.pack(side='right', padx=(5, 0))
         
-        # === HARGA PER TON SECTION ===
-        ton_section = tk.LabelFrame(pricing_subframe, text="⚖️ Harga per Ton", font=('Arial', 10, 'bold'), 
+        # === HARGA PER TON SECTION (LEFT) ===
+        ton_section = tk.LabelFrame(left_column, text="⚖️ Harga per Ton", font=('Arial', 10, 'bold'),
                                    bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
         ton_section.pack(fill='x', pady=(0, 10))
         
@@ -427,8 +442,8 @@ class BarangWindow:
         self.harga_ton_dd_entry = tk.Entry(ton_dd_frame, font=('Arial', 9), width=15)
         self.harga_ton_dd_entry.pack(side='right', padx=(5, 0))
         
-        # === HARGA PER COLLI SECTION ===
-        colli_section = tk.LabelFrame(pricing_subframe, text="📦 Harga per Colli", font=('Arial', 10, 'bold'), 
+        # === HARGA PER COLLI SECTION (LEFT) ===
+        colli_section = tk.LabelFrame(left_column, text="📦 Harga per Colli", font=('Arial', 10, 'bold'),
                                      bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
         colli_section.pack(fill='x', pady=(0, 10))
         
@@ -453,31 +468,76 @@ class BarangWindow:
         self.harga_colli_dd_entry = tk.Entry(colli_dd_frame, font=('Arial', 9), width=15)
         self.harga_colli_dd_entry.pack(side='right', padx=(5, 0))
 
-        # === HARGA PER CONTAINER SECTION ===
-        container_section = tk.LabelFrame(pricing_subframe, text="📦 Harga per Container", font=('Arial', 10, 'bold'),
+        # === HARGA PER CONTAINER SECTION (RIGHT) ===
+        container_section = tk.LabelFrame(right_column, text="🚢 Harga per Container (Berdasarkan Ukuran)", font=('Arial', 10, 'bold'),
                                          bg='#ecf0f1', fg='#2c3e50', padx=10, pady=5)
-        container_section.pack(fill='x', pady=(0, 10))
+        container_section.pack(fill='both', expand=True)
 
-        # Harga container - Pelabuhan ke Pelabuhan
-        container_pp_frame = tk.Frame(container_section, bg='#ecf0f1')
-        container_pp_frame.pack(fill='x', pady=2)
-        tk.Label(container_pp_frame, text="Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
-        self.harga_container_pp_entry = tk.Entry(container_pp_frame, font=('Arial', 9), width=15)
-        self.harga_container_pp_entry.pack(side='right', padx=(5, 0))
+        # Container 20'
+        container_20_label = tk.Label(container_section, text="Container 20':", font=('Arial', 9, 'bold'), bg='#ecf0f1', fg='#16a085')
+        container_20_label.pack(anchor='w', pady=(5, 2))
 
-        # Harga container - Pelabuhan ke Door
-        container_pd_frame = tk.Frame(container_section, bg='#ecf0f1')
-        container_pd_frame.pack(fill='x', pady=2)
-        tk.Label(container_pd_frame, text="Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
-        self.harga_container_pd_entry = tk.Entry(container_pd_frame, font=('Arial', 9), width=15)
-        self.harga_container_pd_entry.pack(side='right', padx=(5, 0))
+        container_20_pp_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_20_pp_frame.pack(fill='x', pady=2)
+        tk.Label(container_20_pp_frame, text="  Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_20_pp_entry = tk.Entry(container_20_pp_frame, font=('Arial', 9), width=15)
+        self.harga_container_20_pp_entry.pack(side='right', padx=(5, 0))
 
-        # Harga container - Door ke Door
-        container_dd_frame = tk.Frame(container_section, bg='#ecf0f1')
-        container_dd_frame.pack(fill='x', pady=2)
-        tk.Label(container_dd_frame, text="Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
-        self.harga_container_dd_entry = tk.Entry(container_dd_frame, font=('Arial', 9), width=15)
-        self.harga_container_dd_entry.pack(side='right', padx=(5, 0))
+        container_20_pd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_20_pd_frame.pack(fill='x', pady=2)
+        tk.Label(container_20_pd_frame, text="  Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_20_pd_entry = tk.Entry(container_20_pd_frame, font=('Arial', 9), width=15)
+        self.harga_container_20_pd_entry.pack(side='right', padx=(5, 0))
+
+        container_20_dd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_20_dd_frame.pack(fill='x', pady=2)
+        tk.Label(container_20_dd_frame, text="  Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_20_dd_entry = tk.Entry(container_20_dd_frame, font=('Arial', 9), width=15)
+        self.harga_container_20_dd_entry.pack(side='right', padx=(5, 0))
+
+        # Container 21'
+        container_21_label = tk.Label(container_section, text="Container 21':", font=('Arial', 9, 'bold'), bg='#ecf0f1', fg='#16a085')
+        container_21_label.pack(anchor='w', pady=(10, 2))
+
+        container_21_pp_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_21_pp_frame.pack(fill='x', pady=2)
+        tk.Label(container_21_pp_frame, text="  Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_21_pp_entry = tk.Entry(container_21_pp_frame, font=('Arial', 9), width=15)
+        self.harga_container_21_pp_entry.pack(side='right', padx=(5, 0))
+
+        container_21_pd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_21_pd_frame.pack(fill='x', pady=2)
+        tk.Label(container_21_pd_frame, text="  Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_21_pd_entry = tk.Entry(container_21_pd_frame, font=('Arial', 9), width=15)
+        self.harga_container_21_pd_entry.pack(side='right', padx=(5, 0))
+
+        container_21_dd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_21_dd_frame.pack(fill='x', pady=2)
+        tk.Label(container_21_dd_frame, text="  Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_21_dd_entry = tk.Entry(container_21_dd_frame, font=('Arial', 9), width=15)
+        self.harga_container_21_dd_entry.pack(side='right', padx=(5, 0))
+
+        # Container 40' HC
+        container_40hc_label = tk.Label(container_section, text="Container 40' HC:", font=('Arial', 9, 'bold'), bg='#ecf0f1', fg='#16a085')
+        container_40hc_label.pack(anchor='w', pady=(10, 2))
+
+        container_40hc_pp_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_40hc_pp_frame.pack(fill='x', pady=2)
+        tk.Label(container_40hc_pp_frame, text="  Pelabuhan → Pelabuhan:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_40hc_pp_entry = tk.Entry(container_40hc_pp_frame, font=('Arial', 9), width=15)
+        self.harga_container_40hc_pp_entry.pack(side='right', padx=(5, 0))
+
+        container_40hc_pd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_40hc_pd_frame.pack(fill='x', pady=2)
+        tk.Label(container_40hc_pd_frame, text="  Pelabuhan → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_40hc_pd_entry = tk.Entry(container_40hc_pd_frame, font=('Arial', 9), width=15)
+        self.harga_container_40hc_pd_entry.pack(side='right', padx=(5, 0))
+
+        container_40hc_dd_frame = tk.Frame(container_section, bg='#ecf0f1')
+        container_40hc_dd_frame.pack(fill='x', pady=2)
+        tk.Label(container_40hc_dd_frame, text="  Door → Door:", font=('Arial', 9), bg='#ecf0f1').pack(side='left')
+        self.harga_container_40hc_dd_entry = tk.Entry(container_40hc_dd_frame, font=('Arial', 9), width=15)
+        self.harga_container_40hc_dd_entry.pack(side='right', padx=(5, 0))
 
         # Note
         note_label = tk.Label(
@@ -654,7 +714,9 @@ class BarangWindow:
         columns = ('Pengirim', 'Penerima', 'Nama', 'P', 'L', 'T', 'M3', 'Ton',
                 'M3_PP', 'M3_PD', 'M3_DD', 'TON_PP', 'TON_PD', 'TON_DD',
                 'COLLI_PP', 'COLLI_PD', 'COLLI_DD',
-                'CONTAINER_PP', 'CONTAINER_PD', 'CONTAINER_DD', 'Pajak')
+                'CONTAINER_20_PP', 'CONTAINER_20_PD', 'CONTAINER_20_DD',
+                'CONTAINER_21_PP', 'CONTAINER_21_PD', 'CONTAINER_21_DD',
+                'CONTAINER_40HC_PP', 'CONTAINER_40HC_PD', 'CONTAINER_40HC_DD', 'Pajak')
         
         # ✅ GUNAKAN TREEVIEW BIASA (sesuai kode asli Anda)
         self.preview_tree = ttk.Treeview(tree_container, 
@@ -668,7 +730,7 @@ class BarangWindow:
             'Penerima': 'Penerima',
             'Nama': 'Nama Barang',
             'P': 'P(cm)',
-            'L': 'L(cm)', 
+            'L': 'L(cm)',
             'T': 'T(cm)',
             'M3': 'M³',
             'Ton': 'Ton',
@@ -681,9 +743,15 @@ class BarangWindow:
             'COLLI_PP': 'Colli P→P',
             'COLLI_PD': 'Colli P→D',
             'COLLI_DD': 'Colli D→D',
-            'CONTAINER_PP': 'Container P→P',
-            'CONTAINER_PD': 'Container P→D',
-            'CONTAINER_DD': 'Container D→D',
+            'CONTAINER_20_PP': "Cont 20' P→P",
+            'CONTAINER_20_PD': "Cont 20' P→D",
+            'CONTAINER_20_DD': "Cont 20' D→D",
+            'CONTAINER_21_PP': "Cont 21' P→P",
+            'CONTAINER_21_PD': "Cont 21' P→D",
+            'CONTAINER_21_DD': "Cont 21' D→D",
+            'CONTAINER_40HC_PP': "Cont 40'HC P→P",
+            'CONTAINER_40HC_PD': "Cont 40'HC P→D",
+            'CONTAINER_40HC_DD': "Cont 40'HC D→D",
             'Pajak': 'Pajak'
         }
         
@@ -709,9 +777,15 @@ class BarangWindow:
             'COLLI_PP': 100,
             'COLLI_PD': 100,
             'COLLI_DD': 100,
-            'CONTAINER_PP': 120,
-            'CONTAINER_PD': 120,
-            'CONTAINER_DD': 120,
+            'CONTAINER_20_PP': 120,
+            'CONTAINER_20_PD': 120,
+            'CONTAINER_20_DD': 120,
+            'CONTAINER_21_PP': 120,
+            'CONTAINER_21_PD': 120,
+            'CONTAINER_21_DD': 120,
+            'CONTAINER_40HC_PP': 130,
+            'CONTAINER_40HC_PD': 130,
+            'CONTAINER_40HC_DD': 130,
             'Pajak': 70
         }
         
@@ -821,8 +895,8 @@ class BarangWindow:
                 tree_h_scrollbar.bind("<Leave>", on_tree_area_leave, '+')
             except:
                 pass
-            
-            print("✅ Scroll isolation setup completed")
+
+            print("[OK] Scroll isolation setup completed")
         
         # ✅ SETUP CANVAS SCROLL (untuk area di luar tree)
         def setup_canvas_scroll():
@@ -1081,7 +1155,10 @@ class BarangWindow:
         columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat',
                'Harga/M3_PP', 'Harga/M3_PD', 'Harga/M3_DD', 'Harga/Ton_PP',
                'Harga/Ton_PD', 'Harga/Ton_DD', 'Harga/Col_PP', 'Harga/Col_PD',
-               'Harga/Col_DD', 'Harga/Container_PP', 'Harga/Container_PD', 'Harga/Container_DD',
+               'Harga/Col_DD',
+               'Harga/Container_20_PP', 'Harga/Container_20_PD', 'Harga/Container_20_DD',
+               'Harga/Container_21_PP', 'Harga/Container_21_PD', 'Harga/Container_21_DD',
+               'Harga/Container_40HC_PP', 'Harga/Container_40HC_PD', 'Harga/Container_40HC_DD',
                'Pajak', 'Created')
         
         self.tree = PaginatedTreeView(
@@ -1110,9 +1187,15 @@ class BarangWindow:
         self.tree.heading('Harga/Col_PP', text='Harga/Col_PP (Rp)')
         self.tree.heading('Harga/Col_PD', text='Harga/Col_PD (Rp)')
         self.tree.heading('Harga/Col_DD', text='Harga/Col_DD (Rp)')
-        self.tree.heading('Harga/Container_PP', text='Harga/Container_PP (Rp)')
-        self.tree.heading('Harga/Container_PD', text='Harga/Container_PD (Rp)')
-        self.tree.heading('Harga/Container_DD', text='Harga/Container_DD (Rp)')
+        self.tree.heading('Harga/Container_20_PP', text="Harga/Cont 20' PP (Rp)")
+        self.tree.heading('Harga/Container_20_PD', text="Harga/Cont 20' PD (Rp)")
+        self.tree.heading('Harga/Container_20_DD', text="Harga/Cont 20' DD (Rp)")
+        self.tree.heading('Harga/Container_21_PP', text="Harga/Cont 21' PP (Rp)")
+        self.tree.heading('Harga/Container_21_PD', text="Harga/Cont 21' PD (Rp)")
+        self.tree.heading('Harga/Container_21_DD', text="Harga/Cont 21' DD (Rp)")
+        self.tree.heading('Harga/Container_40HC_PP', text="Harga/Cont 40'HC PP (Rp)")
+        self.tree.heading('Harga/Container_40HC_PD', text="Harga/Cont 40'HC PD (Rp)")
+        self.tree.heading('Harga/Container_40HC_DD', text="Harga/Cont 40'HC DD (Rp)")
         self.tree.heading('Pajak', text='Pajak')
         self.tree.heading('Created', text='Tanggal Dibuat')
         
@@ -1132,9 +1215,15 @@ class BarangWindow:
         self.tree.column('Harga/Col_PP', width=100)
         self.tree.column('Harga/Col_PD', width=100)
         self.tree.column('Harga/Col_DD', width=100)
-        self.tree.column('Harga/Container_PP', width=130)
-        self.tree.column('Harga/Container_PD', width=130)
-        self.tree.column('Harga/Container_DD', width=130)
+        self.tree.column('Harga/Container_20_PP', width=130)
+        self.tree.column('Harga/Container_20_PD', width=130)
+        self.tree.column('Harga/Container_20_DD', width=130)
+        self.tree.column('Harga/Container_21_PP', width=130)
+        self.tree.column('Harga/Container_21_PD', width=130)
+        self.tree.column('Harga/Container_21_DD', width=130)
+        self.tree.column('Harga/Container_40HC_PP', width=140)
+        self.tree.column('Harga/Container_40HC_PD', width=140)
+        self.tree.column('Harga/Container_40HC_DD', width=140)
         self.tree.column('Pajak', width=100)
         self.tree.column('Created', width=120)
         
@@ -1174,8 +1263,8 @@ class BarangWindow:
             # PERBAIKAN: Store original values untuk filtering
             self.original_pengirim_filter_values = customers_list.copy()
             self.original_penerima_filter_values = customers_list.copy()
-            
-            print(f"✅ Loaded {len(customers_list)} customers for filter")
+
+            print(f"[OK] Loaded {len(customers_list)} customers for filter")
             
         except Exception as e:
             print(f"Error loading pengirim/penerima filter: {e}")
@@ -1206,8 +1295,8 @@ class BarangWindow:
             if hasattr(self, 'info_label'):
                 total_count = len(self.original_barang_data) if hasattr(self, 'original_barang_data') else 0
                 self.info_label.config(text=f"💡 Menampilkan semua {total_count} barang")
-            
-            print("✅ Filter cleared, showing all barang")
+
+            print("[OK] Filter cleared, showing all barang")
             
         except Exception as e:
             print(f"Error clearing filter: {str(e)}")
@@ -1347,11 +1436,11 @@ class BarangWindow:
                         text=f"💡 Menampilkan semua {total_count} barang",
                         fg='#7f8c8d'
                     )
-            
-            print(f"✅ Filter completed: {filtered_count}/{total_count} items displayed")
-            
+
+            print(f"[OK] Filter completed: {filtered_count}/{total_count} items displayed")
+
         except Exception as e:
-            print(f"❌ Error in filter_barang: {str(e)}")
+            print(f"[ERROR] Error in filter_barang: {str(e)}")
             import traceback
             traceback.print_exc()
             messagebox.showerror("Error", f"Gagal menerapkan filter: {str(e)}")
@@ -1553,11 +1642,11 @@ class BarangWindow:
         # Bind format_weight_input to berat_entry
         berat_entry.bind('<FocusOut>', self.format_weight_input)
 
-        tk.Label(other_frame, text="Colli:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        colli_var = tk.StringVar(value=str(barang_data.get('col_barang', '') or '') or '-')
-        colli_entry = tk.Entry(other_frame, textvariable=colli_var, font=('Arial', 10), width=10)
-        colli_entry.pack(side='left', padx=5)
-        
+        tk.Label(other_frame, text="Container:", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        container_var = tk.StringVar(value=str(barang_data.get('container_barang', '') or '') or '-')
+        container_entry = tk.Entry(other_frame, textvariable=container_var, font=('Arial', 10), width=10)
+        container_entry.pack(side='left', padx=5)
+
         # Pricing section
         tk.Label(form_frame, text="Harga Pickup to Pickup (PP):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(20, 5))
         
@@ -1589,12 +1678,29 @@ class BarangWindow:
         harga_col_pp_entry = tk.Entry(harga_col_pp_frame, textvariable=harga_col_pp_var, font=('Arial', 10), width=20)
         harga_col_pp_entry.pack(side='left', padx=(5, 0))
 
-        harga_container_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
-        harga_container_pp_frame.pack(fill='x', pady=2)
-        tk.Label(harga_container_pp_frame, text="Harga/container (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_container_pp_var = tk.StringVar(value=str(barang_data.get('container_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
-        harga_container_pp_entry = tk.Entry(harga_container_pp_frame, textvariable=harga_container_pp_var, font=('Arial', 10), width=20)
-        harga_container_pp_entry.pack(side='left', padx=(5, 0))
+        # Container 20' PP
+        harga_container_20_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
+        harga_container_20_pp_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_20_pp_frame, text="Cont. 20' (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_20_pp_var = tk.StringVar(value=str(barang_data.get('container_20_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_20_pp_entry = tk.Entry(harga_container_20_pp_frame, textvariable=harga_container_20_pp_var, font=('Arial', 10), width=20)
+        harga_container_20_pp_entry.pack(side='left', padx=(5, 0))
+
+        # Container 21' PP
+        harga_container_21_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
+        harga_container_21_pp_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_21_pp_frame, text="Cont. 21' (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_21_pp_var = tk.StringVar(value=str(barang_data.get('container_21_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_21_pp_entry = tk.Entry(harga_container_21_pp_frame, textvariable=harga_container_21_pp_var, font=('Arial', 10), width=20)
+        harga_container_21_pp_entry.pack(side='left', padx=(5, 0))
+
+        # Container 40' HC PP
+        harga_container_40hc_pp_frame = tk.Frame(pp_frame, bg='#ecf0f1')
+        harga_container_40hc_pp_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_40hc_pp_frame, text="Cont. 40'HC (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_40hc_pp_var = tk.StringVar(value=str(barang_data.get('container_40hc_pp', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_40hc_pp_entry = tk.Entry(harga_container_40hc_pp_frame, textvariable=harga_container_40hc_pp_var, font=('Arial', 10), width=20)
+        harga_container_40hc_pp_entry.pack(side='left', padx=(5, 0))
 
         # PD Prices
         tk.Label(form_frame, text="Harga Pickup to Door (PD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
@@ -1624,12 +1730,29 @@ class BarangWindow:
         harga_col_pd_entry = tk.Entry(harga_col_pd_frame, textvariable=harga_col_pd_var, font=('Arial', 10), width=20)
         harga_col_pd_entry.pack(side='left', padx=(5, 0))
 
-        harga_container_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
-        harga_container_pd_frame.pack(fill='x', pady=2)
-        tk.Label(harga_container_pd_frame, text="Harga/container (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_container_pd_var = tk.StringVar(value=str(barang_data.get('container_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
-        harga_container_pd_entry = tk.Entry(harga_container_pd_frame, textvariable=harga_container_pd_var, font=('Arial', 10), width=20)
-        harga_container_pd_entry.pack(side='left', padx=(5, 0))
+        # Container 20' PD
+        harga_container_20_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
+        harga_container_20_pd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_20_pd_frame, text="Cont. 20' (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_20_pd_var = tk.StringVar(value=str(barang_data.get('container_20_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_20_pd_entry = tk.Entry(harga_container_20_pd_frame, textvariable=harga_container_20_pd_var, font=('Arial', 10), width=20)
+        harga_container_20_pd_entry.pack(side='left', padx=(5, 0))
+
+        # Container 21' PD
+        harga_container_21_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
+        harga_container_21_pd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_21_pd_frame, text="Cont. 21' (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_21_pd_var = tk.StringVar(value=str(barang_data.get('container_21_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_21_pd_entry = tk.Entry(harga_container_21_pd_frame, textvariable=harga_container_21_pd_var, font=('Arial', 10), width=20)
+        harga_container_21_pd_entry.pack(side='left', padx=(5, 0))
+
+        # Container 40' HC PD
+        harga_container_40hc_pd_frame = tk.Frame(pd_frame, bg='#ecf0f1')
+        harga_container_40hc_pd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_40hc_pd_frame, text="Cont. 40'HC (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_40hc_pd_var = tk.StringVar(value=str(barang_data.get('container_40hc_pd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_40hc_pd_entry = tk.Entry(harga_container_40hc_pd_frame, textvariable=harga_container_40hc_pd_var, font=('Arial', 10), width=20)
+        harga_container_40hc_pd_entry.pack(side='left', padx=(5, 0))
 
         # DD Prices
         tk.Label(form_frame, text="Harga Door to Door (DD):", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 5))
@@ -1659,12 +1782,29 @@ class BarangWindow:
         harga_col_dd_entry = tk.Entry(harga_col_dd_frame, textvariable=harga_col_dd_var, font=('Arial', 10), width=20)
         harga_col_dd_entry.pack(side='left', padx=(5, 0))
 
-        harga_container_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
-        harga_container_dd_frame.pack(fill='x', pady=2)
-        tk.Label(harga_container_dd_frame, text="Harga/container (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
-        harga_container_dd_var = tk.StringVar(value=str(barang_data.get('container_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
-        harga_container_dd_entry = tk.Entry(harga_container_dd_frame, textvariable=harga_container_dd_var, font=('Arial', 10), width=20)
-        harga_container_dd_entry.pack(side='left', padx=(5, 0))
+        # Container 20' DD
+        harga_container_20_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
+        harga_container_20_dd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_20_dd_frame, text="Cont. 20' (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_20_dd_var = tk.StringVar(value=str(barang_data.get('container_20_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_20_dd_entry = tk.Entry(harga_container_20_dd_frame, textvariable=harga_container_20_dd_var, font=('Arial', 10), width=20)
+        harga_container_20_dd_entry.pack(side='left', padx=(5, 0))
+
+        # Container 21' DD
+        harga_container_21_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
+        harga_container_21_dd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_21_dd_frame, text="Cont. 21' (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_21_dd_var = tk.StringVar(value=str(barang_data.get('container_21_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_21_dd_entry = tk.Entry(harga_container_21_dd_frame, textvariable=harga_container_21_dd_var, font=('Arial', 10), width=20)
+        harga_container_21_dd_entry.pack(side='left', padx=(5, 0))
+
+        # Container 40' HC DD
+        harga_container_40hc_dd_frame = tk.Frame(dd_frame, bg='#ecf0f1')
+        harga_container_40hc_dd_frame.pack(fill='x', pady=2)
+        tk.Label(harga_container_40hc_dd_frame, text="Cont. 40'HC (Rp):", font=('Arial', 10), bg='#ecf0f1', width=15, anchor='w').pack(side='left')
+        harga_container_40hc_dd_var = tk.StringVar(value=str(barang_data.get('container_40hc_dd', '') or '').replace('Rp ', '').replace(',', '') or '-')
+        harga_container_40hc_dd_entry = tk.Entry(harga_container_40hc_dd_frame, textvariable=harga_container_40hc_dd_var, font=('Arial', 10), width=20)
+        harga_container_40hc_dd_entry.pack(side='left', padx=(5, 0))
         
         # Pajak checkbox - tambahkan setelah harga_col_dd_entry
         tk.Label(form_frame, text="Pajak:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(20, 5))
@@ -1808,8 +1948,11 @@ class BarangWindow:
             try:
                 for price_var, name in [
                     (harga_m3_pp_var, "Harga M3 PP"), (harga_ton_pp_var, "Harga Ton PP"), (harga_col_pp_var, "Harga Col PP"),
+                    (harga_container_20_pp_var, "Harga Container 20' PP"), (harga_container_21_pp_var, "Harga Container 21' PP"), (harga_container_40hc_pp_var, "Harga Container 40'HC PP"),
                     (harga_m3_pd_var, "Harga M3 PD"), (harga_ton_pd_var, "Harga Ton PD"), (harga_col_pd_var, "Harga Col PD"),
-                    (harga_m3_dd_var, "Harga M3 DD"), (harga_ton_dd_var, "Harga Ton DD"), (harga_col_dd_var, "Harga Col DD")
+                    (harga_container_20_pd_var, "Harga Container 20' PD"), (harga_container_21_pd_var, "Harga Container 21' PD"), (harga_container_40hc_pd_var, "Harga Container 40'HC PD"),
+                    (harga_m3_dd_var, "Harga M3 DD"), (harga_ton_dd_var, "Harga Ton DD"), (harga_col_dd_var, "Harga Col DD"),
+                    (harga_container_20_dd_var, "Harga Container 20' DD"), (harga_container_21_dd_var, "Harga Container 21' DD"), (harga_container_40hc_dd_var, "Harga Container 40'HC DD")
                 ]:
                     value = price_var.get().strip()
                     if value:
@@ -1856,18 +1999,25 @@ class BarangWindow:
                 'tinggi_barang': process_value(tinggi_var.get()),
                 'm3_barang': process_value(volume_var.get()),
                 'ton_barang': process_value(berat_var.get()),
+                'container_barang': process_value(container_var.get()),
                 'm3_pp': process_value(harga_m3_pp_var.get()),
                 'ton_pp': process_value(harga_ton_pp_var.get()),
                 'col_pp': process_value(harga_col_pp_var.get()),
+                'container_20_pp': process_value(harga_container_20_pp_var.get()),
+                'container_21_pp': process_value(harga_container_21_pp_var.get()),
+                'container_40hc_pp': process_value(harga_container_40hc_pp_var.get()),
                 'm3_pd': process_value(harga_m3_pd_var.get()),
                 'ton_pd': process_value(harga_ton_pd_var.get()),
                 'col_pd': process_value(harga_col_pd_var.get()),
+                'container_20_pd': process_value(harga_container_20_pd_var.get()),
+                'container_21_pd': process_value(harga_container_21_pd_var.get()),
+                'container_40hc_pd': process_value(harga_container_40hc_pd_var.get()),
                 'm3_dd': process_value(harga_m3_dd_var.get()),
                 'ton_dd': process_value(harga_ton_dd_var.get()),
                 'col_dd': process_value(harga_col_dd_var.get()),
-                'container_pp': process_value(harga_container_pp_var.get()),
-                'container_pd': process_value(harga_container_pd_var.get()),
-                'container_dd': process_value(harga_container_dd_var.get()),
+                'container_20_dd': process_value(harga_container_20_dd_var.get()),
+                'container_21_dd': process_value(harga_container_21_dd_var.get()),
+                'container_40hc_dd': process_value(harga_container_40hc_dd_var.get()),
                 'pajak': pajak_var.get()
             }
             self.save_changes(updated_barang)
@@ -2460,9 +2610,20 @@ class BarangWindow:
                 'harga_col_pd': ['colli_pd', 'harga_col_pd', 'harga colli pd', 'colli p→d', 'colli pelabuhan-door'],
                 'harga_col_dd': ['colli_dd', 'harga_col_dd', 'harga colli dd', 'colli d→d', 'colli door-door'],
 
-                'harga_container_pp': ['container_pp', 'harga_container_pp', 'harga container pp', 'container p→p', 'container pelabuhan-pelabuhan'],
-                'harga_container_pd': ['container_pd', 'harga_container_pd', 'harga container pd', 'container p→d', 'container pelabuhan-door'],
-                'harga_container_dd': ['container_dd', 'harga_container_dd', 'harga container dd', 'container d→d', 'container door-door'],
+                # Container 20'
+                'harga_container_20_pp': ['container_20_pp', 'container_20\'_pp', 'harga_container_20_pp', 'container 20 pp', 'container 20\' pp'],
+                'harga_container_20_pd': ['container_20_pd', 'container_20\'_pd', 'harga_container_20_pd', 'container 20 pd', 'container 20\' pd'],
+                'harga_container_20_dd': ['container_20_dd', 'container_20\'_dd', 'harga_container_20_dd', 'container 20 dd', 'container 20\' dd'],
+
+                # Container 21'
+                'harga_container_21_pp': ['container_21_pp', 'container_21\'_pp', 'harga_container_21_pp', 'container 21 pp', 'container 21\' pp'],
+                'harga_container_21_pd': ['container_21_pd', 'container_21\'_pd', 'harga_container_21_pd', 'container 21 pd', 'container 21\' pd'],
+                'harga_container_21_dd': ['container_21_dd', 'container_21\'_dd', 'harga_container_21_dd', 'container 21 dd', 'container 21\' dd'],
+
+                # Container 40' HC
+                'harga_container_40hc_pp': ['container_40hc_pp', 'container_40\'hc_pp', 'harga_container_40hc_pp', 'container 40hc pp', 'container 40 hc pp', 'container 40\'hc pp'],
+                'harga_container_40hc_pd': ['container_40hc_pd', 'container_40\'hc_pd', 'harga_container_40hc_pd', 'container 40hc pd', 'container 40 hc pd', 'container 40\'hc pd'],
+                'harga_container_40hc_dd': ['container_40hc_dd', 'container_40\'hc_dd', 'harga_container_40hc_dd', 'container 40hc dd', 'container 40 hc dd', 'container 40\'hc dd'],
 
                 # Legacy fallback fields
                 'harga_m3': ['harga/m3', 'harga per m3', 'harga_m3', 'price_m3'],
@@ -2576,9 +2737,16 @@ class BarangWindow:
                 harga_col_pp = get_field_value('harga_col_pp')
                 harga_col_pd = get_field_value('harga_col_pd')
                 harga_col_dd = get_field_value('harga_col_dd')
-                harga_container_pp = get_field_value('harga_container_pp')
-                harga_container_pd = get_field_value('harga_container_pd')
-                harga_container_dd = get_field_value('harga_container_dd')
+                # Container size-specific pricing
+                harga_container_20_pp = get_field_value('harga_container_20_pp')
+                harga_container_20_pd = get_field_value('harga_container_20_pd')
+                harga_container_20_dd = get_field_value('harga_container_20_dd')
+                harga_container_21_pp = get_field_value('harga_container_21_pp')
+                harga_container_21_pd = get_field_value('harga_container_21_pd')
+                harga_container_21_dd = get_field_value('harga_container_21_dd')
+                harga_container_40hc_pp = get_field_value('harga_container_40hc_pp')
+                harga_container_40hc_pd = get_field_value('harga_container_40hc_pd')
+                harga_container_40hc_dd = get_field_value('harga_container_40hc_dd')
                 pajak = get_field_value('pajak', '0')
                 
                 # Fallback to legacy pricing if new fields not found
@@ -2602,7 +2770,9 @@ class BarangWindow:
                 print(f"Pricing - M3(PP/PD/DD): {harga_m3_pp}/{harga_m3_pd}/{harga_m3_dd}")
                 print(f"Pricing - TON(PP/PD/DD): {harga_ton_pp}/{harga_ton_pd}/{harga_ton_dd}")
                 print(f"Pricing - COL(PP/PD/DD): {harga_col_pp}/{harga_col_pd}/{harga_col_dd}")
-                print(f"Pricing - CONTAINER(PP/PD/DD): {harga_container_pp}/{harga_container_pd}/{harga_container_dd}")
+                print(f"Pricing - CONTAINER 20'(PP/PD/DD): {harga_container_20_pp}/{harga_container_20_pd}/{harga_container_20_dd}")
+                print(f"Pricing - CONTAINER 21'(PP/PD/DD): {harga_container_21_pp}/{harga_container_21_pd}/{harga_container_21_dd}")
+                print(f"Pricing - CONTAINER 40'HC(PP/PD/DD): {harga_container_40hc_pp}/{harga_container_40hc_pd}/{harga_container_40hc_dd}")
                 
                 if pengirim and penerima and nama_barang:
                     # ✅ UPDATED: Check if pengirim and penerima exist
@@ -2649,9 +2819,15 @@ class BarangWindow:
                         format_currency(harga_col_pp),  # COLLI_PP
                         format_currency(harga_col_pd),  # COLLI_PD
                         format_currency(harga_col_dd),   # COLLI_DD
-                        format_currency(harga_container_pp),  # CONTAINER_PP
-                        format_currency(harga_container_pd),  # CONTAINER_PD
-                        format_currency(harga_container_dd),  # CONTAINER_DD
+                        format_currency(harga_container_20_pp),  # CONTAINER_20_PP
+                        format_currency(harga_container_20_pd),  # CONTAINER_20_PD
+                        format_currency(harga_container_20_dd),  # CONTAINER_20_DD
+                        format_currency(harga_container_21_pp),  # CONTAINER_21_PP
+                        format_currency(harga_container_21_pd),  # CONTAINER_21_PD
+                        format_currency(harga_container_21_dd),  # CONTAINER_21_DD
+                        format_currency(harga_container_40hc_pp),  # CONTAINER_40HC_PP
+                        format_currency(harga_container_40hc_pd),  # CONTAINER_40HC_PD
+                        format_currency(harga_container_40hc_dd),  # CONTAINER_40HC_DD
                         pajak
                     ))
                     preview_count += 1
@@ -2732,9 +2908,15 @@ class BarangWindow:
                 'COLLI_PP': [25000, 30000, 35000],
                 'COLLI_PD': [35000, 40000, 45000],
                 'COLLI_DD': [50000, 55000, 60000],
-                'CONTAINER_PP': [8500000, 9000000, 8800000],
-                'CONTAINER_PD': [10500000, 11000000, 10800000],
-                'CONTAINER_DD': [12500000, 13000000, 12800000],
+                'CONTAINER_20_PP': [8000000, 8500000, 8200000],
+                'CONTAINER_20_PD': [10000000, 10500000, 10200000],
+                'CONTAINER_20_DD': [12000000, 12500000, 12200000],
+                'CONTAINER_21_PP': [8500000, 9000000, 8700000],
+                'CONTAINER_21_PD': [10500000, 11000000, 10700000],
+                'CONTAINER_21_DD': [12500000, 13000000, 12700000],
+                'CONTAINER_40HC_PP': [15000000, 15500000, 15200000],
+                'CONTAINER_40HC_PD': [17000000, 17500000, 17200000],
+                'CONTAINER_40HC_DD': [19000000, 19500000, 19200000],
                 'Pajak': [1, 0, 1]
             }
             
@@ -2807,11 +2989,11 @@ class BarangWindow:
                                 instructions.to_excel(writer, sheet_name='Panduan', index=False)
                                 
                         except Exception as xlsxwriter_error:
-                            print(f"⚠️ Xlsxwriter method failed: {xlsxwriter_error}")
-                            
+                            print(f"[WARN] Xlsxwriter method failed: {xlsxwriter_error}")
+
                             # Method 3: Fallback - save as simple Excel without multiple sheets
                             template_df.to_excel(filename, index=False, sheet_name='Data Barang')
-                            print("✅ Template saved using fallback method (single sheet)")
+                            print("[OK] Template saved using fallback method (single sheet)")
                     
                     messagebox.showinfo(
                         "Template Berhasil Disimpan",
@@ -3536,9 +3718,16 @@ class BarangWindow:
             'col_pp': get_safe_value('harga_col_pp', 'float'),
             'col_pd': get_safe_value('harga_col_pd', 'float'),
             'col_dd': get_safe_value('harga_col_dd', 'float'),
-            'container_pp': get_safe_value('harga_container_pp', 'float'),
-            'container_pd': get_safe_value('harga_container_pd', 'float'),
-            'container_dd': get_safe_value('harga_container_dd', 'float'),
+            # Container size-specific pricing
+            'container_20_pp': get_safe_value('harga_container_20_pp', 'float'),
+            'container_20_pd': get_safe_value('harga_container_20_pd', 'float'),
+            'container_20_dd': get_safe_value('harga_container_20_dd', 'float'),
+            'container_21_pp': get_safe_value('harga_container_21_pp', 'float'),
+            'container_21_pd': get_safe_value('harga_container_21_pd', 'float'),
+            'container_21_dd': get_safe_value('harga_container_21_dd', 'float'),
+            'container_40hc_pp': get_safe_value('harga_container_40hc_pp', 'float'),
+            'container_40hc_pd': get_safe_value('harga_container_40hc_pd', 'float'),
+            'container_40hc_dd': get_safe_value('harga_container_40hc_dd', 'float'),
             'pajak': get_safe_value('pajak', 'float', 0.0),
         }
 
@@ -3700,7 +3889,8 @@ class BarangWindow:
             tinggi = get_numeric_value(self.tinggi_entry, "tinggi")
             m3 = get_numeric_value(self.m3_entry, "volume")
             ton = get_numeric_value(self.ton_entry, "berat")
-            
+            container_barang = get_numeric_value(self.container_entry, "container")
+
             # Get pricing information for all service types
             # M3 pricing
             harga_m3_pp = get_numeric_value(self.harga_m3_pp_entry, "Harga M3 PP") if hasattr(self, 'harga_m3_pp_entry') else None
@@ -3717,13 +3907,23 @@ class BarangWindow:
             harga_col_pd = get_numeric_value(self.harga_colli_pd_entry, "Harga Colli PD") if hasattr(self, 'harga_colli_pd_entry') else None
             harga_col_dd = get_numeric_value(self.harga_colli_dd_entry, "Harga Colli DD") if hasattr(self, 'harga_colli_dd_entry') else None
 
-            # Container pricing
-            harga_container_pp = get_numeric_value(self.harga_container_pp_entry, "Harga Container PP") if hasattr(self, 'harga_container_pp_entry') else None
-            harga_container_pd = get_numeric_value(self.harga_container_pd_entry, "Harga Container PD") if hasattr(self, 'harga_container_pd_entry') else None
-            harga_container_dd = get_numeric_value(self.harga_container_dd_entry, "Harga Container DD") if hasattr(self, 'harga_container_dd_entry') else None
+            # Container pricing - 20'
+            harga_container_20_pp = get_numeric_value(self.harga_container_20_pp_entry, "Harga Container 20' PP") if hasattr(self, 'harga_container_20_pp_entry') else None
+            harga_container_20_pd = get_numeric_value(self.harga_container_20_pd_entry, "Harga Container 20' PD") if hasattr(self, 'harga_container_20_pd_entry') else None
+            harga_container_20_dd = get_numeric_value(self.harga_container_20_dd_entry, "Harga Container 20' DD") if hasattr(self, 'harga_container_20_dd_entry') else None
+
+            # Container pricing - 21'
+            harga_container_21_pp = get_numeric_value(self.harga_container_21_pp_entry, "Harga Container 21' PP") if hasattr(self, 'harga_container_21_pp_entry') else None
+            harga_container_21_pd = get_numeric_value(self.harga_container_21_pd_entry, "Harga Container 21' PD") if hasattr(self, 'harga_container_21_pd_entry') else None
+            harga_container_21_dd = get_numeric_value(self.harga_container_21_dd_entry, "Harga Container 21' DD") if hasattr(self, 'harga_container_21_dd_entry') else None
+
+            # Container pricing - 40' HC
+            harga_container_40hc_pp = get_numeric_value(self.harga_container_40hc_pp_entry, "Harga Container 40' HC PP") if hasattr(self, 'harga_container_40hc_pp_entry') else None
+            harga_container_40hc_pd = get_numeric_value(self.harga_container_40hc_pd_entry, "Harga Container 40' HC PD") if hasattr(self, 'harga_container_40hc_pd_entry') else None
+            harga_container_40hc_dd = get_numeric_value(self.harga_container_40hc_dd_entry, "Harga Container 40' HC DD") if hasattr(self, 'harga_container_40hc_dd_entry') else None
 
             kena_pajak = self.tax_var.get()
-            
+
             # Create barang in database using the new pengirim-penerima system
             barang_id = self.db.create_barang(
                 pengirim=pengirim_id,
@@ -3734,6 +3934,7 @@ class BarangWindow:
                 tinggi_barang=tinggi,
                 m3_barang=m3,
                 ton_barang=ton,
+                container_barang=container_barang,
                 # All pricing options
                 m3_pp=harga_m3_pp,
                 m3_pd=harga_m3_pd,
@@ -3744,9 +3945,15 @@ class BarangWindow:
                 col_pp=harga_col_pp,
                 col_pd=harga_col_pd,
                 col_dd=harga_col_dd,
-                container_pp=harga_container_pp,
-                container_pd=harga_container_pd,
-                container_dd=harga_container_dd,
+                container_20_pp=harga_container_20_pp,
+                container_20_pd=harga_container_20_pd,
+                container_20_dd=harga_container_20_dd,
+                container_21_pp=harga_container_21_pp,
+                container_21_pd=harga_container_21_pd,
+                container_21_dd=harga_container_21_dd,
+                container_40hc_pp=harga_container_40hc_pp,
+                container_40hc_pd=harga_container_40hc_pd,
+                container_40hc_dd=harga_container_40hc_dd,
                 pajak=kena_pajak
             )
             
@@ -3758,8 +3965,12 @@ class BarangWindow:
                 pricing_methods.append("Ton")
             if any([harga_col_pp, harga_col_pd, harga_col_dd]):
                 pricing_methods.append("Colli")
-            if any([harga_container_pp, harga_container_pd, harga_container_dd]):
-                pricing_methods.append("Container")
+            if any([harga_container_20_pp, harga_container_20_pd, harga_container_20_dd]):
+                pricing_methods.append("Container 20'")
+            if any([harga_container_21_pp, harga_container_21_pd, harga_container_21_dd]):
+                pricing_methods.append("Container 21'")
+            if any([harga_container_40hc_pp, harga_container_40hc_pd, harga_container_40hc_dd]):
+                pricing_methods.append("Container 40'HC")
             
             pricing_info = f" dengan metode pricing: {', '.join(pricing_methods)}" if pricing_methods else ""
             
@@ -3850,13 +4061,16 @@ class BarangWindow:
             self.tinggi_entry.delete(0, tk.END)
             self.m3_entry.delete(0, tk.END)
             self.ton_entry.delete(0, tk.END)
-            
+            self.container_entry.delete(0, tk.END)
+
             # Clear all pricing fields if they exist
             pricing_entries = [
                 'harga_m3_pp_entry', 'harga_m3_pd_entry', 'harga_m3_dd_entry',
                 'harga_ton_pp_entry', 'harga_ton_pd_entry', 'harga_ton_dd_entry',
                 'harga_colli_pp_entry', 'harga_colli_pd_entry', 'harga_colli_dd_entry',
-                'harga_container_pp_entry', 'harga_container_pd_entry', 'harga_container_dd_entry'
+                'harga_container_20_pp_entry', 'harga_container_20_pd_entry', 'harga_container_20_dd_entry',
+                'harga_container_21_pp_entry', 'harga_container_21_pd_entry', 'harga_container_21_dd_entry',
+                'harga_container_40hc_pp_entry', 'harga_container_40hc_pd_entry', 'harga_container_40hc_dd_entry'
             ]
             
             for entry_name in pricing_entries:
@@ -3906,9 +4120,20 @@ class BarangWindow:
                 harga_col_pd = f"Rp {barang.get('col_pd', 0):,.0f}" if barang.get('col_pd') and barang.get('col_pd') != '-' else '-'
                 harga_col_dd = f"Rp {barang.get('col_dd', 0):,.0f}" if barang.get('col_dd') and barang.get('col_dd') != '-' else '-'
 
-                harga_container_pp = f"Rp {barang.get('container_pp', 0):,.0f}" if barang.get('container_pp') and barang.get('container_pp') != '-' else '-'
-                harga_container_pd = f"Rp {barang.get('container_pd', 0):,.0f}" if barang.get('container_pd') and barang.get('container_pd') != '-' else '-'
-                harga_container_dd = f"Rp {barang.get('container_dd', 0):,.0f}" if barang.get('container_dd') and barang.get('container_dd') != '-' else '-'
+                # Container 20'
+                harga_container_20_pp = f"Rp {barang.get('container_20_pp', 0):,.0f}" if barang.get('container_20_pp') and barang.get('container_20_pp') != '-' else '-'
+                harga_container_20_pd = f"Rp {barang.get('container_20_pd', 0):,.0f}" if barang.get('container_20_pd') and barang.get('container_20_pd') != '-' else '-'
+                harga_container_20_dd = f"Rp {barang.get('container_20_dd', 0):,.0f}" if barang.get('container_20_dd') and barang.get('container_20_dd') != '-' else '-'
+
+                # Container 21'
+                harga_container_21_pp = f"Rp {barang.get('container_21_pp', 0):,.0f}" if barang.get('container_21_pp') and barang.get('container_21_pp') != '-' else '-'
+                harga_container_21_pd = f"Rp {barang.get('container_21_pd', 0):,.0f}" if barang.get('container_21_pd') and barang.get('container_21_pd') != '-' else '-'
+                harga_container_21_dd = f"Rp {barang.get('container_21_dd', 0):,.0f}" if barang.get('container_21_dd') and barang.get('container_21_dd') != '-' else '-'
+
+                # Container 40' HC
+                harga_container_40hc_pp = f"Rp {barang.get('container_40hc_pp', 0):,.0f}" if barang.get('container_40hc_pp') and barang.get('container_40hc_pp') != '-' else '-'
+                harga_container_40hc_pd = f"Rp {barang.get('container_40hc_pd', 0):,.0f}" if barang.get('container_40hc_pd') and barang.get('container_40hc_pd') != '-' else '-'
+                harga_container_40hc_dd = f"Rp {barang.get('container_40hc_dd', 0):,.0f}" if barang.get('container_40hc_dd') and barang.get('container_40hc_dd') != '-' else '-'
 
                 # Format date
                 created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
@@ -3940,9 +4165,15 @@ class BarangWindow:
                     harga_col_pp,
                     harga_col_pd,
                     harga_col_dd,
-                    harga_container_pp,
-                    harga_container_pd,
-                    harga_container_dd,
+                    harga_container_20_pp,
+                    harga_container_20_pd,
+                    harga_container_20_dd,
+                    harga_container_21_pp,
+                    harga_container_21_pd,
+                    harga_container_21_dd,
+                    harga_container_40hc_pp,
+                    harga_container_40hc_pd,
+                    harga_container_40hc_dd,
                     barang.get('pajak', 0),
                     created_date
                 )

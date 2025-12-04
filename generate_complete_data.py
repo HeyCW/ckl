@@ -325,12 +325,36 @@ def generate_barang_for_containers(containers):
 
             container_barang = random.choice([20, 40])
 
-            # Pricing
+            # Pricing - M3
             m3_pp = round(random.uniform(300000, 800000), 0)
-            ton_pp = round(random.uniform(500000, 1500000), 0)
-            container_pp = round(random.uniform(5000000, 15000000), 0)
+            m3_pd = round(random.uniform(350000, 900000), 0)
+            m3_dd = round(random.uniform(400000, 1000000), 0)
 
-            col_pp = random.randint(5, 50)
+            # Pricing - Ton
+            ton_pp = round(random.uniform(500000, 1500000), 0)
+            ton_pd = round(random.uniform(600000, 1700000), 0)
+            ton_dd = round(random.uniform(700000, 2000000), 0)
+
+            # Pricing - Colli
+            col_pp = random.randint(20000, 50000)
+            col_pd = random.randint(25000, 60000)
+            col_dd = random.randint(30000, 70000)
+
+            # Pricing - Container 20'
+            container_20_pp = round(random.uniform(8000000, 10000000), 0)
+            container_20_pd = round(random.uniform(10000000, 12000000), 0)
+            container_20_dd = round(random.uniform(12000000, 14000000), 0)
+
+            # Pricing - Container 21'
+            container_21_pp = round(random.uniform(8500000, 11000000), 0)
+            container_21_pd = round(random.uniform(10500000, 13000000), 0)
+            container_21_dd = round(random.uniform(12500000, 15000000), 0)
+
+            # Pricing - Container 40' HC
+            container_40hc_pp = round(random.uniform(15000000, 18000000), 0)
+            container_40hc_pd = round(random.uniform(17000000, 20000000), 0)
+            container_40hc_dd = round(random.uniform(19000000, 22000000), 0)
+
             pajak = 1 if random.random() < 0.7 else 0
 
             try:
@@ -340,37 +364,85 @@ def generate_barang_for_containers(containers):
                         pengirim, penerima, nama_barang,
                         panjang_barang, lebar_barang, tinggi_barang,
                         m3_barang, ton_barang, container_barang,
-                        m3_pp, ton_pp, container_pp,
-                        col_pp, pajak
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        m3_pp, m3_pd, m3_dd,
+                        ton_pp, ton_pd, ton_dd,
+                        col_pp, col_pd, col_dd,
+                        container_20_pp, container_20_pd, container_20_dd,
+                        container_21_pp, container_21_pd, container_21_dd,
+                        container_40hc_pp, container_40hc_pd, container_40hc_dd,
+                        pajak
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     pengirim_id, penerima_id, nama_barang,
                     panjang, lebar, tinggi,
                     m3, ton, container_barang,
-                    m3_pp, ton_pp, container_pp,
-                    col_pp, pajak
+                    m3_pp, m3_pd, m3_dd,
+                    ton_pp, ton_pd, ton_dd,
+                    col_pp, col_pd, col_dd,
+                    container_20_pp, container_20_pd, container_20_dd,
+                    container_21_pp, container_21_pd, container_21_dd,
+                    container_40hc_pp, container_40hc_pd, container_40hc_dd,
+                    pajak
                 ))
 
                 barang_id = cursor.lastrowid
                 total_barang_created += 1
 
                 # Assign ke container
-                satuan = random.choice(['M3', 'TON', 'CONTAINER'])
+                # Satuan fisik barang
+                satuan = random.choice(['PALLET', 'KOLI', 'PACKAGE', 'DOS', 'PCS'])
+                # Metode pricing
+                pricing_method = random.choice(['M3', 'TON', 'COLLI', 'CONTAINER'])
                 door_type = random.choice(['PP', 'PD', 'DD'])
-                colli_amount = random.randint(1, 10)
+                colli_amount = random.randint(1, 50)
 
-                if satuan == 'M3':
-                    harga_per_unit = m3_pp
-                elif satuan == 'TON':
-                    harga_per_unit = ton_pp
-                else:
-                    harga_per_unit = container_pp
+                # Get container party size
+                party = container.get('party', "20'")
 
-                # Adjust by door_type
-                if door_type == 'PD':
-                    harga_per_unit *= 0.8
-                elif door_type == 'DD':
-                    harga_per_unit *= 0.7
+                # Select price based on pricing_method and door_type
+                if pricing_method == 'M3':
+                    if door_type == 'PP':
+                        harga_per_unit = m3_pp
+                    elif door_type == 'PD':
+                        harga_per_unit = m3_pd
+                    else:  # DD
+                        harga_per_unit = m3_dd
+                elif pricing_method == 'TON':
+                    if door_type == 'PP':
+                        harga_per_unit = ton_pp
+                    elif door_type == 'PD':
+                        harga_per_unit = ton_pd
+                    else:  # DD
+                        harga_per_unit = ton_dd
+                elif pricing_method == 'COLLI':
+                    if door_type == 'PP':
+                        harga_per_unit = col_pp
+                    elif door_type == 'PD':
+                        harga_per_unit = col_pd
+                    else:  # DD
+                        harga_per_unit = col_dd
+                else:  # CONTAINER - pilih berdasarkan ukuran container
+                    if party == "20'":
+                        if door_type == 'PP':
+                            harga_per_unit = container_20_pp
+                        elif door_type == 'PD':
+                            harga_per_unit = container_20_pd
+                        else:  # DD
+                            harga_per_unit = container_20_dd
+                    elif party == "21'":
+                        if door_type == 'PP':
+                            harga_per_unit = container_21_pp
+                        elif door_type == 'PD':
+                            harga_per_unit = container_21_pd
+                        else:  # DD
+                            harga_per_unit = container_21_dd
+                    else:  # 40'HC
+                        if door_type == 'PP':
+                            harga_per_unit = container_40hc_pp
+                        elif door_type == 'PD':
+                            harga_per_unit = container_40hc_pd
+                        else:  # DD
+                            harga_per_unit = container_40hc_dd
 
                 total_harga = harga_per_unit * colli_amount
 
@@ -406,7 +478,7 @@ def generate_barang_for_containers(containers):
                          0.011, 0.02, ppn_amount, pph23_amount, total_tax))
 
                 pajak_mark = "[TAX]" if pajak == 1 else ""
-                print(f"  + {nama_barang[:35]:35} | {satuan:9} | {door_type} | Rp {total_harga:>12,.0f} {pajak_mark}")
+                print(f"  + {nama_barang[:30]:30} | {colli_amount:>3} {satuan:7} | {pricing_method:9} | {door_type} | Rp {total_harga:>12,.0f} {pajak_mark}")
                 total_assigned += 1
 
             except Exception as e:
