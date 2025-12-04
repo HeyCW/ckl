@@ -3136,10 +3136,20 @@ class ContainerWindow:
                 'harga_container_pp': barang_detail.get('container_pp', 0) or 0,
                 'harga_container_pd': barang_detail.get('container_pd', 0) or 0,
                 'harga_container_dd': barang_detail.get('container_dd', 0) or 0,
+                # Container size specific pricing
+                'harga_container_20_pp': barang_detail.get('container_20_pp', 0) or 0,
+                'harga_container_20_pd': barang_detail.get('container_20_pd', 0) or 0,
+                'harga_container_20_dd': barang_detail.get('container_20_dd', 0) or 0,
+                'harga_container_21_pp': barang_detail.get('container_21_pp', 0) or 0,
+                'harga_container_21_pd': barang_detail.get('container_21_pd', 0) or 0,
+                'harga_container_21_dd': barang_detail.get('container_21_dd', 0) or 0,
+                'harga_container_40hc_pp': barang_detail.get('container_40hc_pp', 0) or 0,
+                'harga_container_40hc_pd': barang_detail.get('container_40hc_pd', 0) or 0,
+                'harga_container_40hc_dd': barang_detail.get('container_40hc_dd', 0) or 0,
                 # Base measurements
                 'm3_barang': barang_detail.get('m3_barang', 0) or 0,
                 'ton_barang': barang_detail.get('ton_barang', 0) or 0,
-                'container_barang': barang_detail.get('container_barang', 0) or 0,
+                'container_barang': barang_detail.get('container_barang', 0) or 1,
                 # Tax info
                 'has_tax': barang_detail.get('pajak', 0) == 1
             }
@@ -3257,7 +3267,7 @@ class ContainerWindow:
         elif method.startswith('Harga/ton_'):
             # ton-based combinations: price × ton_barang × colli  
             total = price * pricing_info['ton_barang'] * colli_amount
-        elif method.startswith('Harga/container_'):
+        elif method.startswith('Harga/container'):
             # container-based combinations: price × container_barang × colli
             container_qty = pricing_info.get('container_barang') or 1
             total = price * container_qty * colli_amount
@@ -3312,7 +3322,16 @@ class ContainerWindow:
         # Create combobox
         combo_var = tk.StringVar(value=pricing_data_store[item_id]['current_method'])
         combo = ttk.Combobox(tree, textvariable=combo_var,
-                            values=['Manual', 'Harga/m³', 'Harga/ton', 'Harga/colli', 'Harga/container'],
+                            values=[
+                                'Manual',
+                                'Harga/m3_pp', 'Harga/m3_pd', 'Harga/m3_dd',
+                                'Harga/ton_pp', 'Harga/ton_pd', 'Harga/ton_dd',
+                                'Harga/colli_pp', 'Harga/colli_pd', 'Harga/colli_dd',
+                                'Harga/container_pp', 'Harga/container_pd', 'Harga/container_dd',
+                                'Harga/container20_pp', 'Harga/container20_pd', 'Harga/container20_dd',
+                                'Harga/container21_pp', 'Harga/container21_pd', 'Harga/container21_dd',
+                                'Harga/container40hc_pp', 'Harga/container40hc_pd', 'Harga/container40hc_dd'
+                            ],
                             state='readonly')
         
         combo.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
@@ -3415,6 +3434,24 @@ class ContainerWindow:
             return barang_pricing['harga_container_pd']
         elif method == 'Harga/container_dd' and barang_pricing['harga_container_dd'] > 0:
             return barang_pricing['harga_container_dd']
+        elif method == 'Harga/container20_pp' and barang_pricing.get('harga_container_20_pp', 0) > 0:
+            return barang_pricing['harga_container_20_pp']
+        elif method == 'Harga/container20_pd' and barang_pricing.get('harga_container_20_pd', 0) > 0:
+            return barang_pricing['harga_container_20_pd']
+        elif method == 'Harga/container20_dd' and barang_pricing.get('harga_container_20_dd', 0) > 0:
+            return barang_pricing['harga_container_20_dd']
+        elif method == 'Harga/container21_pp' and barang_pricing.get('harga_container_21_pp', 0) > 0:
+            return barang_pricing['harga_container_21_pp']
+        elif method == 'Harga/container21_pd' and barang_pricing.get('harga_container_21_pd', 0) > 0:
+            return barang_pricing['harga_container_21_pd']
+        elif method == 'Harga/container21_dd' and barang_pricing.get('harga_container_21_dd', 0) > 0:
+            return barang_pricing['harga_container_21_dd']
+        elif method == 'Harga/container40hc_pp' and barang_pricing.get('harga_container_40hc_pp', 0) > 0:
+            return barang_pricing['harga_container_40hc_pp']
+        elif method == 'Harga/container40hc_pd' and barang_pricing.get('harga_container_40hc_pd', 0) > 0:
+            return barang_pricing['harga_container_40hc_pd']
+        elif method == 'Harga/container40hc_dd' and barang_pricing.get('harga_container_40hc_dd', 0) > 0:
+            return barang_pricing['harga_container_40hc_dd']
         else:
             return 0
 
@@ -3447,7 +3484,7 @@ class ContainerWindow:
 
             return base_total
 
-        elif method.startswith('Harga/container_'):
+        elif method.startswith('Harga/container'):
             # container-based combinations: price × container_barang × colli
             container_qty = pricing_info.get('container_barang') or 1
             base_total = price * container_qty * colli_amount
@@ -3545,24 +3582,63 @@ class ContainerWindow:
         # Clear existing buttons
         for widget in result_frame.winfo_children():
             widget.destroy()
-        
+
+        # Grab sample pricing info to show per-size container buttons
+        sample_pricing_info = {}
+        for data in pricing_data_store.values():
+            if isinstance(data, dict) and data.get('pricing_info') and not data.get('is_tax_row', False):
+                sample_pricing_info = data['pricing_info']
+                break
+
         if not satuan or not door:
-            tk.Label(result_frame, text="👆 Pilih Satuan dan Door/Package untuk melihat kombinasi", 
-                    font=('Arial', 10), bg='#ecf0f1', fg='#7f8c8d').pack(pady=10)
+            tk.Label(
+                result_frame,
+                text="Pilih Satuan dan Door/Package untuk melihat kombinasi",
+                font=('Arial', 10),
+                bg='#ecf0f1',
+                fg='#7f8c8d'
+            ).pack(pady=10)
             return
-        
-        # Create info label
-        info_text = f"🎯 Kombinasi: {satuan.upper()} × {door.upper()}"
-        tk.Label(result_frame, text=info_text, 
-                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50').pack(pady=(5, 10))
-        
-        # Create combination button
+
+        info_text = f"Kombinasi: {satuan.upper()} - {door.upper()}"
+        tk.Label(
+            result_frame,
+            text=info_text,
+            font=('Arial', 11, 'bold'),
+            bg='#ecf0f1',
+            fg='#2c3e50'
+        ).pack(pady=(5, 10))
+
+        if satuan == 'container':
+            container_methods = [
+                ("Container 20'", "container20", sample_pricing_info.get(f"harga_container_20_{door}", 0)),
+                ("Container 21'", "container21", sample_pricing_info.get(f"harga_container_21_{door}", 0)),
+                ("Container 40'HC", "container40hc", sample_pricing_info.get(f"harga_container_40hc_{door}", 0)),
+                ("Container", "container", sample_pricing_info.get(f"harga_container_{door}", 0)),
+            ]
+
+            for label, method_key, price in container_methods:
+                btn = tk.Button(
+                    result_frame,
+                    text=f"Apply {label} {door.upper()} (Rp {price:,.0f})",
+                    font=('Arial', 12, 'bold'),
+                    bg='#e67e22',
+                    fg='white',
+                    padx=25,
+                    pady=10,
+                    relief='flat',
+                    cursor='hand2',
+                    command=lambda m=f"Harga/{method_key}_{door}": self._auto_fill_all(tree, pricing_data_store, m)
+                )
+                btn.pack(pady=5, fill='x')
+            return
+
         combination_method = f"Harga/{satuan}_{door}"
         combination_text = f"{satuan.upper()}_{door.upper()}"
-        
+
         btn = tk.Button(
             result_frame,
-            text=f"🚀 Apply {combination_text}",
+            text=f"Apply {combination_text}",
             font=('Arial', 12, 'bold'),
             bg='#e67e22',
             fg='white',
@@ -4096,6 +4172,16 @@ class ContainerWindow:
                 'harga_container_pp': barang_detail.get('container_pp', 0) or 0,
                 'harga_container_pd': barang_detail.get('container_pd', 0) or 0,
                 'harga_container_dd': barang_detail.get('container_dd', 0) or 0,
+                # Container size specific pricing
+                'harga_container_20_pp': barang_detail.get('container_20_pp', 0) or 0,
+                'harga_container_20_pd': barang_detail.get('container_20_pd', 0) or 0,
+                'harga_container_20_dd': barang_detail.get('container_20_dd', 0) or 0,
+                'harga_container_21_pp': barang_detail.get('container_21_pp', 0) or 0,
+                'harga_container_21_pd': barang_detail.get('container_21_pd', 0) or 0,
+                'harga_container_21_dd': barang_detail.get('container_21_dd', 0) or 0,
+                'harga_container_40hc_pp': barang_detail.get('container_40hc_pp', 0) or 0,
+                'harga_container_40hc_pd': barang_detail.get('container_40hc_pd', 0) or 0,
+                'harga_container_40hc_dd': barang_detail.get('container_40hc_dd', 0) or 0,
                 # Base measurements
                 'm3_barang': barang_detail.get('m3_barang', 0) or 0,
                 'ton_barang': barang_detail.get('ton_barang', 0) or 0,
@@ -4243,7 +4329,7 @@ class ContainerWindow:
         elif method.startswith('Harga/ton_'):
             # ton-based combinations: price × ton_barang × colli  
             total = price * pricing_info['ton_barang'] * colli_amount
-        elif method.startswith('Harga/container_'):
+        elif method.startswith('Harga/container'):
             # container-based combinations: price × container_barang × colli
             container_qty = pricing_info.get('container_barang') or 1
             total = price * container_qty * colli_amount
@@ -4285,9 +4371,9 @@ class ContainerWindow:
             
             # Allow editing for auto_pricing and harga_baru columns
             if column == '#4':  # auto_pricing column
-                self._edit_auto_pricing_edit_with_tax(tree, item_id, pricing_data_store)
+                self._edit_auto_pricing_edit(tree, item_id, pricing_data_store)
             elif column == '#5':  # harga_baru column
-                self._edit_harga_baru_edit_with_tax(tree, item_id, pricing_data_store)
+                self._edit_harga_baru_edit(tree, item_id, pricing_data_store)
         
         tree.bind('<Double-1>', on_double_click)
 
@@ -4303,7 +4389,11 @@ class ContainerWindow:
         combo = ttk.Combobox(tree, textvariable=combo_var, 
                             values=['Manual', 'Harga/m3_pp', 'Harga/m3_pd', 'Harga/m3_dd',
                                 'Harga/ton_pp', 'Harga/ton_pd', 'Harga/ton_dd',
-                                'Harga/colli_pp', 'Harga/colli_pd', 'Harga/colli_dd'],
+                                'Harga/colli_pp', 'Harga/colli_pd', 'Harga/colli_dd',
+                                'Harga/container_pp', 'Harga/container_pd', 'Harga/container_dd',
+                                'Harga/container20_pp', 'Harga/container20_pd', 'Harga/container20_dd',
+                                'Harga/container21_pp', 'Harga/container21_pd', 'Harga/container21_dd',
+                                'Harga/container40hc_pp', 'Harga/container40hc_pd', 'Harga/container40hc_dd'],
                             state='readonly')
         
         combo.place(x=bbox[0], y=bbox[1], width=bbox[2], height=bbox[3])
@@ -4404,6 +4494,24 @@ class ContainerWindow:
                 return pricing_info['harga_container_pd']
             elif method == 'Harga/container_dd' and pricing_info.get('harga_container_dd', 0) > 0:
                 return pricing_info['harga_container_dd']
+            elif method == 'Harga/container20_pp' and pricing_info.get('harga_container_20_pp', 0) > 0:
+                return pricing_info['harga_container_20_pp']
+            elif method == 'Harga/container20_pd' and pricing_info.get('harga_container_20_pd', 0) > 0:
+                return pricing_info['harga_container_20_pd']
+            elif method == 'Harga/container20_dd' and pricing_info.get('harga_container_20_dd', 0) > 0:
+                return pricing_info['harga_container_20_dd']
+            elif method == 'Harga/container21_pp' and pricing_info.get('harga_container_21_pp', 0) > 0:
+                return pricing_info['harga_container_21_pp']
+            elif method == 'Harga/container21_pd' and pricing_info.get('harga_container_21_pd', 0) > 0:
+                return pricing_info['harga_container_21_pd']
+            elif method == 'Harga/container21_dd' and pricing_info.get('harga_container_21_dd', 0) > 0:
+                return pricing_info['harga_container_21_dd']
+            elif method == 'Harga/container40hc_pp' and pricing_info.get('harga_container_40hc_pp', 0) > 0:
+                return pricing_info['harga_container_40hc_pp']
+            elif method == 'Harga/container40hc_pd' and pricing_info.get('harga_container_40hc_pd', 0) > 0:
+                return pricing_info['harga_container_40hc_pd']
+            elif method == 'Harga/container40hc_dd' and pricing_info.get('harga_container_40hc_dd', 0) > 0:
+                return pricing_info['harga_container_40hc_dd']
             else:
                 # Return original price if no valid combination found
                 return data.get('original_price', 0)
@@ -4555,24 +4663,63 @@ class ContainerWindow:
         # Clear existing buttons
         for widget in result_frame.winfo_children():
             widget.destroy()
-        
+
+        # Grab sample pricing info to show per-size container buttons
+        sample_pricing_info = {}
+        for data in pricing_data_store.values():
+            if isinstance(data, dict) and data.get('pricing_info') and not data.get('is_tax_row', False):
+                sample_pricing_info = data['pricing_info']
+                break
+
         if not satuan or not door:
-            tk.Label(result_frame, text="👆 Pilih Satuan dan Door/Package untuk melihat kombinasi", 
-                    font=('Arial', 10), bg='#ecf0f1', fg='#7f8c8d').pack(pady=10)
+            tk.Label(
+                result_frame,
+                text="Pilih Satuan dan Door/Package untuk melihat kombinasi",
+                font=('Arial', 10),
+                bg='#ecf0f1',
+                fg='#7f8c8d'
+            ).pack(pady=10)
             return
-        
-        # Create info label
-        info_text = f"🎯 Kombinasi: {satuan.upper()} × {door.upper()}"
-        tk.Label(result_frame, text=info_text, 
-                font=('Arial', 11, 'bold'), bg='#ecf0f1', fg='#2c3e50').pack(pady=(5, 10))
-        
-        # Create combination button
+
+        info_text = f"Kombinasi: {satuan.upper()} - {door.upper()}"
+        tk.Label(
+            result_frame,
+            text=info_text,
+            font=('Arial', 11, 'bold'),
+            bg='#ecf0f1',
+            fg='#2c3e50'
+        ).pack(pady=(5, 10))
+
+        if satuan == 'container':
+            container_methods = [
+                ("Container 20'", "container20", sample_pricing_info.get(f"harga_container_20_{door}", 0)),
+                ("Container 21'", "container21", sample_pricing_info.get(f"harga_container_21_{door}", 0)),
+                ("Container 40'HC", "container40hc", sample_pricing_info.get(f"harga_container_40hc_{door}", 0)),
+                ("Container", "container", sample_pricing_info.get(f"harga_container_{door}", 0)),
+            ]
+
+            for label, method_key, price in container_methods:
+                btn = tk.Button(
+                    result_frame,
+                    text=f"Apply {label} {door.upper()} (Rp {price:,.0f})",
+                    font=('Arial', 12, 'bold'),
+                    bg='#e67e22',
+                    fg='white',
+                    padx=25,
+                    pady=10,
+                    relief='flat',
+                    cursor='hand2',
+                    command=lambda m=f"Harga/{method_key}_{door}": self._edit_auto_fill_all(pricing_tree, pricing_data_store, m)
+                )
+                btn.pack(pady=5, fill='x')
+            return
+
         combination_method = f"Harga/{satuan}_{door}"
         combination_text = f"{satuan.upper()}_{door.upper()}"
-        
+
         btn = tk.Button(
             result_frame,
-            text=f"🚀 Apply {combination_text}",
+            text=f"Apply {combination_text}",
             font=('Arial', 12, 'bold'),
             bg='#e67e22',
             fg='white',
@@ -8009,3 +8156,4 @@ class ContainerWindow:
         
         
         
+
