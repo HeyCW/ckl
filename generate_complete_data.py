@@ -1,6 +1,6 @@
 """
 Script untuk generate complete data:
-- 3 container dengan party berbeda (20', 21', 40') sharing JOA yang sama
+- 3 container dengan party berbeda (20', 21', 40'HC) sharing JOA yang sama
 - Barang untuk setiap container
 - Biaya delivery untuk setiap container
 - Auto create kapals jika belum ada (tanpa perlu seed terpisah)
@@ -36,7 +36,7 @@ def ensure_kapals_exist(conn):
 
 
 def generate_containers_with_shared_joa():
-    """Generate 3 containers (20', 21', 40') dengan JOA yang sama"""
+    """Generate 3 containers (20', 21', 40'HC) dengan JOA yang sama"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -79,7 +79,7 @@ def generate_containers_with_shared_joa():
         print(f"\n[SET {joa_set + 1}] JOA: {ref_joa} | Kapal: {feeder}")
 
         # Buat 3 container dengan party berbeda
-        for party_type in ["20'", "21'", "40'"]:
+        for party_type in ["20'", "21'", "40'HC"]:
             # Generate container number
             prefix = random.choice(container_prefixes)
             number = f"{random.randint(100000, 999999)}{random.randint(0, 9)}"
@@ -176,8 +176,8 @@ def add_delivery_costs_to_containers(containers):
             # Generate cost dalam range
             cost = round(random.uniform(cost_type['range'][0], cost_type['range'][1]), 0)
 
-            # Party 40' biasanya lebih mahal
-            if party == "40'":
+            # Party 40'HC biasanya lebih mahal
+            if party == "40'HC":
                 cost = cost * 1.3
             elif party == "21'":
                 cost = cost * 1.1

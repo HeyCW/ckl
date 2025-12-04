@@ -57,7 +57,7 @@ class JobOrderWindow:
             count_20 = 1
         elif party_upper == "21'" or party_upper == "21":
             count_21 = 1
-        elif party_upper == "40'" or party_upper == "40":
+        elif party_upper in ("40'HC", "40HC", "40'", "40"):
             count_40 = 1
 
         # Pattern untuk "3X40", "5x40", "3x40'", dll
@@ -82,7 +82,7 @@ class JobOrderWindow:
         if count_21 > 0:
             parts.append(f"{count_21} X 21'")
         if count_40 > 0:
-            parts.append(f"{count_40} X 40'")
+            parts.append(f"{count_40} X 40'HC")
 
         if parts:
             total = count_20 + count_21 + count_40
@@ -501,11 +501,11 @@ class JobOrderWindow:
             containers = self.db.execute(query, (joa,))
             container_ids = [c['container_id'] for c in containers]
 
-            # Hitung jumlah container per tipe (20', 21', 40')
+            # Hitung jumlah container per tipe (20', 21', 40'HC)
             total_20, total_21, total_40 = 0, 0, 0
             for cont in containers:
                 p = (cont['party'] or '').strip().upper()
-                # Prioritas: 40' > 21' > 20'
+                # Prioritas: 40'HC > 21' > 20'
                 if '40' in p:
                     total_40 += 1
                 elif '21' in p:
@@ -520,14 +520,14 @@ class JobOrderWindow:
             if total_21 > 0:
                 party_parts.append(f"{total_21} X 21'")
             if total_40 > 0:
-                party_parts.append(f"{total_40} X 40'")
+                party_parts.append(f"{total_40} X 40'HC")
             party_display = " + ".join(party_parts) if party_parts else "-"
 
             joa_info['party_count_20'] = total_20
             joa_info['party_count_21'] = total_21
             joa_info['party_count_40'] = total_40
             joa_info['party'] = party_display
-            print(f"Calculated Party: {party_display} (20'={total_20}, 21'={total_21}, 40'={total_40})")
+            print(f"Calculated Party: {party_display} (20'={total_20}, 21'={total_21}, 40'HC={total_40})")
 
             # Update header
             self.shipping_line_label.config(text=joa_info.get('shipping_line', '-') or '-')

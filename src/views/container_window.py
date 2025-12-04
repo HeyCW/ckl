@@ -71,7 +71,7 @@ class ContainerWindow:
 
 
     def parse_party(self, party_text):
-        """Parse party text untuk mengidentifikasi container type (20', 21', 40')"""
+        """Parse party text untuk mengidentifikasi container type (20', 21', 40'HC)"""
         import re
 
         if not party_text or party_text == '-':
@@ -89,7 +89,7 @@ class ContainerWindow:
             count_20 = 1
         elif party_upper == "21'" or party_upper == "21":
             count_21 = 1
-        elif party_upper == "40'" or party_upper == "40":
+        elif party_upper in ("40'HC", "40HC", "40'", "40"):
             count_40 = 1
 
         # Pattern untuk "3X40", "5x40", "3x40'", dll
@@ -114,7 +114,7 @@ class ContainerWindow:
         if count_21 > 0:
             parts.append(f"{count_21} X 21'")
         if count_40 > 0:
-            parts.append(f"{count_40} X 40'")
+            parts.append(f"{count_40} X 40'HC")
 
         if parts:
             total = count_20 + count_21 + count_40
@@ -447,7 +447,7 @@ class ContainerWindow:
             anchor='w'
         ).pack(side='left', padx=(0, 5))
         
-        party_options = ["20'", "21'", "40'"]
+        party_options = ["20'", "21'", "40'HC"]
         self.party_entry = ttk.Combobox(row2_frame, values=party_options, state='readonly', font=('Arial', 10), width=17)
         self.party_entry.pack(side='left', padx=(0, 20))
         self.party_entry.set('')  # allow empty selection by default
@@ -7417,10 +7417,10 @@ class ContainerWindow:
             row = tk.Frame(form_frame, bg='#ffffff')
             row.pack(fill='x', pady=12, padx=20)
             
-            tk.Label(row, text="Party:", font=('Arial', 11, 'bold'), 
+            tk.Label(row, text="Party:", font=('Arial', 11, 'bold'),
                     bg='#ffffff', width=15, anchor='w').pack(side='left')
-            
-            party_options = ["20'", "21'", "40'"]
+
+            party_options = ["20'", "21'", "40'HC"]
             party_entry = ttk.Combobox(row, values=party_options, state='readonly', font=('Arial', 11), width=32)
             party_entry.pack(side='left', padx=(10, 0))
             if safe_get(container[4]) in party_options:
