@@ -4,17 +4,23 @@ from datetime import datetime
 import hashlib
 import logging
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('app_database.log'),
-        logging.StreamHandler()
-    ]
-)
-
+# Setup logging - optimized untuk singleton pattern
 logger = logging.getLogger(__name__)
+
+# Setup handlers hanya jika belum ada (avoid duplicate handlers)
+if not logger.handlers:
+    logger.setLevel(logging.INFO)
+
+    # File handler
+    file_handler = logging.FileHandler('app_database.log')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+    # Stream handler
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
 
 class DatabaseError(Exception):
     """Custom database exception"""
@@ -126,8 +132,20 @@ class SQLiteDatabase:
             raise DatabaseError(f"Unexpected bulk operation error: {e}")
     
     def init_db(self):
-        """Initialize database with required tables"""
+        """Initialize database with required tables - Optimized"""
         try:
+            # Check if database already initialized (cek table users)
+            try:
+                existing = self.execute_one("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+                if existing:
+                    logger.info("Database already initialized, skipping table creation")
+                    # Hanya insert default data jika belum ada
+                    self.insert_default_data()
+                    return
+            except:
+                pass  # Jika error, lanjutkan normal init
+
+            # Full initialization jika belum ada
             self.create_users_table()
             self.create_customers_table()
             self.create_containers_table()
@@ -1208,11 +1226,25 @@ class BarangDatabase(SQLiteDatabase):
 # Combined Database Class with Pricing Features
 class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatabase):
     """Complete app database with all methods including pricing features"""
-    
+
+    _instance = None
+    _initialized = False
+
+    def __new__(cls, db_path="data/app.db"):
+        """Singleton pattern - reuse satu instance untuk performa lebih baik"""
+        if cls._instance is None:
+            cls._instance = super(AppDatabase, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, db_path="data/app.db"):
+        # Skip initialization jika sudah di-init sebelumnya
+        if AppDatabase._initialized:
+            return
+
         try:
             super().__init__(db_path)
-            logger.info("AppDatabase initialized successfully")
+            AppDatabase._initialized = True
+            logger.info("AppDatabase initialized successfully (singleton)")
         except Exception as e:
             logger.error(f"Failed to initialize AppDatabase: {e}")
             raise

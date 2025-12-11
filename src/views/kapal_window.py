@@ -7,6 +7,7 @@ from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
+from src.utils.helpers import setup_window_restore_behavior
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,8 @@ class KapalWindow:
         self.window = None
         self.tree = None
         self.selected_item = None
-        
+        self.data_loaded = False  # Track if data has been loaded
+
         # Entry widgets untuk form
         self.entries = {}
         self.create_window()
@@ -26,14 +28,14 @@ class KapalWindow:
         """Calculate scale factor based on screen size"""
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        
-        # Base scale on 1920x1080 as reference
-        width_scale = screen_width / 1920
-        height_scale = screen_height / 1080
-        
-        # Use average and clamp between 0.7 and 1.2
+
+        # Base scale on 1600x900 as reference (better for 1366x768)
+        width_scale = screen_width / 1600
+        height_scale = screen_height / 900
+
+        # Use average and clamp between 0.75 and 1.3
         scale = (width_scale + height_scale) / 2
-        return max(0.7, min(1.2, scale))
+        return max(0.75, min(1.3, scale))
     
     def scaled_font(self, base_size):
         """Return scaled font size"""
@@ -81,24 +83,27 @@ class KapalWindow:
             # Create new window
             self.window = tk.Toplevel(self.parent)
             self.window.title("🚢 Kelola Data Kapal")
-            
+
             # Get screen dimensions
             screen_width = self.window.winfo_screenwidth()
             screen_height = self.window.winfo_screenheight()
-            
+
             # Adaptive window size
             window_width = min(int(screen_width * 0.85), 1400)
             window_height = min(int(screen_height * 0.85), 850)
-            
+
             self.window.geometry(f"{window_width}x{window_height}")
             self.window.configure(bg='#ecf0f1')
             self.window.transient(self.parent)
             self.window.grab_set()
-            
+
+            # Setup window restore behavior (fix minimize/restore issue)
+            setup_window_restore_behavior(self.window)
+
             # Resizable
-            self.window.minsize(1000, 600)
+            self.window.minsize(850, 500)  # Reduced for 1366x768 compatibility
             self.window.resizable(True, True)
-            
+
             # Set window properties
             self.window.protocol("WM_DELETE_WINDOW", self.on_window_close)
             
@@ -129,14 +134,14 @@ class KapalWindow:
             
             # Create treeview frame
             self.create_treeview_frame(main_frame)
-            
-            # Load initial data
-            self.load_data()
-            
+
+            # Lazy load data after window is fully rendered (improves initial load time)
+            self.window.after_idle(self.lazy_load_data)
+
             # Focus on first entry
             if 'feeder' in self.entries:
                 self.entries['feeder'].focus()
-            
+
             # Bind resize event
             self.window.bind('<Configure>', self.on_window_resize)
                 
@@ -542,6 +547,13 @@ class KapalWindow:
             logger.error(f"Error deleting kapal: {e}")
             messagebox.showerror("Error", f"Gagal menghapus data: {e}")
     
+    def lazy_load_data(self):
+        """Lazy load data - called after window is fully rendered"""
+        if not self.data_loaded:
+            print("Lazy loading kapal data...")
+            self.load_data()
+            self.data_loaded = True
+
     def load_data(self):
         """Load all kapal data into PaginatedTreeView dengan format tanggal Indonesia"""
         try:

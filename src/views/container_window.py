@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import format_ton
+from src.utils.helpers import format_ton, setup_window_restore_behavior
 
 class ContainerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -25,14 +25,14 @@ class ContainerWindow:
         """Calculate scale factor based on screen size"""
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        
-        # Base scale on 1920x1080 as reference
-        width_scale = screen_width / 1920
-        height_scale = screen_height / 1080
-        
-        # Use average and clamp between 0.7 and 1.2
+
+        # Base scale on 1600x900 as reference (better for 1366x768)
+        width_scale = screen_width / 1600
+        height_scale = screen_height / 900
+
+        # Use average and clamp between 0.75 and 1.3
         scale = (width_scale + height_scale) / 2
-        return max(0.7, min(1.2, scale))
+        return max(0.75, min(1.3, scale))
     
     def scaled_font(self, base_size):
         """Return scaled font size"""
@@ -248,22 +248,25 @@ class ContainerWindow:
         """Create container management window with responsive design"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("🚢 Data Container")
-        
+
         # Get screen dimensions
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        
+
         # Adaptive window size
         window_width = min(int(screen_width * 0.85), 1400)
         window_height = min(int(screen_height * 0.90), 1000)
-        
+
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
-        
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
+
         # Resizable
-        self.window.minsize(1000, 700)
+        self.window.minsize(850, 550)  # Reduced for 1366x768 compatibility
         self.window.resizable(True, True)
         
         try:
@@ -308,11 +311,11 @@ class ContainerWindow:
         close_btn = tk.Button(
             self.window,
             text="❌ Tutup",
-            font=('Arial', self.scaled_font(12), 'bold'),
+            font=('Arial', self.scaled_font(11), 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=30,
-            pady=10,
+            padx=20,
+            pady=6,
             command=self.window.destroy
         )
         close_btn.pack(pady=10)
@@ -474,11 +477,11 @@ class ContainerWindow:
         add_btn = tk.Button(
             btn_frame,
             text="➕ Tambah Container",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', self.scaled_font(9), 'bold'),
             bg='#e67e22',
             fg='white',
-            padx=15,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.add_container
         )
         self.make_button_keyboard_accessible(add_btn)
@@ -487,11 +490,11 @@ class ContainerWindow:
         clear_btn = tk.Button(
             btn_frame,
             text="🗑️ Bersihkan",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', self.scaled_font(9), 'bold'),
             bg='#95a5a6',
             fg='white',
-            padx=15,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.clear_form
         )
         self.make_button_keyboard_accessible(clear_btn)
@@ -500,11 +503,11 @@ class ContainerWindow:
         edit_btn = tk.Button(
             btn_frame,
             text="✏️ Edit Container",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', self.scaled_font(9), 'bold'),
             bg='#3498db',
             fg='white',
-            padx=15,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.edit_container
         )
         self.make_button_keyboard_accessible(edit_btn)
@@ -513,11 +516,11 @@ class ContainerWindow:
         delete_btn = tk.Button(
             btn_frame,
             text="🗑️ Hapus Container",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', self.scaled_font(9), 'bold'),
             bg='#e74c3c',
             fg='white',
-            padx=15,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.delete_container
         )
         self.make_button_keyboard_accessible(delete_btn)
@@ -526,16 +529,21 @@ class ContainerWindow:
         summary_btn = tk.Button(
             btn_frame,
             text="📊 Lihat Summary",
-            font=('Arial', 10, 'bold'),
+            font=('Arial', self.scaled_font(9), 'bold'),
             bg='#9b59b6',
             fg='white',
-            padx=15,
-            pady=8,
+            padx=10,
+            pady=5,
             command=self.view_selected_container_summary
         )
         self.make_button_keyboard_accessible(summary_btn)
         summary_btn.pack(side='left')
         
+        # ============================================
+        # PRINT BUTTONS SECTION (placed above list for visibility on 1366x768)
+        # ============================================
+        self.add_print_buttons_to_container_tab(parent)
+
         # ============================================
         # CONTAINER LIST
         # ============================================
@@ -597,11 +605,6 @@ class ContainerWindow:
         # Load existing containers
         self.load_containers()
         
-        # ============================================
-        # PRINT BUTTONS SECTION
-        # ============================================
-        self.add_print_buttons_to_container_tab(parent)
-        
     
     def on_kapal_keyrelease(self, event=None):
         """Handle ketika user mengetik di dropdown kapal"""
@@ -617,150 +620,88 @@ class ContainerWindow:
         
     
     def add_print_buttons_to_container_tab(self, parent):
-        """Add print buttons to container tab"""
+        """Add print buttons to container tab - responsive layout for smaller screens"""
         print_frame = tk.Frame(parent, bg='#ecf0f1')
         print_frame.pack(fill='x', padx=20, pady=10)
-        
+
         # Separator
         separator = tk.Frame(print_frame, height=2, bg='#34495e')
         separator.pack(fill='x', pady=(0, 10))
-        
+
         tk.Label(
-            print_frame, 
-            text="📄 PRINT DOCUMENTS", 
-            font=('Arial', 12, 'bold'), 
+            print_frame,
+            text="📄 PRINT DOCUMENTS",
+            font=('Arial', 11, 'bold'),
             bg='#ecf0f1'
-        ).pack(anchor='w', pady=(0, 10))
-        
-        btn_frame = tk.Frame(print_frame, bg='#ecf0f1')
-        btn_frame.pack(fill='x')
-        
+        ).pack(anchor='w', pady=(0, 8))
+
+        # Row 1: Invoice buttons (spread evenly)
+        btn_frame1 = tk.Frame(print_frame, bg='#ecf0f1')
+        btn_frame1.pack(fill='x', pady=(0, 5))
+        btn_frame1.grid_columnconfigure(0, weight=1, uniform="print_row1")
+        btn_frame1.grid_columnconfigure(1, weight=1, uniform="print_row1")
+
         # Print Invoice Container button
         print_invoice_btn = tk.Button(
-            btn_frame,
-            text="🧾 Print Invoice Container",
-            font=('Arial', 10, 'bold'),
+            btn_frame1,
+            text="🧾 Print Invoice",
+            font=('Arial', self.scaled_font(8), 'bold'),
             bg="#4bc23b",
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=4,
             command=self.print_selected_container_invoice
         )
         self.make_button_keyboard_accessible(print_invoice_btn)
-        print_invoice_btn.pack(side='left', padx=(0, 10))
-        
+        print_invoice_btn.grid(row=0, column=0, padx=8, sticky='ew')
+
         # Print Invoice PDF button
         print_invoice_pdf_btn = tk.Button(
-            btn_frame,
+            btn_frame1,
             text="📄 Invoice PDF",
-            font=('Arial', 10, 'bold'),
-            bg="#f39c12",  # Orange
+            font=('Arial', self.scaled_font(8), 'bold'),
+            bg="#f39c12",
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=4,
             command=self.print_selected_container_invoice_pdf
         )
         self.make_button_keyboard_accessible(print_invoice_pdf_btn)
-        print_invoice_pdf_btn.pack(side='left', padx=(0, 10))
-        
+        print_invoice_pdf_btn.grid(row=0, column=1, padx=8, sticky='ew')
+
+        # Row 2: Packing list and preview buttons
+        btn_frame2 = tk.Frame(print_frame, bg='#ecf0f1')
+        btn_frame2.pack(fill='x')
+        btn_frame2.grid_columnconfigure(0, weight=1, uniform="print_row2")
+        btn_frame2.grid_columnconfigure(1, weight=1, uniform="print_row2")
+
         # Print Customer Packing List button
         print_packing_btn = tk.Button(
-            btn_frame,
-            text="📋 Print Customer Packing List",
-            font=('Arial', 10, 'bold'),
+            btn_frame2,
+            text="📋 Packing List",
+            font=('Arial', self.scaled_font(8), 'bold'),
             bg="#1b9b0a",
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=4,
             command=self.print_selected_customer_packing_list
         )
         self.make_button_keyboard_accessible(print_packing_btn)
-        print_packing_btn.pack(side='left', padx=(0, 10))
+        print_packing_btn.grid(row=0, column=0, padx=8, sticky='ew')
 
         # Preview IPL Excel button
         preview_ipl_btn = tk.Button(
-            btn_frame,
+            btn_frame2,
             text="📊 Preview IPL Excel",
-            font=('Arial', 10, 'bold'),
-            bg="#3498db",  # Blue
+            font=('Arial', self.scaled_font(8), 'bold'),
+            bg="#3498db",
             fg='white',
-            padx=20,
-            pady=8,
+            padx=10,
+            pady=4,
             command=self.preview_selected_ipl_excel
         )
         self.make_button_keyboard_accessible(preview_ipl_btn)
-        preview_ipl_btn.pack(side='left', padx=(0, 10))
-
-
-    def add_print_buttons_to_container_tab(self, parent):
-        """Add print buttons to container tab"""
-        print_frame = tk.Frame(parent, bg='#ecf0f1')
-        print_frame.pack(fill='x', padx=20, pady=10)
-        
-        # Separator
-        separator = tk.Frame(print_frame, height=2, bg='#34495e')
-        separator.pack(fill='x', pady=(0, 10))
-        
-        tk.Label(print_frame, text="📄 PRINT DOCUMENTS", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 10))
-        
-        btn_frame = tk.Frame(print_frame, bg='#ecf0f1')
-        btn_frame.pack(fill='x')
-        
-        # Print Invoice Container button
-        print_invoice_btn = tk.Button(
-            btn_frame,
-            text="🧾 Print Invoice Container",
-            font=('Arial', 8, 'bold'),
-            bg="#4bc23b",
-            fg='white',
-            padx=20,
-            pady=8,
-            command=self.print_selected_container_invoice
-        )
-        self.make_button_keyboard_accessible(print_invoice_btn)
-        print_invoice_btn.pack(side='left', padx=(0, 10))
-        
-        print_invoice_pdf_btn = tk.Button(
-            btn_frame,
-            text="📄 Invoice PDF",
-            font=('Arial', 8, 'bold'),
-            bg="#f39c12",  # Orange
-            fg='white',
-            padx=20,
-            pady=8,
-            command=self.print_selected_container_invoice_pdf
-        )
-        self.make_button_keyboard_accessible(print_invoice_pdf_btn)
-        print_invoice_pdf_btn.pack(side='left', padx=(0, 10))
-        
-        
-        # Print Customer Packing List button
-        print_packing_btn = tk.Button(
-            btn_frame,
-            text="📋 Print Customer Packing List",
-            font=('Arial', 8, 'bold'),
-            bg="#1b9b0a",
-            fg='white',
-            padx=20,
-            pady=8,
-            command=self.print_selected_customer_packing_list
-        )
-        self.make_button_keyboard_accessible(print_packing_btn)
-        print_packing_btn.pack(side='left', padx=(0, 10))
-
-        # Preview IPL Excel button
-        preview_ipl_btn = tk.Button(
-            btn_frame,
-            text="📊 Preview IPL Excel",
-            font=('Arial', 8, 'bold'),
-            bg="#3498db",  # Blue
-            fg='white',
-            padx=20,
-            pady=8,
-            command=self.preview_selected_ipl_excel
-        )
-        self.make_button_keyboard_accessible(preview_ipl_btn)
-        preview_ipl_btn.pack(side='left', padx=(0, 10))
+        preview_ipl_btn.grid(row=0, column=1, padx=8, sticky='ew')
 
     def print_selected_container_invoice(self):
         """Print invoice for selected container"""
@@ -1326,17 +1267,17 @@ class ContainerWindow:
 
                     surabaya_tree = ttk.Treeview(
                         surabaya_tree_frame,
-                        columns=('Deskripsi', 'Keterangan', 'Biaya'),
+                        columns=('Title', 'Deskripsi', 'Biaya'),
                         show='headings',
                         height=table_height
                     )
 
+                    surabaya_tree.heading('Title', text='Title')
                     surabaya_tree.heading('Deskripsi', text='Deskripsi')
-                    surabaya_tree.heading('Keterangan', text='Keterangan')
                     surabaya_tree.heading('Biaya', text='Biaya (Rp)')
 
+                    surabaya_tree.column('Title', width=200, anchor='w')
                     surabaya_tree.column('Deskripsi', width=200, anchor='w')
-                    surabaya_tree.column('Keterangan', width=200, anchor='w')
                     surabaya_tree.column('Biaya', width=120, anchor='e')
 
                     total_surabaya = 0
@@ -1394,17 +1335,17 @@ class ContainerWindow:
 
                         tujuan_tree = ttk.Treeview(
                             tujuan_tree_frame,
-                            columns=('Deskripsi', 'Keterangan', 'Biaya'),
+                            columns=('Title', 'Deskripsi', 'Biaya'),
                             show='headings',
                             height=table_height
                         )
 
+                        tujuan_tree.heading('Title', text='Title')
                         tujuan_tree.heading('Deskripsi', text='Deskripsi')
-                        tujuan_tree.heading('Keterangan', text='Keterangan')
                         tujuan_tree.heading('Biaya', text='Biaya (Rp)')
 
+                        tujuan_tree.column('Title', width=200, anchor='w')
                         tujuan_tree.column('Deskripsi', width=200, anchor='w')
-                        tujuan_tree.column('Keterangan', width=200, anchor='w')
                         tujuan_tree.column('Biaya', width=120, anchor='e')
 
                         total_tujuan = 0
@@ -1444,11 +1385,11 @@ class ContainerWindow:
             close_btn = tk.Button(
                 button_frame,
                 text="Tutup",
-                font=('Arial', 12, 'bold'),
+                font=('Arial', self.scaled_font(11), 'bold'),
                 bg="#e74c3c",
                 fg='white',
-                padx=30,
-                pady=10,
+                padx=20,
+                pady=6,
                 command=preview_window.destroy
             )
             close_btn.pack()
@@ -1488,67 +1429,67 @@ class ContainerWindow:
 
         # === Frame Seleksi (atas) ===
         selection_frame = tk.Frame(parent, bg='#ecf0f1')
-        selection_frame.pack(fill='x', padx=20, pady=20)
-        tk.Label(selection_frame, text="📦 Kelola Barang dalam Container",
-                font=('Arial', 14, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 10))
+        selection_frame.pack(fill='x', padx=10, pady=10)
+        tk.Label(selection_frame, text="Kelola Barang dalam Container",
+                font=('Arial', self.scaled_font(12), 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
 
         # === area search + delivery + tax (grid 3 kolom di baris atas) ===
         search_add_frame = tk.Frame(selection_frame, bg='#ecf0f1')
-        search_add_frame.pack(fill='x', pady=10)
+        search_add_frame.pack(fill='x', pady=5)
 
         # LEFT: kontrol pemilihan container/pengirim/penerima/colli/tanggal
         left_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        left_frame.pack(side='left', fill='both', expand=False, padx=(0, 10))
+        left_frame.pack(side='left', fill='both', expand=False, padx=(0, 5))
 
         # Container selection
         container_select_frame = tk.Frame(left_frame, bg='#ecf0f1')
-        container_select_frame.pack(fill='x', pady=5)
-        tk.Label(container_select_frame, text="Pilih Container:").pack(side='left')
+        container_select_frame.pack(fill='x', pady=3)
+        tk.Label(container_select_frame, text="Container:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.selected_container_var = tk.StringVar()
         self.container_combo = ttk.Combobox(container_select_frame,
                                             textvariable=self.selected_container_var,
-                                            width=40, state='readonly')
-        self.container_combo.pack(side='left', padx=(5, 20))
+                                            width=28, state='readonly', font=('Arial', self.scaled_font(9)))
+        self.container_combo.pack(side='left', padx=(5, 10))
         self.load_container_combo()
         self.container_combo.bind('<<ComboboxSelected>>', self.on_container_select)
 
         # Sender selection dengan debouncing
         sender_frame = tk.Frame(left_frame, bg='#ecf0f1')
-        sender_frame.pack(fill='x', pady=5)
-        tk.Label(sender_frame, text="📤 Pilih Pengirim:").pack(side='left')
+        sender_frame.pack(fill='x', pady=3)
+        tk.Label(sender_frame, text="Pengirim:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.sender_search_var = tk.StringVar()
         self.sender_search_combo = ttk.Combobox(sender_frame,
                                                 textvariable=self.sender_search_var,
-                                                width=25)
-        self.sender_search_combo.pack(side='left', padx=(5, 20))
-        
+                                                width=20, font=('Arial', self.scaled_font(9)))
+        self.sender_search_combo.pack(side='left', padx=(5, 10))
+
         # Gunakan debounced filter
         self.sender_search_var.trace('w', self.schedule_filter)
         self.sender_search_combo.bind('<KeyRelease>', self.on_sender_keyrelease)
 
         # Receiver selection dengan debouncing
         receiver_frame = tk.Frame(left_frame, bg='#ecf0f1')
-        receiver_frame.pack(fill='x', pady=5)
-        tk.Label(receiver_frame, text="📥 Pilih Penerima:").pack(side='left')
+        receiver_frame.pack(fill='x', pady=3)
+        tk.Label(receiver_frame, text="Penerima:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.receiver_search_var = tk.StringVar()
         self.receiver_search_combo = ttk.Combobox(receiver_frame,
                                                 textvariable=self.receiver_search_var,
-                                                width=25)
-        self.receiver_search_combo.pack(side='left', padx=(5, 20))
-        
+                                                width=20, font=('Arial', self.scaled_font(9)))
+        self.receiver_search_combo.pack(side='left', padx=(5, 10))
+
         # Gunakan debounced filter
         self.receiver_search_var.trace('w', self.schedule_filter)
         self.receiver_search_combo.bind('<KeyRelease>', self.on_receiver_keyrelease)
 
         # Barang selection dengan debouncing
         barang_frame = tk.Frame(left_frame, bg='#ecf0f1')
-        barang_frame.pack(fill='x', pady=5)
-        tk.Label(barang_frame, text="📦 Pilih Barang:").pack(side='left')
+        barang_frame.pack(fill='x', pady=3)
+        tk.Label(barang_frame, text="Barang:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.barang_search_var = tk.StringVar()
         self.barang_search_combo = ttk.Combobox(barang_frame,
                                                 textvariable=self.barang_search_var,
-                                                width=25)
-        self.barang_search_combo.pack(side='left', padx=(5, 20))
+                                                width=20, font=('Arial', self.scaled_font(9)))
+        self.barang_search_combo.pack(side='left', padx=(5, 10))
 
         # Gunakan debounced filter
         self.barang_search_var.trace('w', self.schedule_filter)
@@ -1556,74 +1497,65 @@ class ContainerWindow:
 
         # Colli input
         colli_frame = tk.Frame(left_frame, bg='#ecf0f1')
-        colli_frame.pack(fill='x', pady=5)
-        tk.Label(colli_frame, text="📦 Jumlah Colli:").pack(side='left')
+        colli_frame.pack(fill='x', pady=3)
+        tk.Label(colli_frame, text="Colli:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.colli_var = tk.StringVar(value="1")
-        self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, width=8)
-        self.colli_entry.pack(side='left', padx=(5, 10))
+        self.colli_entry = tk.Entry(colli_frame, textvariable=self.colli_var, width=8, font=('Arial', self.scaled_font(9)))
+        self.colli_entry.pack(side='left', padx=(5, 5))
 
         # Satuan input
         satuan_frame = tk.Frame(left_frame, bg='#ecf0f1')
-        satuan_frame.pack(fill='x', pady=5)
-        tk.Label(satuan_frame, text="📏 Satuan:").pack(side='left')
+        satuan_frame.pack(fill='x', pady=3)
+        tk.Label(satuan_frame, text="Satuan:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.satuan_var = tk.StringVar(value="pcs")
         satuan_options = ["pallet", "koli", "package", "dos", "pcs"]
         self.satuan_combo = ttk.Combobox(satuan_frame, textvariable=self.satuan_var,
-                                         values=satuan_options, state='readonly', width=10)
-        self.satuan_combo.pack(side='left', padx=(5, 10))
+                                         values=satuan_options, state='readonly', width=10, font=('Arial', self.scaled_font(9)))
+        self.satuan_combo.pack(side='left', padx=(5, 5))
 
         # ✅ TANGGAL - DATEPICKER DENGAN FORMAT INDONESIA
         tanggal_frame = tk.Frame(left_frame, bg='#ecf0f1')
-        tanggal_frame.pack(fill='x', pady=5)
+        tanggal_frame.pack(fill='x', pady=3)
 
         tk.Label(
-            tanggal_frame, 
-            text="📅 Tanggal:", 
-            font=('Arial', 10, 'bold'), 
+            tanggal_frame,
+            text="Tanggal:",
+            font=('Arial', self.scaled_font(9)),
             bg='#ecf0f1'
         ).pack(side='left')
-
 
         # ✅ DateEntry dengan format Indonesia (DD/MM/YYYY)
         self.tanggal_entry = DateEntry(
             tanggal_frame,
-            font=('Arial', 10),
-            width=12,
+            font=('Arial', self.scaled_font(9)),
+            width=11,
             background='#27ae60',  # Warna hijau (beda dari ETD yang orange)
             foreground='white',
             borderwidth=2,
             date_pattern='dd/MM/yyyy',  # ✅ FORMAT INDONESIA!
             locale='id_ID'
         )
-        self.tanggal_entry.pack(side='left', padx=(5, 10))
+        self.tanggal_entry.pack(side='left', padx=(5, 5))
 
         # Set nilai default ke hari ini
         self.tanggal_entry.set_date(datetime.now().date())
 
-        # Hint (opsional)
-        tk.Label(
-            tanggal_frame,
-            text="(klik untuk pilih)",
-            font=('Arial', 8),
-            bg='#ecf0f1',
-            fg='#7f8c8d'
-        ).pack(side='left')
-
         # MIDDLE: Biaya pengantaran
         delivery_cost_frame = tk.Frame(search_add_frame, bg='#ecf0f1')
-        delivery_cost_frame.pack(side='left', fill='both', expand=False, padx=10)
+        delivery_cost_frame.pack(side='left', fill='both', expand=False, padx=5)
 
-        tk.Label(delivery_cost_frame, text="🚚 Biaya Pengantaran:",
-                font=('Arial', 12, 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 5))
+        tk.Label(delivery_cost_frame, text="Biaya Pengantaran:",
+                font=('Arial', self.scaled_font(10), 'bold'), bg='#ecf0f1', fg='#e67e22').pack(anchor='w', pady=(0, 3))
 
         desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         desc_row.pack(fill='x', pady=2)
-        tk.Label(desc_row, text="Title:").pack(side='left')
+        tk.Label(desc_row, text="Title:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.delivery_desc_var = tk.StringVar()
         self.delivery_desc_combo = ttk.Combobox(desc_row,
                                                 textvariable=self.delivery_desc_var,
-                                                width=37,
-                                                state="normal")
+                                                width=22,
+                                                state="normal",
+                                                font=('Arial', self.scaled_font(9)))
         common_titles = [
             "THC Surabaya", "Freigth", "Bi. LSS", "Seal", "Bi. Cleaning Container",
             "Bi. Ops Stuffing Dalam", "Bi. Ambil Barang", "Bi. Oper Depo",
@@ -1634,43 +1566,43 @@ class ContainerWindow:
             "Bi. Sewa JPT & Adm", "Bi. Forklif Samarinda", "Bi. Lolo", "Rekolasi Samarinda"
         ]
         self.delivery_desc_combo['values'] = common_titles
-        self.delivery_desc_combo.pack(side='left', padx=(5, 20))
+        self.delivery_desc_combo.pack(side='left', padx=(5, 5))
 
         cost_desc_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         cost_desc_row.pack(fill='x', pady=2)
-        tk.Label(cost_desc_row, text="Description:").pack(side='left')
+        tk.Label(cost_desc_row, text="Desc:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.cost_description_var = tk.StringVar()
-        self.cost_description_entry = tk.Entry(cost_desc_row, textvariable=self.cost_description_var, width=40)
-        self.cost_description_entry.pack(side='left', padx=(5, 20))
+        self.cost_description_entry = tk.Entry(cost_desc_row, textvariable=self.cost_description_var, width=24, font=('Arial', self.scaled_font(9)))
+        self.cost_description_entry.pack(side='left', padx=(5, 5))
 
         cost_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         cost_row.pack(fill='x', pady=2)
-        tk.Label(cost_row, text="Biaya (Rp):").pack(side='left')
+        tk.Label(cost_row, text="Biaya:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.delivery_cost_var = tk.StringVar(value="0")
-        self.delivery_cost_entry = tk.Entry(cost_row, textvariable=self.delivery_cost_var, width=15)
-        self.delivery_cost_entry.pack(side='left', padx=(5, 10))
-        add_delivery_btn = tk.Button(cost_row, text="➕ Tambah Biaya", bg='#e67e22', fg='white',
-                                    padx=15, pady=5, command=self.add_delivery_cost)
+        self.delivery_cost_entry = tk.Entry(cost_row, textvariable=self.delivery_cost_var, width=12, font=('Arial', self.scaled_font(9)))
+        self.delivery_cost_entry.pack(side='left', padx=(5, 5))
+        add_delivery_btn = tk.Button(cost_row, text="Tambah",
+                                    font=('Arial', self.scaled_font(7), 'bold'),
+                                    bg='#e67e22', fg='white',
+                                    padx=6, pady=3, command=self.add_delivery_cost)
         self.make_button_keyboard_accessible(add_delivery_btn)
-        add_delivery_btn.pack(side='left', padx=(10, 0))
+        add_delivery_btn.pack(side='left', padx=(5, 0))
 
         destination_row = tk.Frame(delivery_cost_frame, bg='#ecf0f1')
         destination_row.pack(fill='x', pady=2)
-        tk.Label(destination_row, text="Lokasi:").pack(side='left')
+        tk.Label(destination_row, text="Lokasi:", font=('Arial', self.scaled_font(9))).pack(side='left')
         self.delivery_destination_var = tk.StringVar()
         self.delivery_destination_combo = ttk.Combobox(destination_row,
                                                     textvariable=self.delivery_destination_var,
-                                                    width=37, state="readonly")
-        self.delivery_destination_combo.pack(side='left', padx=(5, 20))
+                                                    width=22, state="readonly", font=('Arial', self.scaled_font(9)))
+        self.delivery_destination_combo.pack(side='left', padx=(5, 5))
 
         # RIGHT-TOP: Ringkasan/Pra-tabel Pajak
         tax_overview_frame = tk.Frame(search_add_frame, bg='#ecf0f1', relief='flat')
-        tax_overview_frame.pack(side='right', fill='both', expand=False, padx=(10, 0))
+        tax_overview_frame.pack(side='right', fill='both', expand=False, padx=(5, 0))
 
-        tax_overview_frame.grid_columnconfigure(0, minsize=1000)
-
-        tk.Label(tax_overview_frame, text="🧾 Daftar Pajak (Ringkasan)",
-                font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 5))
+        tk.Label(tax_overview_frame, text="Daftar Pajak",
+                font=('Arial', self.scaled_font(10), 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(0, 3))
 
         tax_tree_container = tk.Frame(tax_overview_frame, bg='#ecf0f1')
         tax_tree_container.pack(fill='both', expand=False)
@@ -1681,64 +1613,64 @@ class ContainerWindow:
             parent=tax_tree_container,
             columns=tax_columns,
             show='headings',
-            height=6,
+            height=5,
             items_per_page=5
         )
         self.tax_summary_tree.heading('Jenis_Tax', text='Jenis Pajak')
         self.tax_summary_tree.heading('Penerima', text='Penerima')
         self.tax_summary_tree.heading('Jumlah', text='Jumlah (Rp)')
         self.tax_summary_tree.heading('Tanggal', text='Tanggal')
-        self.tax_summary_tree.column('Jenis_Tax', width=120)
-        self.tax_summary_tree.column('Penerima', width=120)
-        self.tax_summary_tree.column('Jumlah', width=90)
-        self.tax_summary_tree.column('Tanggal', width=80)
+        self.tax_summary_tree.column('Jenis_Tax', width=95)
+        self.tax_summary_tree.column('Penerima', width=95)
+        self.tax_summary_tree.column('Jumlah', width=85)
+        self.tax_summary_tree.column('Tanggal', width=75)
         self.tax_summary_tree.pack(fill='both', expand=True)
 
         # === Actions frame (tombol-tombol utama) ===
         actions_frame = tk.Frame(selection_frame, bg='#ecf0f1')
-        actions_frame.pack(fill='x', pady=10)
+        actions_frame.pack(fill='x', pady=5)
 
-        add_barang_btn = tk.Button(actions_frame, text="💰 Tambah Barang + Harga ke Container",
-                                font=('Arial', 7, 'bold'), bg='#27ae60', fg='white',
-                                padx=10, pady=5, command=self.add_selected_barang_to_container)
+        add_barang_btn = tk.Button(actions_frame, text="Tambah Barang",
+                                font=('Arial', self.scaled_font(7), 'bold'), bg='#27ae60', fg='white',
+                                padx=6, pady=3, command=self.add_selected_barang_to_container)
         self.make_button_keyboard_accessible(add_barang_btn)
-        add_barang_btn.pack(side='left', padx=(0, 10))
+        add_barang_btn.pack(side='left', padx=(0, 5))
 
-        remove_barang_btn = tk.Button(actions_frame, text="➖ Hapus Barang dari Container",
-                                    font=('Arial', 7, 'bold'), bg='#e74c3c', fg='white',
-                                    padx=10, pady=5, command=self.remove_barang_from_container)
+        remove_barang_btn = tk.Button(actions_frame, text="Hapus Barang",
+                                    font=('Arial', self.scaled_font(7), 'bold'), bg='#e74c3c', fg='white',
+                                    padx=6, pady=3, command=self.remove_barang_from_container)
         self.make_button_keyboard_accessible(remove_barang_btn)
-        remove_barang_btn.pack(side='left', padx=(0, 10))
+        remove_barang_btn.pack(side='left', padx=(0, 5))
 
-        edit_colli_btn = tk.Button(actions_frame, text="🔢 Edit Colli, Satuan & Tanggal",
-                                font=('Arial', 7, 'bold'), bg='#16a085', fg='white',
-                                padx=10, pady=5, command=self.edit_barang_colli_in_container)
+        edit_colli_btn = tk.Button(actions_frame, text="Edit Colli",
+                                font=('Arial', self.scaled_font(7), 'bold'), bg='#16a085', fg='white',
+                                padx=6, pady=3, command=self.edit_barang_colli_in_container)
         self.make_button_keyboard_accessible(edit_colli_btn)
-        edit_colli_btn.pack(side='left', padx=(0, 10))
+        edit_colli_btn.pack(side='left', padx=(0, 5))
 
-        edit_price_btn = tk.Button(actions_frame, text="✏️ Edit Harga",
-                                font=('Arial', 7, 'bold'), bg='#f39c12', fg='white',
-                                padx=10, pady=5, command=self.edit_barang_price_in_container)
+        edit_price_btn = tk.Button(actions_frame, text="Edit Harga",
+                                font=('Arial', self.scaled_font(7), 'bold'), bg='#f39c12', fg='white',
+                                padx=6, pady=3, command=self.edit_barang_price_in_container)
         self.make_button_keyboard_accessible(edit_price_btn)
-        edit_price_btn.pack(side='left', padx=(0, 10))
+        edit_price_btn.pack(side='left', padx=(0, 5))
 
-        manage_delivery_btn = tk.Button(actions_frame, text="🚚 Kelola Biaya Pengantaran",
-                                        font=('Arial', 7, 'bold'), bg='#e67e22', fg='white',
-                                        padx=10, pady=5, command=self.manage_delivery_costs)
+        manage_delivery_btn = tk.Button(actions_frame, text="Kelola Biaya",
+                                        font=('Arial', self.scaled_font(7), 'bold'), bg='#e67e22', fg='white',
+                                        padx=6, pady=3, command=self.manage_delivery_costs)
         self.make_button_keyboard_accessible(manage_delivery_btn)
-        manage_delivery_btn.pack(side='left', padx=(0, 10))
+        manage_delivery_btn.pack(side='left', padx=(0, 5))
 
-        summary_btn = tk.Button(actions_frame, text="📊 Lihat Summary Container",
-                                font=('Arial', 7, 'bold'), bg='#9b59b6', fg='white',
-                                padx=10, pady=5, command=self.view_container_summary)
+        summary_btn = tk.Button(actions_frame, text="Summary",
+                                font=('Arial', self.scaled_font(7), 'bold'), bg='#9b59b6', fg='white',
+                                padx=6, pady=3, command=self.view_container_summary)
         self.make_button_keyboard_accessible(summary_btn)
-        summary_btn.pack(side='left', padx=(0, 10))
+        summary_btn.pack(side='left', padx=(0, 5))
 
-        clear_selection_btn = tk.Button(actions_frame, text="🗑️ Bersihkan Pilihan",
-                                        font=('Arial', 7, 'bold'), bg='#95a5a6', fg='white',
-                                        padx=10, pady=5, command=self.clear_selection)
+        clear_selection_btn = tk.Button(actions_frame, text="Bersihkan",
+                                        font=('Arial', self.scaled_font(7), 'bold'), bg='#95a5a6', fg='white',
+                                        padx=6, pady=3, command=self.clear_selection)
         self.make_button_keyboard_accessible(clear_selection_btn)
-        clear_selection_btn.pack(side='left', padx=(0, 10))
+        clear_selection_btn.pack(side='left', padx=(0, 5))
 
         # Muat data pelanggan/pengirim/barang
         self.original_pengirim_values = []
@@ -1749,19 +1681,19 @@ class ContainerWindow:
 
         # === Content frame bawah: dua panel (left=available, middle=container) ===
         content_frame = tk.Frame(parent, bg='#ecf0f1')
-        content_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        content_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
 
         content_frame.grid_rowconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(0, weight=1, minsize=400)
-        content_frame.grid_columnconfigure(1, weight=2, minsize=600) 
+        content_frame.grid_columnconfigure(0, weight=1, uniform="equal")
+        content_frame.grid_columnconfigure(1, weight=1, uniform="equal")
 
         # Left side - Available barang
         left_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
         left_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 3))
 
-        tk.Label(left_frame, text="📋 Barang Tersedia", font=('Arial', 12, 'bold'), bg='#ffffff').pack(pady=10)
+        tk.Label(left_frame, text="Barang Tersedia", font=('Arial', self.scaled_font(11), 'bold'), bg='#ffffff').pack(pady=5)
         available_tree_container = tk.Frame(left_frame)
-        available_tree_container.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        available_tree_container.pack(fill='both', expand=True, padx=5, pady=(0, 5))
 
         columns = ('ID', 'Pengirim', 'Penerima', 'Nama', 'Dimensi', 'Volume', 'Berat')
         self.available_tree = PaginatedTreeView(parent=available_tree_container,
@@ -1782,13 +1714,13 @@ class ContainerWindow:
         middle_frame = tk.Frame(content_frame, bg='#ffffff', relief='solid', bd=1)
         middle_frame.grid(row=0, column=1, sticky='nsew', padx=(3, 0))
 
-        self.container_label = tk.Label(middle_frame, text="📦 Barang dalam Container",
-                                        font=('Arial', 12, 'bold'), bg='#ffffff')
-        self.container_label.pack(pady=10)
+        self.container_label = tk.Label(middle_frame, text="Barang dalam Container",
+                                        font=('Arial', self.scaled_font(11), 'bold'), bg='#ffffff')
+        self.container_label.pack(pady=5)
 
         # Frame wrapper dengan scrollbar horizontal
         container_tree_frame = tk.Frame(middle_frame)
-        container_tree_frame.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        container_tree_frame.pack(fill='both', expand=True, padx=5, pady=(0, 5))
 
         # Kolom yang lebih lebar
         container_columns = ('Barang_ID', 'Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door', 'Dimensi',
@@ -1802,26 +1734,26 @@ class ContainerWindow:
             items_per_page=20
         )
         
-        # Configure headings dengan width yang lebih besar
+        # Configure headings dengan width yang lebih kompak untuk 1366x768
         headers_config = [
-            ('Barang_ID', 'ID', 60),
-            ('Pengirim', 'Pengirim', 150),
-            ('Penerima', 'Penerima', 150),
-            ('Nama', 'Nama Barang', 200),
-            ('Satuan', 'Satuan', 80),
-            ('Door', 'Door Type', 80),
-            ('Dimensi', 'P×L×T (cm)', 120),
-            ('Volume', 'Volume (m³)', 100),
-            ('Berat', 'Berat (ton)', 100),
-            ('Colli', 'Colli', 70),
-            ('Harga_Unit', 'Harga/Unit', 120),
-            ('Total_Harga', 'Total Harga', 130),
-            ('Tanggal', 'Ditambahkan', 110)
+            ('Barang_ID', 'ID', 45),
+            ('Pengirim', 'Pengirim', 110),
+            ('Penerima', 'Penerima', 110),
+            ('Nama', 'Nama Barang', 150),
+            ('Satuan', 'Satuan', 60),
+            ('Door', 'Door', 60),
+            ('Dimensi', 'P×L×T', 90),
+            ('Volume', 'Vol(m³)', 70),
+            ('Berat', 'Berat(t)', 70),
+            ('Colli', 'Colli', 50),
+            ('Harga_Unit', 'Harga/Unit', 90),
+            ('Total_Harga', 'Total', 95),
+            ('Tanggal', 'Tanggal', 85)
         ]
-        
+
         for col, text, width in headers_config:
             self.container_barang_tree.heading(col, text=text)
-            self.container_barang_tree.column(col, width=width, minwidth=width)
+            self.container_barang_tree.column(col, width=width, minwidth=50)
         
         # Pack treeview dengan scrollbar horizontal
         self.container_barang_tree.pack(fill='both', expand=True)
@@ -2067,7 +1999,7 @@ class ContainerWindow:
         
         # Check jika masih placeholder text
         if not deskripsi or deskripsi == "":
-            messagebox.showwarning("Peringatan", "Masukkan deskripsi biaya pengantaran!")
+            messagebox.showwarning("Peringatan", "Masukkan title biaya pengantaran!")
             return
         
         try:
@@ -2109,7 +2041,7 @@ class ContainerWindow:
         # Create window
         delivery_window = tk.Toplevel(self.window)
         delivery_window.title(f"Kelola Biaya Pengantaran - Container {self.selected_container_var.get()}")
-        delivery_window.geometry("1000x600")  # Perbesar untuk kolom lokasi
+        delivery_window.geometry("1200x600")  # Perbesar untuk kolom deskripsi
         delivery_window.configure(bg='#ecf0f1')
         
         try:
@@ -2145,16 +2077,18 @@ class ContainerWindow:
                 font=('Arial', 12, 'bold'), bg='#ffffff').pack(anchor='w', pady=(0, 10))
         
         # Treeview dengan kolom lokasi
-        columns = ('ID', 'Deskripsi', 'Lokasi', 'Biaya')
+        columns = ('ID', 'Title', 'Deskripsi', 'Lokasi', 'Biaya')
         delivery_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=8)
 
         delivery_tree.heading('ID', text='ID')
+        delivery_tree.heading('Title', text='Title')
         delivery_tree.heading('Deskripsi', text='Deskripsi')
         delivery_tree.heading('Lokasi', text='Lokasi')
         delivery_tree.heading('Biaya', text='Biaya (Rp)')
-        
+
         delivery_tree.column('ID', width=50)
-        delivery_tree.column('Deskripsi', width=250)
+        delivery_tree.column('Title', width=200)
+        delivery_tree.column('Deskripsi', width=200)
         delivery_tree.column('Lokasi', width=120)
         delivery_tree.column('Biaya', width=120)
         
@@ -2172,23 +2106,23 @@ class ContainerWindow:
             
             # Query dengan kolom location
             results = self.db.execute("""
-                SELECT id, description, delivery, cost, created_date
-                FROM container_delivery_costs 
+                SELECT id, description, cost_description, delivery, cost, created_date
+                FROM container_delivery_costs
                 WHERE container_id = ?
                 ORDER BY created_date DESC
             """, (container_id,))
-            
+
             total_biaya = 0
             for row in results:
-                biaya_formatted = f"Rp {row[3]:,.0f}"  # cost di index 3
+                biaya_formatted = f"Rp {row[4]:,.0f}"  # cost di index 4
                 delivery_tree.insert('', 'end', values=(
                     row[0],      # id
-                    row[1],      # description
-                    row[2] or 'Surabaya',  # location (default Surabaya jika NULL)
+                    row[1],      # description (title)
+                    row[2] or '-',  # cost_description (deskripsi)
+                    row[3] or 'Surabaya',  # delivery (lokasi)
                     biaya_formatted,  # cost
-                    row[4]       # created_date
                 ))
-                total_biaya += row[3]
+                total_biaya += row[4]
             
             # Update total label
             total_label.config(text=f"Total Biaya Pengantaran: Rp {total_biaya:,.0f}")
@@ -2198,15 +2132,15 @@ class ContainerWindow:
         action_frame.pack(fill='x', padx=20, pady=(0, 20))
         
         # Edit button
-        edit_btn = tk.Button(action_frame, text="✏️ Edit Biaya", font=('Arial', 11, 'bold'),
-                            bg='#f39c12', fg='white', padx=20, pady=8,
+        edit_btn = tk.Button(action_frame, text="✏️ Edit Biaya", font=('Arial', self.scaled_font(10), 'bold'),
+                            bg='#f39c12', fg='white', padx=15, pady=6,
                             command=lambda: edit_delivery_cost(delivery_tree))
         self.make_button_keyboard_accessible(edit_btn)
         edit_btn.pack(side='left', padx=(0, 10))
-        
+
         # Delete button
-        delete_btn = tk.Button(action_frame, text="🗑️ Hapus Biaya", font=('Arial', 11, 'bold'),
-                            bg='#e74c3c', fg='white', padx=20, pady=8,
+        delete_btn = tk.Button(action_frame, text="🗑️ Hapus Biaya", font=('Arial', self.scaled_font(10), 'bold'),
+                            bg='#e74c3c', fg='white', padx=15, pady=6,
                             command=lambda: delete_delivery_cost(delivery_tree))
         self.make_button_keyboard_accessible(delete_btn)
         delete_btn.pack(side='left', padx=(0, 10))
@@ -2226,29 +2160,34 @@ class ContainerWindow:
             item = tree.item(selected[0])
             values = item['values']
             cost_id = values[0]
-            current_desc = values[1]
-            current_location = values[2]  # Lokasi di index 2
-            current_cost = float(values[3].replace('Rp ', '').replace(',', '').replace('.', ''))
-            
+            current_desc = values[1]  # Title
+            current_cost_desc = values[2]  # Deskripsi
+            current_location = values[3]  # Lokasi
+            current_cost = float(values[4].replace('Rp ', '').replace(',', '').replace('.', ''))  # Biaya
+
             # Dialog edit dengan lokasi
             edit_dialog = tk.Toplevel(delivery_window)
             edit_dialog.title("Edit Biaya Pengantaran")
-            edit_dialog.geometry("450x300")  # Lebih tinggi untuk field lokasi
+            edit_dialog.geometry("450x400")  # Lebih tinggi untuk field tambahan
             edit_dialog.configure(bg='#ecf0f1')
             edit_dialog.transient(delivery_window)
             edit_dialog.grab_set()
-            
+
             # Center dialog
             edit_dialog.update_idletasks()
             x = delivery_window.winfo_x() + (delivery_window.winfo_width() // 2) - (225)
-            y = delivery_window.winfo_y() + (delivery_window.winfo_height() // 2) - (150)
-            edit_dialog.geometry(f"450x300+{x}+{y}")
-            
+            y = delivery_window.winfo_y() + (delivery_window.winfo_height() // 2) - (200)
+            edit_dialog.geometry(f"450x400+{x}+{y}")
+
             # Form dengan lokasi
-            tk.Label(edit_dialog, text="Deskripsi:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
+            tk.Label(edit_dialog, text="Title:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
             desc_var = tk.StringVar(value=current_desc)
             tk.Entry(edit_dialog, textvariable=desc_var, font=('Arial', 10), width=40).pack(pady=5)
-            
+
+            tk.Label(edit_dialog, text="Deskripsi:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
+            cost_desc_var = tk.StringVar(value=current_cost_desc if current_cost_desc != '-' else '')
+            tk.Entry(edit_dialog, textvariable=cost_desc_var, font=('Arial', 10), width=40).pack(pady=5)
+
             tk.Label(edit_dialog, text="Lokasi:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
             location_var = tk.StringVar(value=current_location)
             location_combo = ttk.Combobox(edit_dialog, textvariable=location_var, 
@@ -2284,25 +2223,26 @@ class ContainerWindow:
             
             def save_edit():
                 new_desc = desc_var.get().strip()
+                new_cost_desc = cost_desc_var.get().strip()
                 new_location = location_var.get().strip()
                 new_cost_str = cost_var.get().replace(',', '').replace('.', '').strip()
-                
+
                 if not new_desc or not new_location or not new_cost_str:
-                    messagebox.showwarning("Peringatan", "Lengkapi semua field!")
+                    messagebox.showwarning("Peringatan", "Lengkapi field Title, Lokasi, dan Biaya!")
                     return
-                
+
                 try:
                     new_cost = float(new_cost_str)
                     self.db.execute("""
-                        UPDATE container_delivery_costs 
-                        SET description = ?, delivery = ?, cost = ?
+                        UPDATE container_delivery_costs
+                        SET description = ?, cost_description = ?, delivery = ?, cost = ?
                         WHERE id = ?
-                    """, (new_desc, new_location, new_cost, cost_id))
-                    
+                    """, (new_desc, new_cost_desc, new_location, new_cost, cost_id))
+
                     edit_dialog.destroy()
                     load_delivery_costs()
                     messagebox.showinfo("Sukses", "Biaya pengantaran berhasil diupdate!")
-                    
+
                 except Exception as e:
                     messagebox.showerror("Error", f"Gagal mengupdate: {str(e)}")
             
@@ -2310,13 +2250,13 @@ class ContainerWindow:
             btn_frame = tk.Frame(edit_dialog, bg='#ecf0f1')
             btn_frame.pack(pady=20)
 
-            save_btn = tk.Button(btn_frame, text="💾 Simpan", font=('Arial', 11, 'bold'),
-                    bg='#27ae60', fg='white', padx=20, pady=8, command=save_edit)
+            save_btn = tk.Button(btn_frame, text="💾 Simpan", font=('Arial', self.scaled_font(10), 'bold'),
+                    bg='#27ae60', fg='white', padx=15, pady=6, command=save_edit)
             self.make_button_keyboard_accessible(save_btn)
             save_btn.pack(side='left', padx=(0, 10))
 
-            cancel_btn = tk.Button(btn_frame, text="❌ Batal", font=('Arial', 11, 'bold'),
-                    bg='#95a5a6', fg='white', padx=20, pady=8, command=edit_dialog.destroy)
+            cancel_btn = tk.Button(btn_frame, text="❌ Batal", font=('Arial', self.scaled_font(10), 'bold'),
+                    bg='#95a5a6', fg='white', padx=15, pady=6, command=edit_dialog.destroy)
             self.make_button_keyboard_accessible(cancel_btn)
             cancel_btn.pack(side='left')
         
@@ -2621,13 +2561,26 @@ class ContainerWindow:
         """Create dialog for pricing input with auto-price selection using Treeview table"""
         pricing_window = tk.Toplevel(self.window)
         pricing_window.title("💰 Set Harga Barang")
-        pricing_window.geometry("1300x800")
+
+        # Calculate responsive window size
+        screen_width = pricing_window.winfo_screenwidth()
+        screen_height = pricing_window.winfo_screenheight()
+
+        # Use 85% of screen width and 75% of screen height (better for 1366x768)
+        dialog_width = min(int(screen_width * 0.85), 1200)
+        dialog_height = min(int(screen_height * 0.75), 700)
+
+        # Minimum size for usability
+        dialog_width = max(dialog_width, 900)
+        dialog_height = max(dialog_height, 500)
+
+        pricing_window.geometry(f"{dialog_width}x{dialog_height}")
         pricing_window.configure(bg='#ecf0f1')
         pricing_window.transient(self.window)
         pricing_window.grab_set()
-        
+
         # Center window
-        self._center_window(pricing_window, 1300, 800)
+        self._center_window(pricing_window, dialog_width, dialog_height)
         
         # Initialize pricing data storage
         pricing_data_store = {}
@@ -3887,7 +3840,20 @@ class ContainerWindow:
         """Create scrollable dialog for editing existing prices with auto-price options using Treeview"""
         pricing_window = tk.Toplevel(self.window)
         pricing_window.title("✏️ Edit Harga Barang")
-        pricing_window.geometry("1300x800")
+
+        # Calculate responsive window size
+        screen_width = pricing_window.winfo_screenwidth()
+        screen_height = pricing_window.winfo_screenheight()
+
+        # Use 85% of screen width and 75% of screen height (better for 1366x768)
+        dialog_width = min(int(screen_width * 0.85), 1200)
+        dialog_height = min(int(screen_height * 0.75), 700)
+
+        # Minimum size for usability
+        dialog_width = max(dialog_width, 900)
+        dialog_height = max(dialog_height, 500)
+
+        pricing_window.geometry(f"{dialog_width}x{dialog_height}")
         pricing_window.configure(bg='#ecf0f1')
         pricing_window.transient(self.window)
         pricing_window.grab_set()
@@ -3906,9 +3872,9 @@ class ContainerWindow:
         
         # Center window
         pricing_window.update_idletasks()
-        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (650)
-        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (400)
-        pricing_window.geometry(f"1300x800+{x}+{y}")
+        x = self.window.winfo_x() + (self.window.winfo_width() // 2) - (dialog_width // 2)
+        y = self.window.winfo_y() + (self.window.winfo_height() // 2) - (dialog_height // 2)
+        pricing_window.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
         
         # CREATE MAIN SCROLLABLE CANVAS FOR ENTIRE DIALOG
         main_canvas = tk.Canvas(pricing_window, bg='#ecf0f1')
@@ -5529,14 +5495,14 @@ class ContainerWindow:
         
         # Create buttons
         save_btn = tk.Button(btn_frame, text="💾 Simpan Perubahan",
-                font=('Arial', 12, 'bold'), bg='#27ae60', fg='white',
-                padx=25, pady=10, command=save_colli_and_date_changes)
+                font=('Arial', self.scaled_font(11), 'bold'), bg='#27ae60', fg='white',
+                padx=20, pady=6, command=save_colli_and_date_changes)
         self.make_button_keyboard_accessible(save_btn)
         save_btn.pack(side='left', padx=(0, 10))
 
         cancel_btn = tk.Button(btn_frame, text="❌ Batal",
-                font=('Arial', 12, 'bold'), bg='#e74c3c', fg='white',
-                padx=25, pady=10, command=edit_window.destroy)
+                font=('Arial', self.scaled_font(11), 'bold'), bg='#e74c3c', fg='white',
+                padx=20, pady=6, command=edit_window.destroy)
         self.make_button_keyboard_accessible(cancel_btn)
         cancel_btn.pack(side='left')
         
@@ -7764,13 +7730,13 @@ class ContainerWindow:
             btn_frame.pack(fill='x', pady=15, padx=20)
 
             save_btn = tk.Button(btn_frame, text="💾 Simpan Perubahan", bg='#27ae60', fg='white',
-                    font=('Arial', 12, 'bold'), padx=20, pady=10,
+                    font=('Arial', self.scaled_font(11), 'bold'), padx=15, pady=6,
                     command=save_container)
             self.make_button_keyboard_accessible(save_btn)
             save_btn.pack(side='left', padx=(0,10))
 
             close_btn = tk.Button(btn_frame, text="❌ Tutup", bg='#e74c3c', fg='white',
-                    font=('Arial', 12, 'bold'), padx=20, pady=10,
+                    font=('Arial', self.scaled_font(11), 'bold'), padx=15, pady=6,
                     command=edit_window.destroy)
             self.make_button_keyboard_accessible(close_btn)
             close_btn.pack(side='right')
@@ -7848,10 +7814,10 @@ class ContainerWindow:
         self.party_entry.set('')
         self.seal_entry.delete(0, tk.END)
         self.ref_joa_entry.delete(0, tk.END)
-        
 
-        today_indonesian = datetime.now().strftime('%d/%m/%Y')
-        self.etd_entry.set_date(today_indonesian)
+
+        # Set ETD to today's date (use date object, not string!)
+        self.etd_entry.set_date(datetime.now().date())
         
         if hasattr(self, 'editing_container_id'):
             delattr(self, 'editing_container_id')

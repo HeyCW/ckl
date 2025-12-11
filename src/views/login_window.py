@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import hashlib
 from src.models.database import AppDatabase
-from PIL import Image, ImageTk
+from src.utils.icon_cache import icon_cache
 
 class LoginWindow:
     def __init__(self, root, on_login_success=None):
@@ -30,17 +30,10 @@ class LoginWindow:
         self.login_window.geometry("400x450")
         self.login_window.resizable(False, False)
 
-        try:
-            # Load dan resize image
-            icon_image = Image.open("assets/logo.jpg")
-            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
-            icon_photo = ImageTk.PhotoImage(icon_image)
-
-            # Set sebagai window icon
+        # Set icon menggunakan cache system
+        icon_photo = icon_cache.get_icon("assets/logo.jpg", (32, 32))
+        if icon_photo:
             self.login_window.iconphoto(False, icon_photo)
-
-        except Exception as e:
-            print(f"Icon tidak ditemukan: {e}")
 
         print(f"   📍 Initial geometry: {self.login_window.geometry()}")
         

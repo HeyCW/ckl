@@ -2,36 +2,27 @@ import tkinter as tk
 import traceback
 import sys
 import os
-from PIL import Image, ImageTk
+from src.utils.helpers import setup_window_restore_behavior
+from src.utils.icon_cache import icon_cache
 
-def main():         
+def main():
     try:
         print("🚀 Starting application...")
-        
-        # Import modules
-        from src.views.login_window import LoginWindow
-        from src.views.main_window import MainWindow
-        
+
         # Create root window
         print("🪟 Creating root window...")
         root = tk.Tk()
+        
         
         # Configure root winprint("")dow (initially hidden)
         root.title("Aplikasi Data Shipping")
         root.geometry("1x1")  # Minimal size initially
         root.withdraw()  # Hide initially
         
-        try:    
-            # Load dan resize image
-            icon_image = Image.open("assets/logo.jpg")
-            icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
-            icon_photo = ImageTk.PhotoImage(icon_image)
-        
-            # Set sebagai window icon
-            root.iconphoto(False,    icon_photo)
-            
-        except Exception as e:
-            print(f"Icon tidak ditemukan: {e}")
+        # Set icon menggunakan cache system
+        icon_photo = icon_cache.get_icon("assets/logo.jpg", (32, 32))
+        if icon_photo:
+            root.iconphoto(False, icon_photo)
         
         print("   ✅ Root window created")
         
@@ -39,19 +30,22 @@ def main():
             """Callback after successful login"""
             print(f"🔐 Login success callback triggered for: {username}")
             try:
+                # Lazy import MainWindow (hanya saat login berhasil)
+                from src.views.main_window import MainWindow
+
                 # Show and configure root window
                 print("🪟 Showing main window...")
                 root.deiconify()  # Show the hidden root window
                 root.geometry("1000x700")  # Set proper size
                 root.lift()       # Bring to front
                 root.focus_force()  # Give it focus
-                
+
                 print(f"   ✅ Root window configured: {root.geometry()}")
-                
+
                 # Center window
                 center_window(root)
                 print(f"   ✅ Window centered")
-                
+
                 # Create main window content
                 print("🏠 Creating main window...")
                 app = MainWindow(root, current_user=user_data)
@@ -76,8 +70,9 @@ def main():
                     pass
                 root.quit()
         
-        # Show login window
+        # Show login window (lazy import)
         print("🔑 Creating login window...")
+        from src.views.login_window import LoginWindow
         login = LoginWindow(root, on_login_success)
         
         # Force login window to show and focus
@@ -99,6 +94,9 @@ def main():
             print("   ❌ Login window object not found!")
             return
         
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(root)
+
         # Handle application exit
         def on_app_exit():
             print("🚪 Application exit triggered")
@@ -108,7 +106,7 @@ def main():
                 root.quit()
             except:
                 root.quit()
-        
+
         root.protocol("WM_DELETE_WINDOW", on_app_exit)
         
         # Additional debug info

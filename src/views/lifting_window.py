@@ -6,6 +6,7 @@ from src.models.database import AppDatabase
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
+from src.utils.helpers import setup_window_restore_behavior
 
 class LiftingWindow:
     def __init__(self, parent, db: AppDatabase):
@@ -17,6 +18,9 @@ class LiftingWindow:
         self.window = tk.Toplevel(self.parent)
         self.window.title("📦 Lifting Report (Biaya POL & POD)")
         self.window.configure(bg="#ecf0f1")
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
 
         # === Ukuran & posisi tengah (Responsive) ===
         screen_width = self.window.winfo_screenwidth()

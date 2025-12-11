@@ -8,28 +8,30 @@ import re
 from PIL import Image, ImageTk
 
 from src.widget.paginated_tree_view import PaginatedTreeView
+from src.utils.helpers import setup_window_restore_behavior
 
 class BarangWindow:
-    
+
     def __init__(self, parent, db, refresh_callback=None):
         self.parent = parent
         self.db = db
         self.refresh_callback = refresh_callback
         self.original_barang_data = []
+        self.list_tab_loaded = False  # Track if data has been loaded
         self.create_window()
     
     def get_scale_factor(self):
         """Calculate scale factor based on screen size"""
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        
-        # Base scale on 1920x1080 as reference
-        width_scale = screen_width / 1920
-        height_scale = screen_height / 1080
-        
-        # Use average and clamp between 0.7 and 1.2
+
+        # Base scale on 1600x900 as reference (better for 1366x768)
+        width_scale = screen_width / 1600
+        height_scale = screen_height / 900
+
+        # Use average and clamp between 0.75 and 1.3
         scale = (width_scale + height_scale) / 2
-        return max(0.7, min(1.2, scale))
+        return max(0.75, min(1.3, scale))
     
     def scaled_font(self, base_size):
         """Return scaled font size"""
@@ -80,22 +82,25 @@ class BarangWindow:
         """Create barang management window with responsive design"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("📦 Data Barang")
-        
+
         # Get screen dimensions
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        
+
         # Adaptive window size
         window_width = min(int(screen_width * 0.85), 1400)
         window_height = min(int(screen_height * 0.85), 850)
-        
+
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
-        
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
+
         # Resizable
-        self.window.minsize(1000, 600)
+        self.window.minsize(850, 500)  # Reduced for 1366x768 compatibility
         self.window.resizable(True, True)
         
         try:
@@ -1239,10 +1244,9 @@ class BarangWindow:
         self.original_barang_data = []
         self.original_pengirim_data = []
         self.original_penerima_data = []
-        
-        # Load existing barang
-        self.load_pengirim_penerima_filter()
-        
+
+        # Don't load data yet - use lazy loading when tab is opened
+
         # Add tab change event to refresh data when switching to this tab
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
         
@@ -1911,18 +1915,9 @@ class BarangWindow:
                         val = float(value.replace(',', '.'))
                         if val <= 0:
                             raise ValueError("Berat harus lebih besar dari 0")
-            
-                if colli_var.get().strip():
-                    value = colli_var.get().strip()
-                    if value == '-':
-                        pass  # Skip validasi untuk nilai '-'
-                    else:
-                        val = int(float(value))
-                        if val <= 0:
-                            raise ValueError("Colli harus lebih besar dari 0")
-                        
+
             except ValueError as e:
-                messagebox.showwarning("Format Tidak Valid", f"Volume/Berat/Colli tidak valid: {str(e)}")
+                messagebox.showwarning("Format Tidak Valid", f"Volume/Berat tidak valid: {str(e)}")
                 return False
             
             # 5. Validasi harga - minimal salah satu kategori harus diisi
@@ -2222,16 +2217,29 @@ class BarangWindow:
         """Show detailed error modal with proper horizontal scrolling"""
         error_window = tk.Toplevel(self.window)
         error_window.title("📊 Detail Error Upload")
-        error_window.geometry("1200x700")  # ✅ Lebih lebar lagi
+
+        # Calculate responsive window size
+        screen_width = error_window.winfo_screenwidth()
+        screen_height = error_window.winfo_screenheight()
+
+        # Use 80% of screen width and 75% of screen height (better for 1366x768)
+        dialog_width = min(int(screen_width * 0.80), 1200)
+        dialog_height = min(int(screen_height * 0.75), 700)
+
+        # Minimum size for usability
+        dialog_width = max(dialog_width, 900)
+        dialog_height = max(dialog_height, 500)
+
+        error_window.geometry(f"{dialog_width}x{dialog_height}")
         error_window.configure(bg='#ecf0f1')
         error_window.transient(self.window)
         error_window.grab_set()
-        
+
         # Center the error window
         error_window.update_idletasks()
-        x = (error_window.winfo_screenwidth() // 2) - (1200 // 2)
-        y = (error_window.winfo_screenheight() // 2) - (700 // 2)
-        error_window.geometry(f"1200x700+{x}+{y}")
+        x = (error_window.winfo_screenwidth() // 2) - (dialog_width // 2)
+        y = (error_window.winfo_screenheight() // 2) - (dialog_height // 2)
+        error_window.geometry(f"{dialog_width}x{dialog_height}+{x}+{y}")
         
         # Header
         header = tk.Label(
@@ -3988,12 +3996,12 @@ class BarangWindow:
             # Clear form and refresh
             self.clear_form()
             self.load_barang()
-            
+
             if self.refresh_callback:
                 self.refresh_callback()
-            
-            # Switch to list tab to see the added barang
-            self.notebook.select(2)  # Switch to list tab
+
+            # Stay on manual input tab instead of switching to list
+            # self.notebook.select(2)  # Switch to list tab
             
         except ValueError as ve:
             messagebox.showerror("Format Error", str(ve))
@@ -4192,11 +4200,17 @@ class BarangWindow:
             messagebox.showerror("Error", f"Gagal memuat daftar barang: {str(e)}")
         
     def on_tab_changed(self, event):
-        """Handle tab change event"""
+        """Handle tab change event with lazy loading"""
         selected_tab = event.widget.select()
         tab_text = event.widget.tab(selected_tab, "text")
-        
-        # If switching to barang list tab, refresh the data
+
+        # If switching to barang list tab, use lazy loading
         if "Daftar Barang" in tab_text:
-            self.load_barang()
-            print("Tab changed to Barang List - data refreshed")
+            # Lazy load: only load data the first time tab is opened
+            if not self.list_tab_loaded:
+                print("First time loading barang list - fetching data...")
+                self.load_pengirim_penerima_filter()  # Load filter options first
+                self.load_barang()  # Then load the data
+                self.list_tab_loaded = True
+            else:
+                print("Barang list already loaded - skipping database query")

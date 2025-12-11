@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
-from src.utils.helpers import format_ton
+from src.utils.helpers import format_ton, setup_window_restore_behavior
 
 class CustomerOrdersWindow:
     def __init__(self, parent, db):
@@ -16,6 +16,9 @@ class CustomerOrdersWindow:
         self.window = tk.Toplevel(self.parent)
         self.window.title("📊 Customer Orders Management")
         self.window.configure(bg="#ecf0f1")
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
 
         # Responsive window sizing
         screen_width = self.window.winfo_screenwidth()

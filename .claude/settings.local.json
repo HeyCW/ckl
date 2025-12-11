@@ -4,7 +4,10 @@
       "Bash(dir:*)",
       "Bash(cat:*)",
       "Bash(python check_container_pp.py:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(timeout:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

@@ -170,7 +170,7 @@ def add_delivery_costs_to_containers(containers):
         for cost_type in selected_types:
             delivery_name = cost_type['delivery']
             party_label = container.get('party', '').replace("'", "")
-            description = f"{cost_type['delivery']} {party_label}".strip()
+            description = f"{cost_type['delivery']}".strip()
             cost_description = cost_type['desc']
 
             # Generate cost dalam range

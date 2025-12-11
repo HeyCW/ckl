@@ -27,3 +27,27 @@ def format_ton(value):
         return formatted
     except (ValueError, TypeError):
         return "0.000"
+
+
+def setup_window_restore_behavior(window):
+    """
+    Setup window to properly restore from minimize.
+
+    This fixes the issue where window doesn't come to front after minimize/restore.
+    Works for both Tk root windows and Toplevel windows.
+
+    Args:
+        window: tk.Tk or tk.Toplevel window instance
+    """
+    def on_window_restore(event=None):
+        """Force window to front when restored from minimize"""
+        try:
+            window.lift()
+            window.attributes('-topmost', True)
+            window.after(100, lambda: window.attributes('-topmost', False))
+            window.focus_force()
+        except:
+            pass
+
+    # Bind to Map event (triggered when window is deiconified/restored)
+    window.bind('<Map>', on_window_restore)

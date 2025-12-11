@@ -6,6 +6,7 @@ import os
 import re
 from src.models.database import AppDatabase
 from PIL import Image, ImageTk
+from src.utils.helpers import setup_window_restore_behavior
 
 class SenderWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -19,23 +20,39 @@ class SenderWindow:
         """Create sender management window"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("📋 Data Pengirim")
-        self.window.geometry("1000x800")
+
+        # Calculate responsive window size
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+
+        # Use 70% of screen width and 75% of screen height (better for 1366x768)
+        window_width = min(int(screen_width * 0.70), 1000)
+        window_height = min(int(screen_height * 0.75), 700)
+
+        # Minimum size for usability
+        window_width = max(window_width, 850)
+        window_height = max(window_height, 500)
+
+        self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
-        
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
+
         try:
             # Load dan resize image
             icon_image = Image.open("assets/logo.jpg")
             icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
             icon_photo = ImageTk.PhotoImage(icon_image)
-            
+
             # Set sebagai window icon
             self.window.iconphoto(False, icon_photo)
-            
+
         except Exception as e:
             print(f"Icon tidak ditemukan: {e}")
-        
+
         # Center window
         self.center_window()
         

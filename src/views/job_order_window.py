@@ -4,14 +4,17 @@ from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from tkinter import filedialog
-from src.utils.helpers import format_ton
+from src.utils.helpers import format_ton, setup_window_restore_behavior
 
 class JobOrderWindow:
     def __init__(self, parent, db):
         self.db = db
         self.window = tk.Toplevel(parent)
         self.window.title("Job Order Management")
-        
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
+
         # Set minimum window size
         self.window.minsize(800, 600)
         
@@ -650,7 +653,7 @@ class JobOrderWindow:
                 party = cost['party'] or ''
 
                 # Deteksi ukuran container
-                size = '40' if '40' in party else '20' if '20' in party else None
+                size = '40' if '40' in party else '21' if '21' in party else '20' if '20' in party else None
                 
                 # ✅ PERBAIKAN LOGIKA:
                 # Jika delivery_type kosong atau mengandung "Surabaya" → POL

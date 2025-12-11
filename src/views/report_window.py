@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from src.models.database import AppDatabase
+from src.utils.helpers import setup_window_restore_behavior
 
 class ReportsWindow:
     def __init__(self, parent, db):
@@ -12,11 +13,31 @@ class ReportsWindow:
         """Create reports window"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("📋 Laporan Data")
-        self.window.geometry("1200x700")
+
+        # Calculate responsive window size
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+
+        # Use 80% of screen width and 75% of screen height (better for 1366x768)
+        window_width = min(int(screen_width * 0.80), 1200)
+        window_height = min(int(screen_height * 0.75), 700)
+
+        # Minimum size for usability
+        window_width = max(window_width, 900)
+        window_height = max(window_height, 500)
+
+        self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
-        
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
+
+        # Store window size for center_window
+        self.window_width = window_width
+        self.window_height = window_height
+
         # Center window
         self.center_window()
         
@@ -70,11 +91,11 @@ class ReportsWindow:
         parent_y = self.parent.winfo_y()
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
-        
-        x = parent_x + (parent_width // 2) - (1200 // 2)
-        y = parent_y + (parent_height // 2) - (700 // 2)
-        
-        self.window.geometry(f"1200x700+{x}+{y}")
+
+        x = parent_x + (parent_width // 2) - (self.window_width // 2)
+        y = parent_y + (parent_height // 2) - (self.window_height // 2)
+
+        self.window.geometry(f"{self.window_width}x{self.window_height}+{x}+{y}")
     
     def create_customer_report(self, parent):
         """Create customer report tab"""

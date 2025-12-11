@@ -7,6 +7,7 @@ import re
 from src.models.database import AppDatabase
 from PIL import Image, ImageTk
 from src.widget.paginated_tree_view import PaginatedTreeView
+from src.utils.helpers import setup_window_restore_behavior
 
 class CustomerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -14,20 +15,21 @@ class CustomerWindow:
         self.db = db
         self.refresh_callback = refresh_callback
         self.original_customer_data = []
+        self.list_tab_loaded = False  # Track if data has been loaded
         self.create_window()
     
     def get_scale_factor(self):
         """Calculate scale factor based on screen size"""
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        
-        # Base scale on 1920x1080 as reference
-        width_scale = screen_width / 1920
-        height_scale = screen_height / 1080
-        
-        # Use average and clamp between 0.7 and 1.2
+
+        # Base scale on 1600x900 as reference (better for 1366x768)
+        width_scale = screen_width / 1600
+        height_scale = screen_height / 900
+
+        # Use average and clamp between 0.75 and 1.3
         scale = (width_scale + height_scale) / 2
-        return max(0.7, min(1.2, scale))
+        return max(0.75, min(1.3, scale))
     
     def scaled_font(self, base_size):
         """Return scaled font size"""
@@ -79,22 +81,25 @@ class CustomerWindow:
         """Create customer management window"""
         self.window = tk.Toplevel(self.parent)
         self.window.title("📋 Data Customer")
-        
+
         # Get screen dimensions
         screen_width = self.window.winfo_screenwidth()
         screen_height = self.window.winfo_screenheight()
-        
+
         # Adaptive window size
         window_width = min(int(screen_width * 0.8), 1400)
         window_height = min(int(screen_height * 0.85), 850)
-        
+
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
         self.window.transient(self.parent)
         self.window.grab_set()
-        
-        # Resizable
-        self.window.minsize(1000, 600)
+
+        # Setup window restore behavior (fix minimize/restore issue)
+        setup_window_restore_behavior(self.window)
+
+        # Resizable (reduced minimum size for 1366x768 compatibility)
+        self.window.minsize(850, 500)
         self.window.resizable(True, True)
         
         try:
@@ -482,11 +487,11 @@ class CustomerWindow:
         self.tree.column('Created', width=max(120, int(window_width * 0.13)))
         
         self.tree.pack(fill='both', expand=True)
-        
+
         self.tree.bind('<Double-1>', lambda e: self.update_customer())
         self.tree.bind('<<TreeviewSelect>>', self.on_tree_select)
-        
-        self.load_customers()
+
+        # Don't load data yet - use lazy loading
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
     
     def on_search_change(self, *args):
@@ -1272,9 +1277,10 @@ class CustomerWindow:
             self.load_customers()
             if self.refresh_callback:
                 self.refresh_callback()
-            
-            self.notebook.select(2)
-            
+
+            # Stay on Excel upload tab instead of switching to list
+            # self.notebook.select(2)
+
             self.file_path_var.set("")
             for item in self.preview_tree.get_children():
                 self.preview_tree.delete(item)
@@ -1417,12 +1423,13 @@ class CustomerWindow:
             customer_id = self.db.create_customer(name, address)
             messagebox.showinfo("Sukses", f"Customer berhasil ditambahkan dengan ID: {customer_id}")
             self.clear_form()
-            
+
             self.load_customers()
             if self.refresh_callback:
                 self.refresh_callback()
-            
-            self.notebook.select(2)
+
+            # Stay on manual input tab instead of switching to list
+            # self.notebook.select(2)
             
         except ValueError as ve:
             messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}")
@@ -1470,13 +1477,18 @@ class CustomerWindow:
             messagebox.showerror("Error", f"Gagal memuat daftar customer: {str(e)}")
     
     def on_tab_changed(self, event):
-        """Handle tab change event"""
+        """Handle tab change event with lazy loading"""
         selected_tab = event.widget.select()
         tab_text = event.widget.tab(selected_tab, "text")
-        
+
         if "Daftar Customer" in tab_text:
-            self.load_customers()
-            print("Tab changed to Customer List - data refreshed")
+            # Lazy load: only load data the first time tab is opened
+            if not self.list_tab_loaded:
+                print("First time loading customer list - fetching data...")
+                self.load_customers()
+                self.list_tab_loaded = True
+            else:
+                print("Customer list already loaded - skipping database query")
 
 
 # Example usage and testing functions
