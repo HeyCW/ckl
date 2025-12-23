@@ -681,7 +681,9 @@ class CustomerWindow:
                 )
                 
                 messagebox.showinfo("Sukses", "Data customer berhasil diupdate!")
-                
+
+                # Reset flag to ensure data reloads when switching tabs
+                self.list_tab_loaded = False
                 self.load_customers()
                 if self.refresh_callback:
                     self.refresh_callback()
@@ -760,7 +762,9 @@ class CustomerWindow:
             self.db.execute("DELETE FROM customers WHERE customer_id = ?", (customer_id,))
             
             messagebox.showinfo("Sukses", f"Customer '{nama_customer}' berhasil dihapus!")
-            
+
+            # Reset flag to ensure data reloads when switching tabs
+            self.list_tab_loaded = False
             self.load_customers()
             if self.refresh_callback:
                 self.refresh_callback()
@@ -1273,7 +1277,9 @@ class CustomerWindow:
                     f"✅ Total berhasil: {success_count} customer\n" +
                     f"📊 Total diproses: {total_processed} baris data"
                 )
-            
+
+            # Reset flag to ensure data reloads when switching tabs
+            self.list_tab_loaded = False
             self.load_customers()
             if self.refresh_callback:
                 self.refresh_callback()
@@ -1424,6 +1430,8 @@ class CustomerWindow:
             messagebox.showinfo("Sukses", f"Customer berhasil ditambahkan dengan ID: {customer_id}")
             self.clear_form()
 
+            # Reset flag to ensure data reloads when switching tabs
+            self.list_tab_loaded = False
             self.load_customers()
             if self.refresh_callback:
                 self.refresh_callback()

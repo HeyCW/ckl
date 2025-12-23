@@ -1421,7 +1421,11 @@ class BarangWindow:
                 else:
                     # List/tuple structure - add as is
                     formatted_data.append(barang)
-            
+
+            # Clear tree to prevent race condition with debouncing
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+
             # Set filtered data to PaginatedTreeView
             self.tree.set_data(formatted_data)
             
@@ -1514,6 +1518,8 @@ class BarangWindow:
             print(f"Updated data: {updated_barang}")
             self.db.update_barang(updated_barang)
             messagebox.showinfo("Sukses", "Data barang berhasil disimpan!")
+            # Reset flag to ensure data reloads when switching tabs
+            self.list_tab_loaded = False
             self.load_barang()
             self.load_pengirim_penerima_filter()  # Refresh filter options
         except Exception as e:

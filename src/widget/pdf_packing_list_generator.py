@@ -1000,7 +1000,7 @@ class PDFPackingListGenerator:
 
                 except Exception as logo_error:
                     print(f"[ERROR] Logo error: {logo_error}")
-                    company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                    company_text = "PT. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
                     title_para = Paragraph("PACKING LISTS", title_style)
                     header_data = [[company_para, title_para]]
@@ -1013,7 +1013,7 @@ class PDFPackingListGenerator:
                         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                     ]))
             else:
-                company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                company_text = "PT. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                 company_para = Paragraph(company_text, company_info_style)
                 title_para = Paragraph("PACKING LISTS", title_style)
                 header_data = [[company_para, title_para]]
@@ -1730,7 +1730,7 @@ class PDFPackingListGenerator:
                     
                 except Exception as logo_error:
                     print(f"[ERROR] Logo error: {logo_error}")
-                    company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                    company_text = "PT. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                     company_para = Paragraph(company_text, company_info_style)
                     title_para = Paragraph("PACKING LISTS", title_style)
                     header_data = [[company_para, title_para]]
@@ -1743,7 +1743,7 @@ class PDFPackingListGenerator:
                         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
                     ]))
             else:
-                company_text = "CV. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
+                company_text = "PT. CAHAYA KARUNIA<br/>Jln. Teluk Bone Selatan No. 5. Surabaya<br/>Phone: 031-5016607"
                 company_para = Paragraph(company_text, company_info_style)
                 title_para = Paragraph("PACKING LISTS", title_style)
                 header_data = [[company_para, title_para]]

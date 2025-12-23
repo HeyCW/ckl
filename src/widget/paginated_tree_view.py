@@ -165,17 +165,21 @@ class PaginatedTreeView:
     
     def set_data(self, data, filter_func=None):
         """Set all data and refresh display"""
+        # Clear existing tree data first to prevent duplicates
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
         self.all_data = data
-        
+
         # Apply filter if provided
         if filter_func:
             self.filtered_data = [item for item in data if filter_func(item)]
         else:
             self.filtered_data = data[:]
-        
+
         self.total_items = len(self.filtered_data)
         self.total_pages = max(1, math.ceil(self.total_items / self.items_per_page))
-        
+
         # Reset to first page
         self.current_page = 0
         self.refresh_display()
