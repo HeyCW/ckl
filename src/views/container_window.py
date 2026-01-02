@@ -3208,7 +3208,7 @@ class ContainerWindow:
         method = data['current_method']
         price = data['current_price']
         pricing_info = data['pricing_info']
-        
+
         print(f"Calculating total for item {item_id} with method {method}, price {price}, colli {colli_amount}")
         print("Pricing Info:", pricing_info)
 
@@ -3216,27 +3216,35 @@ class ContainerWindow:
         total = 0
         if method.startswith('Harga/m3_'):
             # m3-based combinations: price × m3_barang × colli
-            total = price * pricing_info['m3_barang'] * colli_amount
+            m3_barang = pricing_info.get('m3_barang', 0) or 0
+            total = price * m3_barang * colli_amount
+            print(f"  -> m3 calculation: {price} × {m3_barang} × {colli_amount} = {total}")
         elif method.startswith('Harga/ton_'):
-            # ton-based combinations: price × ton_barang × colli  
-            total = price * pricing_info['ton_barang'] * colli_amount
+            # ton-based combinations: price × ton_barang × colli
+            ton_barang = pricing_info.get('ton_barang', 0) or 0
+            total = price * ton_barang * colli_amount
+            print(f"  -> ton calculation: {price} × {ton_barang} × {colli_amount} = {total}")
         elif method.startswith('Harga/container'):
             # container-based combinations: price × container_barang × colli
-            container_qty = pricing_info.get('container_barang') or 1
+            container_qty = pricing_info.get('container_barang', 0) or 1
             total = price * container_qty * colli_amount
+            print(f"  -> container calculation: {price} × {container_qty} × {colli_amount} = {total}")
         elif method.startswith('Harga/colli_'):
             # colli-based combinations: price × colli
             total = price * colli_amount
+            print(f"  -> colli calculation: {price} × {colli_amount} = {total}")
         elif method == 'Manual':
             # Manual: price × colli
             total = price * colli_amount
+            print(f"  -> manual calculation: {price} × {colli_amount} = {total}")
         else:
+            print(f"  -> unknown method '{method}', total = 0")
             total = 0
-        
+
         # Update tax rows if this barang has tax and tree is provided
         if tree and data.get('has_tax', False):
             self._calculate_tax_amounts(item_id, total, pricing_data_store, tree)
-        
+
         return total
     
     
@@ -4161,10 +4169,12 @@ class ContainerWindow:
             colli = int(item.get('colli', 1))
             
             # Store data for calculations
+            original_method = "Harga/" + selected_items[0]['satuan'] + "_" + selected_items[0]['door_type']
             pricing_data_store[item['id']] = {
                 'item': item,
                 'pricing_info': pricing_info,
-                'current_method': "Harga/" + selected_items[0]['satuan'] + "_" + selected_items[0]['door_type'],
+                'current_method': original_method,
+                'original_method': original_method,  # Simpan method asli untuk deteksi perubahan
                 'current_price': current_price,
                 'original_price': current_price,
                 'colli_amount': colli,
@@ -4284,34 +4294,42 @@ class ContainerWindow:
         price = data['current_price']
         pricing_info = data['pricing_info']
         colli_amount = data['colli_amount']
-        
+
         print(f"Calculating edit total for item {item_id} with method {method}, price {price}, colli {colli_amount}")
 
         # Parse combination methods
         total = 0
         if method.startswith('Harga/m3_'):
             # m3-based combinations: price × m3_barang × colli
-            total = price * pricing_info['m3_barang'] * colli_amount
+            m3_barang = pricing_info.get('m3_barang', 0) or 0
+            total = price * m3_barang * colli_amount
+            print(f"  -> m3 calculation: {price} × {m3_barang} × {colli_amount} = {total}")
         elif method.startswith('Harga/ton_'):
-            # ton-based combinations: price × ton_barang × colli  
-            total = price * pricing_info['ton_barang'] * colli_amount
+            # ton-based combinations: price × ton_barang × colli
+            ton_barang = pricing_info.get('ton_barang', 0) or 0
+            total = price * ton_barang * colli_amount
+            print(f"  -> ton calculation: {price} × {ton_barang} × {colli_amount} = {total}")
         elif method.startswith('Harga/container'):
             # container-based combinations: price × container_barang × colli
-            container_qty = pricing_info.get('container_barang') or 1
+            container_qty = pricing_info.get('container_barang', 0) or 1
             total = price * container_qty * colli_amount
+            print(f"  -> container calculation: {price} × {container_qty} × {colli_amount} = {total}")
         elif method.startswith('Harga/colli_'):
             # colli-based combinations: price × colli
             total = price * colli_amount
+            print(f"  -> colli calculation: {price} × {colli_amount} = {total}")
         elif method == 'Manual':
             # Manual: price × colli
             total = price * colli_amount
+            print(f"  -> manual calculation: {price} × {colli_amount} = {total}")
         else:
+            print(f"  -> unknown method '{method}', total = 0")
             total = 0
-        
+
         # Update tax rows if this barang has tax and tree is provided
         if tree and data.get('has_tax', False):
             self._calculate_edit_tax_amounts(item_id, total, pricing_data_store, tree)
-        
+
         return total
      
     def _setup_edit_table_editing(self, tree, pricing_data_store):
@@ -4802,47 +4820,39 @@ class ContainerWindow:
                         current_price = data.get('current_price', 0)
                         original_price = data.get('original_price', 0)
                         method = data.get('current_method', 'Manual')
+                        original_method = data.get('original_method', method)  # Ambil method asli
                         colli = data.get('colli_amount', 1)
-                        
-                        # Ambil data dari pricing_info dengan safe access
-                        pricing_info = data.get('pricing_info', {})
-                        m3_barang = pricing_info.get('m3_barang', 0)
-                        ton_barang = pricing_info.get('ton_barang', 0)
-                        
-                        # Safe parsing untuk satuan dari method
-                        satuan = 'manual'
-                        if method and '/' in method and '_' in method:
-                            try:
-                                satuan = method.split('/')[1].split('_')[0]
-                            except (IndexError, AttributeError):
-                                satuan = 'manual'
-                        
-                        total = 0
-                        
-                        if satuan == "m3" and m3_barang > 0:
-                            total = current_price * colli * m3_barang
-                        elif satuan == "ton" and ton_barang > 0:
-                            total = current_price * colli * ton_barang
-                        else:
-                            total = current_price * colli
-                        
+
+                        # Gunakan fungsi _calculate_edit_total_price_with_tax yang sudah ada
+                        # untuk konsistensi dengan kalkulasi di tempat lain
+                        total = self._calculate_edit_total_price_with_tax(item_id, pricing_data_store, tree=None)
+
+                        # Deteksi perubahan: harga ATAU method berubah
+                        has_price_change = current_price != original_price
+                        has_method_change = method != original_method
+
                         pricing_data[item_id] = {
                             'harga_per_unit': current_price,
                             'total_harga': total,
                             'metode_pricing': method,
                             'original_price': original_price,
-                            'price_changed': current_price != original_price
+                            'original_method': original_method,
+                            'price_changed': has_price_change,
+                            'method_changed': has_method_change
                         }
                         total_amount += total
-                        
-                        if current_price != original_price:
+
+                        # Tambahkan ke changed_items jika harga ATAU method berubah
+                        if has_price_change or has_method_change:
                             item_info = data.get('item', {})
                             changed_items.append({
                                 'id': item_id,
                                 'name': item_info.get('name', f'Item {item_id}'),
                                 'old_price': original_price,
                                 'new_price': current_price,
-                                'method': method
+                                'old_method': original_method,
+                                'method': method,
+                                'change_type': 'harga' if has_price_change else 'satuan'
                             })
                 
                 if not pricing_data:
@@ -4864,7 +4874,10 @@ class ContainerWindow:
                 confirm_msg += f"📋 DETAIL PERUBAHAN:\n"
                 for i, item in enumerate(changed_items[:5]):
                     confirm_msg += f"• {item['name'][:30]}{'...' if len(item['name']) > 30 else ''}\n"
-                    confirm_msg += f"  Lama: Rp {item['old_price']:,.0f} → Baru: Rp {item['new_price']:,.0f} ({item['method']})\n"
+                    if item['change_type'] == 'harga':
+                        confirm_msg += f"  Lama: Rp {item['old_price']:,.0f} → Baru: Rp {item['new_price']:,.0f} ({item['method']})\n"
+                    else:
+                        confirm_msg += f"  Satuan: {item['old_method']} → {item['method']} (Rp {item['new_price']:,.0f})\n"
                 
                 if len(changed_items) > 5:
                     remaining = len(changed_items) - 5
@@ -5658,17 +5671,21 @@ class ContainerWindow:
                         if corresponding_item:
                             new_harga_unit = price_data['harga_per_unit']
                             new_total_harga = price_data['total_harga']
-                            
+                            metode_pricing = price_data.get('metode_pricing', 'Manual')
+
+                            # ✅ PERBAIKAN: Edit harga TIDAK perlu update satuan dan door_type
+                            # Hanya update harga_per_unit dan total_harga saja
+
                             # Update dengan assigned_at untuk unique identification
                             update_query = """
-                                UPDATE detail_container 
-                                SET harga_per_unit = ?, total_harga = ? 
+                                UPDATE detail_container
+                                SET harga_per_unit = ?, total_harga = ?
                                 WHERE barang_id = ? AND container_id = ? AND assigned_at = ?
                             """
                             update_params = (
-                                new_harga_unit, 
-                                new_total_harga, 
-                                barang_id, 
+                                new_harga_unit,
+                                new_total_harga,
+                                barang_id,
                                 container_id,
                                 corresponding_item['assigned_at']
                             )
@@ -5691,8 +5708,8 @@ class ContainerWindow:
                                 # Try fallback without assigned_at
                                 print(f"⚠️ Trying fallback update without assigned_at...")
                                 fallback_query = """
-                                    UPDATE detail_container 
-                                    SET harga_per_unit = ?, total_harga = ? 
+                                    UPDATE detail_container
+                                    SET harga_per_unit = ?, total_harga = ?
                                     WHERE barang_id = ? AND container_id = ?
                                 """
                                 fallback_params = (new_harga_unit, new_total_harga, barang_id, container_id)

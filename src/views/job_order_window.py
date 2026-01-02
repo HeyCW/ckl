@@ -642,9 +642,12 @@ class JobOrderWindow:
             # ✅ LOGIKA: Pakai kolom delivery untuk tentukan POL vs POD
             # POL = Lokasi Surabaya (atau kosong)
             # POD = Lokasi selain Surabaya
-            
-            cost_summary_pol, cost_summary_pod = {}, {}
-            
+            # ✅ GROUP BIAYA TAPI TAMPILKAN DETAIL HARGA PER BARIS
+
+            # First, group costs by (cost_type, size, location)
+            grouped_pol = {}
+            grouped_pod = {}
+
             for cost in delivery_costs:
                 cost_type = cost['cost_type'] or ''
                 delivery_type = cost['delivery_type'] or ''
@@ -654,62 +657,139 @@ class JobOrderWindow:
 
                 # Deteksi ukuran container
                 size = '40' if '40' in party else '21' if '21' in party else '20' if '20' in party else None
-                
+
                 # ✅ PERBAIKAN LOGIKA:
                 # Jika delivery_type kosong atau mengandung "Surabaya" → POL
                 # Jika delivery_type mengandung nama kota lain → POD
                 delivery_lower = delivery_type.lower()
-                
+
                 is_pol = (
                     not delivery_type or  # Kosong = default Surabaya = POL
-                    'surabaya' in delivery_lower or 
+                    'surabaya' in delivery_lower or
                     'sby' in delivery_lower or
                     'sub' in delivery_lower
                 )
-                
-                print(f"DEBUG Cost: '{cost_type}' | Delivery: '{delivery_type}' | Lokasi: {'POL (Surabaya)' if is_pol else 'POD (Destination)'}")
-                
-                key = (cost_type, size)
-                target = cost_summary_pol if is_pol else cost_summary_pod
-                
-                if key not in target:
-                    target[key] = {'notes': notes, 'size': size, 'unit_cost': amount}
 
-            # POL costs
-            for (cost_type, size), data in cost_summary_pol.items():
-                # Determine quantity based on container size/type
-                qty_map = {'20': total_20, '21': total_21, '40': total_40}
-                qty = qty_map.get(size, 1)
-                unit = f"{qty}x {size}'" if size else "1 invoice"
-                total = data['unit_cost'] * qty
-                ket = f"{cost_type} {size}" if size else cost_type
+                print(f"DEBUG Cost: '{cost_type}' | Delivery: '{delivery_type}' | Amount: Rp {amount:,.0f} | Lokasi: {'POL (Surabaya)' if is_pol else 'POD (Destination)'}")
+
+                key = (cost_type, size)
+                target = grouped_pol if is_pol else grouped_pod
+
+                if key not in target:
+                    target[key] = []
+                target[key].append(amount)
+
+            # Display POL costs with grouped format
+            for (cost_type, size), amounts in sorted(grouped_pol.items()):
+                ket = f"{cost_type} {size}'" if size else cost_type
+                qty = len(amounts)
+                unit = f"{qty}x {size}'" if size else f"{qty} item"
+                total = sum(amounts)
 
                 purchase_pol_total += total
                 purchase_total += total
-                self.pol_tree.insert('', 'end', values=(
-                    ket,
-                    unit,
-                    f"Rp {data['unit_cost']:,.0f}",
-                    f"Rp {total:,.0f}"
-                ))
 
-            # POD costs
-            for (cost_type, size), data in cost_summary_pod.items():
-                # Determine quantity based on container size/type
-                qty_map = {'20': total_20, '21': total_21, '40': total_40}
-                qty = qty_map.get(size, 1)
-                unit = f"{qty}x {size}'" if size else "1 invoice"
-                total = data['unit_cost'] * qty
-                ket = f"{cost_type} {size}" if size else cost_type
+                # ✅ CEK: Apakah semua harga sama?
+                all_same = len(set(amounts)) == 1
+
+                if all_same:
+                    # Kalau semua harga sama, tampilkan 1 row: keterangan + unit + harga + total
+                    self.pol_tree.insert('', 'end', values=(
+                        ket,
+                        unit,
+                        f"Rp {amounts[0]:,.0f}",
+                        f"Rp {total:,.0f}"
+                    ))
+                elif len(amounts) == 1:
+                    # Kalau cuma 1 harga, tampilkan dengan total
+                    self.pol_tree.insert('', 'end', values=(
+                        ket,
+                        unit,
+                        f"Rp {amounts[0]:,.0f}",
+                        f"Rp {total:,.0f}"
+                    ))
+                else:
+                    # Kalau harga beda-beda, tampilkan detail
+                    # First row: keterangan + unit + harga pertama + empty (NO TOTAL)
+                    self.pol_tree.insert('', 'end', values=(
+                        ket,
+                        unit,
+                        f"Rp {amounts[0]:,.0f}",
+                        ""
+                    ))
+
+                    # Middle rows: empty + empty + harga lainnya + empty
+                    for amount in amounts[1:-1]:
+                        self.pol_tree.insert('', 'end', values=(
+                            "",
+                            "",
+                            f"Rp {amount:,.0f}",
+                            ""
+                        ))
+
+                    # Last row: empty + empty + harga terakhir + TOTAL
+                    self.pol_tree.insert('', 'end', values=(
+                        "",
+                        "",
+                        f"Rp {amounts[-1]:,.0f}",
+                        f"Rp {total:,.0f}"
+                    ))
+
+            # Display POD costs with grouped format
+            for (cost_type, size), amounts in sorted(grouped_pod.items()):
+                ket = f"{cost_type} {size}'" if size else cost_type
+                qty = len(amounts)
+                unit = f"{qty}x {size}'" if size else f"{qty} item"
+                total = sum(amounts)
 
                 purchase_pod_total += total
                 purchase_total += total
-                self.pod_tree.insert('', 'end', values=(
-                    ket,
-                    unit,
-                    f"Rp {data['unit_cost']:,.0f}",
-                    f"Rp {total:,.0f}"
-                ))
+
+                # ✅ CEK: Apakah semua harga sama?
+                all_same = len(set(amounts)) == 1
+
+                if all_same:
+                    # Kalau semua harga sama, tampilkan 1 row: keterangan + unit + harga + total
+                    self.pod_tree.insert('', 'end', values=(
+                        ket,
+                        unit,
+                        f"Rp {amounts[0]:,.0f}",
+                        f"Rp {total:,.0f}"
+                    ))
+                elif len(amounts) == 1:
+                    # Kalau cuma 1 harga, tampilkan dengan total
+                    self.pod_tree.insert('', 'end', values=(
+                        ket,
+                        unit,
+                        f"Rp {amounts[0]:,.0f}",
+                        f"Rp {total:,.0f}"
+                    ))
+                else:
+                    # Kalau harga beda-beda, tampilkan detail
+                    # First row: keterangan + unit + harga pertama + empty (NO TOTAL)
+                    self.pod_tree.insert('', 'end', values=(
+                        ket,
+                        unit,
+                        f"Rp {amounts[0]:,.0f}",
+                        ""
+                    ))
+
+                    # Middle rows: empty + empty + harga lainnya + empty
+                    for amount in amounts[1:-1]:
+                        self.pod_tree.insert('', 'end', values=(
+                            "",
+                            "",
+                            f"Rp {amount:,.0f}",
+                            ""
+                        ))
+
+                    # Last row: empty + empty + harga terakhir + TOTAL
+                    self.pod_tree.insert('', 'end', values=(
+                        "",
+                        "",
+                        f"Rp {amounts[-1]:,.0f}",
+                        f"Rp {total:,.0f}"
+                    ))
 
             # Update purchase labels
             self.pol_purchase_total_label.config(text=f"Rp {purchase_pol_total:,.0f}")

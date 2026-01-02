@@ -214,11 +214,11 @@ class CustomerWindow:
     def create_excel_tab(self, parent):
         """Create Excel upload tab"""
         main_container = tk.Frame(parent, bg='#ecf0f1')
-        main_container.pack(fill='both', expand=True, padx=20, pady=20)
+        main_container.pack(fill='both', expand=True, padx=15, pady=10)
         
         instruction_frame = tk.Frame(main_container, bg='#ffffff', relief='solid', bd=1)
-        instruction_frame.pack(fill='x', pady=(0, 20))
-        
+        instruction_frame.pack(fill='x', pady=(0, 10))
+
         instruction_title = tk.Label(
             instruction_frame,
             text="📊 Upload Data Customer dari Excel",
@@ -226,25 +226,23 @@ class CustomerWindow:
             fg='#2c3e50',
             bg='#ffffff'
         )
-        instruction_title.pack(pady=(10, 5))
-        
+        instruction_title.pack(pady=(8, 3))
+
         instruction_text = tk.Label(
             instruction_frame,
-            text="Format Excel yang dibutuhkan:\n\n" +
-                 "• Kolom A: Nama Customer (WAJIB)\n" +
-                 "• Kolom B: Alamat Customer (WAJIB)\n" +
+            text="Format Excel yang dibutuhkan:\n" +
+                 "• Kolom A: Nama Customer (WAJIB) • Kolom B: Alamat Customer (WAJIB)\n" +
                  "• Baris pertama adalah header (Nama, Alamat)\n" +
-                 "• Pastikan tidak ada duplikasi nama customer\n\n" +
                  "Tips: Download template untuk format yang benar!",
-            font=('Arial', self.scaled_font(10)),
+            font=('Arial', self.scaled_font(9)),
             fg='#34495e',
             bg='#ffffff',
             justify='left'
         )
-        instruction_text.pack(pady=(0, 10), padx=20)
+        instruction_text.pack(pady=(0, 8), padx=15)
         
         file_frame = tk.Frame(main_container, bg='#ecf0f1')
-        file_frame.pack(fill='x', pady=10)
+        file_frame.pack(fill='x', pady=5)
         
         tk.Label(file_frame, text="Pilih File Excel:", font=('Arial', self.scaled_font(12), 'bold'), bg='#ecf0f1').pack(anchor='w')
         
@@ -269,19 +267,19 @@ class CustomerWindow:
         browse_btn.pack(side='right', padx=(5, 0))
         
         preview_frame = tk.Frame(main_container, bg='#ecf0f1')
-        preview_frame.pack(fill='both', expand=True, pady=10)
-        
+        preview_frame.pack(fill='both', expand=True, pady=5)
+
         tk.Label(preview_frame, text="📋 Preview Data:", font=('Arial', self.scaled_font(12), 'bold'), bg='#ecf0f1').pack(anchor='w')
-        
+
         preview_tree_frame = tk.Frame(preview_frame, bg='#ecf0f1')
-        preview_tree_frame.pack(fill='both', expand=True, pady=5)
-        
+        preview_tree_frame.pack(fill='both', expand=True, pady=3)
+
         preview_container = tk.Frame(preview_tree_frame, bg='#ecf0f1')
         preview_container.pack(fill='both', expand=True)
-        
-        self.preview_tree = ttk.Treeview(preview_container, 
-                                       columns=('Status', 'Nama', 'Alamat'), 
-                                       show='headings', height=8)
+
+        self.preview_tree = ttk.Treeview(preview_container,
+                                       columns=('Status', 'Nama', 'Alamat'),
+                                       show='headings', height=5)
         
         self.preview_tree.heading('Status', text='Status')
         self.preview_tree.heading('Nama', text='Nama Customer')
@@ -305,8 +303,8 @@ class CustomerWindow:
         preview_container.grid_columnconfigure(0, weight=1)
         
         upload_btn_frame = tk.Frame(main_container, bg='#ecf0f1')
-        upload_btn_frame.pack(fill='x', pady=15)
-        
+        upload_btn_frame.pack(fill='x', pady=8)
+
         self.upload_btn = tk.Button(
             upload_btn_frame,
             text="⬆️ Upload ke Database",
@@ -318,8 +316,8 @@ class CustomerWindow:
             command=self.upload_excel_data,
             state='disabled'
         )
-        self.upload_btn.pack(side='left', padx=(0, 15))
-        
+        self.upload_btn.pack(side='left', padx=(0, 10))
+
         download_template_btn = tk.Button(
             upload_btn_frame,
             text="📥 Download Template",
@@ -332,17 +330,17 @@ class CustomerWindow:
         )
         self.make_button_keyboard_accessible(download_template_btn)
         download_template_btn.pack(side='left')
-        
+
         self.status_label = tk.Label(
             main_container,
             text="",
-            font=('Arial', self.scaled_font(11)),
+            font=('Arial', self.scaled_font(10)),
             fg='#e74c3c',
             bg='#ecf0f1',
             wraplength=1000,
             justify='left'
         )
-        self.status_label.pack(pady=10, fill='x')
+        self.status_label.pack(pady=5, fill='x')
     
     def create_list_tab(self, parent):
         """Create customer list tab"""
