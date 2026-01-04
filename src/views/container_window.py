@@ -3227,7 +3227,7 @@ class ContainerWindow:
         elif method.startswith('Harga/container'):
             # container-based combinations: price × container_barang × colli
             container_qty = pricing_info.get('container_barang', 0) or 1
-            total = price * container_qty * colli_amount
+            total = price * container_qty
             print(f"  -> container calculation: {price} × {container_qty} × {colli_amount} = {total}")
         elif method.startswith('Harga/colli_'):
             # colli-based combinations: price × colli
@@ -4312,8 +4312,8 @@ class ContainerWindow:
         elif method.startswith('Harga/container'):
             # container-based combinations: price × container_barang × colli
             container_qty = pricing_info.get('container_barang', 0) or 1
-            total = price * container_qty * colli_amount
-            print(f"  -> container calculation: {price} × {container_qty} × {colli_amount} = {total}")
+            total = price * container_qty
+            print(f"  -> container calculation: {price} × {container_qty} = {total}")
         elif method.startswith('Harga/colli_'):
             # colli-based combinations: price × colli
             total = price * colli_amount
