@@ -35,8 +35,8 @@ class SenderWindow:
 
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
-        self.window.transient(self.parent)
-        self.window.grab_set()
+        # Tidak pakai grab_set() dan transient() agar window bisa diatur bebas
+        # self.window.transient(self.parent)  # Dihapus agar main_window bisa di depan
 
         # Setup window restore behavior (fix minimize/restore issue)
         setup_window_restore_behavior(self.window)
@@ -409,7 +409,8 @@ class SenderWindow:
         
         self.tree = ttk.Treeview(tree_container,
                                columns=('ID', 'Nama', 'Created'),
-                               show='headings', height=12)
+                               show='headings', height=12,
+                               selectmode='extended')
         
         # Configure columns
         self.tree.heading('ID', text='ID')
@@ -524,7 +525,7 @@ class SenderWindow:
         """Update selected sender"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih pengirim yang akan diedit dari tabel!")
+            messagebox.showwarning("Peringatan", "Pilih pengirim yang akan diedit dari tabel!", parent=self.window)
             return
         
         # Get selected item data
@@ -539,7 +540,7 @@ class SenderWindow:
                 break
         
         if not selected_sender:
-            messagebox.showerror("Error", "Data pengirim tidak ditemukan!")
+            messagebox.showerror("Error", "Data pengirim tidak ditemukan!", parent=self.window)
             return
         
         # Open update dialog
@@ -550,10 +551,10 @@ class SenderWindow:
         # Create update window
         update_window = tk.Toplevel(self.window)
         update_window.title(f"✏️ Edit Pengirim - {sender_data['nama_pengirim']}")
-        update_window.geometry("500x300")  
+        update_window.geometry("500x300")
         update_window.configure(bg='#ecf0f1')
         update_window.transient(self.window)
-        update_window.grab_set()
+        # Tidak pakai grab_set() agar bisa buka multiple window
         
         # Center window
         update_window.update_idletasks()
@@ -602,7 +603,7 @@ class SenderWindow:
                 new_nama = nama_var.get().strip()
                 
                 if not new_nama:
-                    messagebox.showerror("Error", "Nama pengirim harus diisi!")
+                    messagebox.showerror("Error", "Nama pengirim harus diisi!", parent=self.window)
                     nama_entry.focus()
                     return
                 
@@ -612,7 +613,7 @@ class SenderWindow:
                     nama_pengirim=new_nama
                 )
                 
-                messagebox.showinfo("Sukses", "Data pengirim berhasil diupdate!")
+                messagebox.showinfo("Sukses", "Data pengirim berhasil diupdate!", parent=self.window)
                 
                 # Refresh data and close dialog
                 self.load_senders()
@@ -622,9 +623,9 @@ class SenderWindow:
                 update_window.destroy()
                 
             except ValueError as ve:
-                messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}")
+                messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}", parent=self.window)
             except Exception as e:
-                messagebox.showerror("Error", f"Gagal mengupdate pengirim!\nError: {str(e)}")
+                messagebox.showerror("Error", f"Gagal mengupdate pengirim!\nError: {str(e)}", parent=self.window)
         
         # Buttons
         btn_frame = tk.Frame(update_window, bg='#ecf0f1')  
@@ -659,58 +660,78 @@ class SenderWindow:
         nama_entry.select_range(0, tk.END)
     
     def delete_sender(self):
-        """Delete selected sender"""
+        """Delete selected sender (supports multiple selection)"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih pengirim yang akan dihapus dari tabel!")
+            messagebox.showwarning("Peringatan", "Pilih pengirim yang akan dihapus dari tabel!", parent=self.window)
             return
-        
-        # Get selected item data
-        item = self.tree.item(selection[0])
-        sender_id = item['values'][0]
-        nama_pengirim = item['values'][1]
-        
-        # Check if sender has associated barang
+
         try:
-            barang_count = self.db.execute_one(
-                "SELECT COUNT(*) as count FROM barang WHERE sender_id = ?",
-                (sender_id,)
-            )
-            
-            has_barang = barang_count['count'] > 0 if barang_count else False
-            
-            # Confirm deletion
-            confirm_msg = f"Yakin ingin menghapus pengirim?\n\n" + \
-                         f"ID: {sender_id}\n" + \
-                         f"Nama: {nama_pengirim}\n\n"
-            
-            if has_barang:
-                confirm_msg += f"⚠️ PERINGATAN: Pengirim ini memiliki {barang_count['count']} barang terkait!\n" + \
-                              f"Menghapus pengirim akan mempengaruhi data barang terkait.\n\n"
-            
-            confirm_msg += f"⚠️ Aksi ini tidak dapat dibatalkan!"
-            
-            if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg):
+            # Collect all selected items and check for related barang
+            items_to_delete = []
+            total_barang_count = 0
+            for sel in selection:
+                item = self.tree.item(sel)
+                sender_id = item['values'][0]
+                nama_pengirim = item['values'][1]
+
+                barang_count = self.db.execute_one(
+                    "SELECT COUNT(*) as count FROM barang WHERE sender_id = ?",
+                    (sender_id,)
+                )
+                count = barang_count['count'] if barang_count else 0
+                total_barang_count += count
+                items_to_delete.append({'id': sender_id, 'nama': nama_pengirim, 'barang_count': count})
+
+            # Build confirmation message
+            if len(items_to_delete) == 1:
+                confirm_msg = f"Yakin ingin menghapus pengirim?\n\n" + \
+                             f"ID: {items_to_delete[0]['id']}\n" + \
+                             f"Nama: {items_to_delete[0]['nama']}\n\n"
+                if items_to_delete[0]['barang_count'] > 0:
+                    confirm_msg += f"⚠️ PERINGATAN: Pengirim ini memiliki {items_to_delete[0]['barang_count']} barang terkait!\n" + \
+                                  f"Menghapus pengirim akan mempengaruhi data barang terkait.\n\n"
+            else:
+                confirm_msg = f"Yakin ingin menghapus {len(items_to_delete)} pengirim?\n\n"
+                for i, item in enumerate(items_to_delete[:5]):
+                    confirm_msg += f"• {item['nama']}"
+                    if item['barang_count'] > 0:
+                        confirm_msg += f" ({item['barang_count']} barang)"
+                    confirm_msg += "\n"
+                if len(items_to_delete) > 5:
+                    confirm_msg += f"• ... dan {len(items_to_delete) - 5} lainnya\n"
+                if total_barang_count > 0:
+                    confirm_msg += f"\n⚠️ PERINGATAN: Total {total_barang_count} barang terkait akan terpengaruh!\n"
+
+            confirm_msg += f"\n⚠️ Aksi ini tidak dapat dibatalkan!"
+
+            if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg, parent=self.window):
                 return
-            
-            # Delete sender
-            self.db.execute("DELETE FROM senders WHERE sender_id = ?", (sender_id,))
-            
-            messagebox.showinfo("Sukses", f"Pengirim '{nama_pengirim}' berhasil dihapus!")
-            
+
+            # Delete all selected senders
+            deleted_count = 0
+            for item in items_to_delete:
+                self.db.execute("DELETE FROM senders WHERE sender_id = ?", (item['id'],))
+                deleted_count += 1
+
+            if deleted_count == 1:
+                messagebox.showinfo("Sukses", f"Pengirim '{items_to_delete[0]['nama']}' berhasil dihapus!", parent=self.window)
+            else:
+                messagebox.showinfo("Sukses", f"{deleted_count} pengirim berhasil dihapus!", parent=self.window)
+
             # Refresh data
             self.load_senders()
             if self.refresh_callback:
                 self.refresh_callback()
-                
+
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menghapus pengirim:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal menghapus pengirim:\n{str(e)}", parent=self.window)
     
     def export_senders(self):
         """Export sender data to Excel"""
         try:
             if not self.original_sender_data:
-                messagebox.showwarning("Peringatan", "Tidak ada data pengirim untuk diekspor!")
+                messagebox.showwarning("Peringatan", "Tidak ada data pengirim untuk diekspor!", parent=self.window)
                 return
             
             # Ask for save location
@@ -772,11 +793,11 @@ class SenderWindow:
             messagebox.showinfo(
                 "Export Berhasil",
                 f"Data pengirim berhasil diekspor ke:\n{filename}\n\n" +
-                f"📊 Total: {len(export_data)} pengirim"
-            )
+                f"📊 Total: {len(export_data)} pengirim",
+                parent=self.window)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal export data:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal export data:\n{str(e)}", parent=self.window)
     
     def show_error_details(self, errors, duplicate_list, success_count, total_count):
         """Show detailed error modal with specific error information"""
@@ -785,7 +806,7 @@ class SenderWindow:
         error_window.geometry("800x600")
         error_window.configure(bg='#ecf0f1')
         error_window.transient(self.window)
-        error_window.grab_set()
+        # Tidak pakai grab_set() agar bisa buka multiple window
         
         # Center the error window
         error_window.update_idletasks()
@@ -1142,7 +1163,7 @@ class SenderWindow:
         """Upload Excel data to database with enhanced error handling"""
         filename = self.file_path_var.get()
         if not filename:
-            messagebox.showerror("Error", "Pilih file Excel terlebih dahulu!")
+            messagebox.showerror("Error", "Pilih file Excel terlebih dahulu!", parent=self.window)
             return
         
         try:
@@ -1157,22 +1178,22 @@ class SenderWindow:
             
             # Validate data
             if nama_col not in df.columns:
-                messagebox.showerror("Error", f"Kolom '{nama_col}' tidak ditemukan!")
+                messagebox.showerror("Error", f"Kolom '{nama_col}' tidak ditemukan!", parent=self.window)
                 return
             
             # Filter valid data
             valid_rows = df[df[nama_col].notna() & (df[nama_col].astype(str).str.strip() != '')]
             
             if len(valid_rows) == 0:
-                messagebox.showerror("Error", "Tidak ada data valid untuk diupload!")
+                messagebox.showerror("Error", "Tidak ada data valid untuk diupload!", parent=self.window)
                 return
             
             # Confirm upload
             if not messagebox.askyesno(
-                "Konfirmasi Upload", 
+                "Konfirmasi Upload",
                 f"Upload {len(valid_rows)} pengirim ke database?\n\n" +
-                f"Data yang sudah ada tidak akan terduplikasi."
-            ):
+                f"Data yang sudah ada tidak akan terduplikasi.",
+                parent=self.window):
                 return
             
             # Get existing senders for duplicate check
@@ -1217,11 +1238,11 @@ class SenderWindow:
                 self.show_error_details(errors, duplicate_list, success_count, total_processed)
             else:
                 messagebox.showinfo(
-                    "Upload Berhasil! 🎉", 
+                    "Upload Berhasil! 🎉",
                     f"Semua data berhasil diupload!\n\n" +
                     f"✅ Total berhasil: {success_count} pengirim\n" +
-                    f"📊 Total diproses: {total_processed} baris data"
-                )
+                    f"📊 Total diproses: {total_processed} baris data",
+                    parent=self.window)
             
             # Refresh display and switch to list tab
             self.load_senders()
@@ -1242,7 +1263,7 @@ class SenderWindow:
             import traceback
             error_detail = traceback.format_exc()
             print(f"Upload error: {error_detail}")
-            messagebox.showerror("Error", f"Gagal upload data:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal upload data:\n{str(e)}", parent=self.window)
     
     def download_template(self):
         """Download Excel template with sample data"""
@@ -1348,14 +1369,14 @@ class SenderWindow:
                 
                 print("✅ Template saved successfully")
                 messagebox.showinfo(
-                    "Sukses", 
+                    "Sukses",
                     f"Template berhasil disimpan:\n{filename}\n\n" +
                     "Template berisi:\n" +
                     "• Sheet 'Data Pengirim' - contoh data pengirim\n" +
                     "• Sheet 'Petunjuk' - penjelasan format\n" +
                     "• Contoh nama pengirim yang lengkap\n\n" +
-                    "Pastikan nama pengirim unik untuk menghindari duplikasi!"
-                )
+                    "Pastikan nama pengirim unik untuk menghindari duplikasi!",
+                    parent=self.window)
             else:
                 print("❌ Save cancelled by user")
         
@@ -1364,20 +1385,20 @@ class SenderWindow:
             error_detail = traceback.format_exc()
             print(f"Template download error: {error_detail}")
             
-            messagebox.showerror("Error", f"Gagal membuat template:\n\nError: {str(e)}")
+            messagebox.showerror("Error", f"Gagal membuat template:\n\nError: {str(e)}", parent=self.window)
     
     def add_sender(self):
         """Add new sender manually with error handling"""
         name = self.name_entry.get().strip()
         
         if not name:
-            messagebox.showerror("Error", "Nama pengirim harus diisi!")
+            messagebox.showerror("Error", "Nama pengirim harus diisi!", parent=self.window)
             self.name_entry.focus()
             return
         
         try:
             sender_id = self.db.create_sender(name)
-            messagebox.showinfo("Sukses", f"Pengirim berhasil ditambahkan dengan ID: {sender_id}")
+            messagebox.showinfo("Sukses", f"Pengirim berhasil ditambahkan dengan ID: {sender_id}", parent=self.window)
             self.clear_form()
             
             # Refresh and switch to list tab
@@ -1388,9 +1409,9 @@ class SenderWindow:
             self.notebook.select(2)
             
         except ValueError as ve:
-            messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}")
+            messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}", parent=self.window)
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menambahkan pengirim:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal menambahkan pengirim:\n{str(e)}", parent=self.window)
     
     def clear_form(self):
         """Clear form fields"""
@@ -1430,7 +1451,7 @@ class SenderWindow:
             print(f"💥 Error loading senders: {str(e)}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat daftar pengirim: {str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat daftar pengirim: {str(e)}", parent=self.window)
     
     def on_tab_changed(self, event):
         """Handle tab change event"""

@@ -424,7 +424,7 @@ class LiftingWindow:
             )
             
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal memuat data dari database:\n{e}")
+            messagebox.showerror("Error", f"Gagal memuat data dari database:\n{e}", parent=self.window)
     
     def filter_data(self):
         start_date = self.start_date.get_date().strftime("%Y-%m-%d")
@@ -446,7 +446,7 @@ class LiftingWindow:
         try:
             # Check apakah ada data
             if not self.tree.get_children():
-                messagebox.showwarning("Peringatan", "Tidak ada data untuk diekspor!")
+                messagebox.showwarning("Peringatan", "Tidak ada data untuk diekspor!", parent=self.window)
                 return
             
             # Ask save location
@@ -632,11 +632,11 @@ class LiftingWindow:
                 f"✅ Laporan Lifting berhasil diekspor!\n\n"
                 f"📁 Lokasi: {file_path}\n\n"
                 f"📊 Total data: {len(self.tree.get_children())} baris\n"
-                f"💰 Total Profit: Rp {total_profit:,.0f}".replace(',', '.')
-            )
+                f"💰 Total Profit: Rp {total_profit:,.0f}".replace(',', '.'),
+                parent=self.window)
             
             # Ask to open file
-            if messagebox.askyesno("Buka File?", "Apakah Anda ingin membuka file Excel sekarang?"):
+            if messagebox.askyesno("Buka File?", "Apakah Anda ingin membuka file Excel sekarang?", parent=self.window):
                 try:
                     import os
                     if os.name == 'nt':  # Windows
@@ -644,9 +644,9 @@ class LiftingWindow:
                     elif os.name == 'posix':  # macOS/Linux
                         os.system(f'open "{file_path}"')
                 except Exception as e:
-                    messagebox.showwarning("Info", f"File berhasil disimpan, tapi gagal membuka otomatis.\nSilakan buka manual: {file_path}")
+                    messagebox.showwarning("Info", f"File berhasil disimpan, tapi gagal membuka otomatis.\nSilakan buka manual: {file_path}", parent=self.window)
             
         except Exception as e:
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengekspor ke Excel:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal mengekspor ke Excel:\n{str(e)}", parent=self.window)

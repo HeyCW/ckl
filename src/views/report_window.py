@@ -28,8 +28,8 @@ class ReportsWindow:
 
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
-        self.window.transient(self.parent)
-        self.window.grab_set()
+        # Tidak pakai grab_set() dan transient() agar window bisa diatur bebas
+        # self.window.transient(self.parent)  # Dihapus agar main_window bisa di depan
 
         # Setup window restore behavior (fix minimize/restore issue)
         setup_window_restore_behavior(self.window)
@@ -173,17 +173,26 @@ class ReportsWindow:
         scrollbar.pack(side='right', fill='y')
         
         # Load data
+        from decimal import Decimal, ROUND_HALF_UP
         barang_list = self.db.get_all_barang()
         for barang in barang_list:
             dimensi = f"{barang.get('panjang_barang', '-')}×{barang.get('lebar_barang', '-')}×{barang.get('tinggi_barang', '-')}"
             harga = f"Rp {barang.get('harga_satuan', 0):,.0f}" if barang.get('harga_satuan') else '-'
-            
+
+            # Format volume dengan pembulatan 3 desimal
+            m3_barang = barang.get('m3_barang', '-')
+            if m3_barang and m3_barang != '-':
+                try:
+                    m3_barang = str(Decimal(str(float(m3_barang))).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP))
+                except:
+                    pass
+
             tree.insert('', tk.END, values=(
                 barang['barang_id'],
                 barang['nama_customer'],
                 barang['nama_barang'],
                 dimensi,
-                barang.get('m3_barang', '-'),
+                m3_barang,
                 barang.get('ton_barang', '-'),
                 barang.get('col_barang', '-'),
                 harga

@@ -5,12 +5,13 @@ import math
 class PaginatedTreeView:
     """Custom TreeView with pagination support"""
     
-    def __init__(self, parent, columns, show='headings', height=10, items_per_page=20):
+    def __init__(self, parent, columns, show='headings', height=10, items_per_page=20, selectmode='extended'):
         self.parent = parent
         self.columns = columns
         self.show = show
         self.height = height
         self.items_per_page = items_per_page
+        self.selectmode = selectmode
         
         # Pagination state
         self.current_page = 0
@@ -25,101 +26,89 @@ class PaginatedTreeView:
         """Create TreeView with pagination controls"""
         # Main container
         self.container = tk.Frame(self.parent, bg='#ecf0f1')
-        
-        # TreeView container
+
+        # Pagination controls - pack FIRST with side='bottom' so it's always visible
+        self.pagination_frame = tk.Frame(self.container, bg='#ecf0f1')
+        self.pagination_frame.pack(side='bottom', fill='x', pady=(5, 0))
+
+        # TreeView container - pack AFTER pagination so it fills remaining space
         tree_container = tk.Frame(self.container, bg='#ecf0f1')
-        tree_container.pack(fill='both', expand=True)
-        
+        tree_container.pack(side='top', fill='both', expand=True)
+
         # Create TreeView
-        self.tree = ttk.Treeview(tree_container, columns=self.columns, 
-                                show=self.show, height=self.height)
-        
+        self.tree = ttk.Treeview(tree_container, columns=self.columns,
+                                show=self.show, height=self.height,
+                                selectmode=self.selectmode)
+
         # Scrollbars
-        self.v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical', 
+        self.v_scrollbar = ttk.Scrollbar(tree_container, orient='vertical',
                                         command=self.tree.yview)
-        self.h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal', 
+        self.h_scrollbar = ttk.Scrollbar(tree_container, orient='horizontal',
                                         command=self.tree.xview)
-        
-        self.tree.configure(yscrollcommand=self.v_scrollbar.set, 
+
+        self.tree.configure(yscrollcommand=self.v_scrollbar.set,
                            xscrollcommand=self.h_scrollbar.set)
-        
+
         # Pack TreeView and scrollbars
         self.tree.grid(row=0, column=0, sticky='nsew')
         self.v_scrollbar.grid(row=0, column=1, sticky='ns')
         self.h_scrollbar.grid(row=1, column=0, sticky='ew')
-        
+
         tree_container.grid_rowconfigure(0, weight=1)
         tree_container.grid_columnconfigure(0, weight=1)
-        
-        # Pagination controls
-        self.pagination_frame = tk.Frame(self.container, bg='#ecf0f1', height=40)
-        self.pagination_frame.pack(fill='x', pady=(5, 0))
-        self.pagination_frame.pack_propagate(False)
-        
+
         self.create_pagination_controls()
     
     def create_pagination_controls(self):
-        """Create pagination control buttons"""
-        # Left side - Page info
-        info_frame = tk.Frame(self.pagination_frame, bg='#ecf0f1')
-        info_frame.pack(side='left', fill='y')
-        
-        self.page_info_label = tk.Label(info_frame, text="", bg='#ecf0f1', 
-                                       font=('Arial', 9))
-        self.page_info_label.pack(side='left', padx=(0, 20), pady=8)
-        
-        # Center - Navigation buttons
+        """Create pagination control buttons - compact layout for small screens"""
+        # Navigation buttons (left side)
         nav_frame = tk.Frame(self.pagination_frame, bg='#ecf0f1')
         nav_frame.pack(side='left', fill='y')
-        
+
         # First page
-        self.first_btn = tk.Button(nav_frame, text="<<", font=('Arial', 8), 
-                                  width=3, command=self.go_to_first_page,
+        self.first_btn = tk.Button(nav_frame, text="<<", font=('Arial', 7),
+                                  width=2, command=self.go_to_first_page,
                                   bg='#3498db', fg='white', relief='flat')
         self.first_btn.pack(side='left', padx=1, pady=4)
-        
+
         # Previous page
-        self.prev_btn = tk.Button(nav_frame, text="<", font=('Arial', 8), 
-                                 width=3, command=self.go_to_prev_page,
+        self.prev_btn = tk.Button(nav_frame, text="<", font=('Arial', 7),
+                                 width=2, command=self.go_to_prev_page,
                                  bg='#3498db', fg='white', relief='flat')
         self.prev_btn.pack(side='left', padx=1, pady=4)
-        
+
         # Page input
-        page_input_frame = tk.Frame(nav_frame, bg='#ecf0f1')
-        page_input_frame.pack(side='left', padx=5, pady=4)
-        
-        tk.Label(page_input_frame, text="Hal:", bg='#ecf0f1', 
-                font=('Arial', 8)).pack(side='left')
-        
-        self.page_entry = tk.Entry(page_input_frame, width=4, font=('Arial', 8),
+        self.page_entry = tk.Entry(nav_frame, width=3, font=('Arial', 7),
                                   justify='center')
-        self.page_entry.pack(side='left', padx=(2, 5))
+        self.page_entry.pack(side='left', padx=2, pady=4)
         self.page_entry.bind('<Return>', self.go_to_page)
         self.page_entry.bind('<KP_Enter>', self.go_to_page)
-        
+
         # Next page
-        self.next_btn = tk.Button(nav_frame, text=">", font=('Arial', 8), 
-                                 width=3, command=self.go_to_next_page,
+        self.next_btn = tk.Button(nav_frame, text=">", font=('Arial', 7),
+                                 width=2, command=self.go_to_next_page,
                                  bg='#3498db', fg='white', relief='flat')
         self.next_btn.pack(side='left', padx=1, pady=4)
-        
+
         # Last page
-        self.last_btn = tk.Button(nav_frame, text=">>", font=('Arial', 8), 
-                                 width=3, command=self.go_to_last_page,
+        self.last_btn = tk.Button(nav_frame, text=">>", font=('Arial', 7),
+                                 width=2, command=self.go_to_last_page,
                                  bg='#3498db', fg='white', relief='flat')
         self.last_btn.pack(side='left', padx=1, pady=4)
-        
+
+        # Page info (center)
+        self.page_info_label = tk.Label(nav_frame, text="", bg='#ecf0f1',
+                                       font=('Arial', 7))
+        self.page_info_label.pack(side='left', padx=(5, 0), pady=4)
+
         # Right side - Items per page
         per_page_frame = tk.Frame(self.pagination_frame, bg='#ecf0f1')
         per_page_frame.pack(side='right', fill='y')
-        
-        tk.Label(per_page_frame, text="Per hal:", bg='#ecf0f1', 
-                font=('Arial', 8)).pack(side='left', padx=(0, 2), pady=8)
-        
+
         self.per_page_var = tk.StringVar(value=str(self.items_per_page))
         per_page_combo = ttk.Combobox(per_page_frame, textvariable=self.per_page_var,
-                                     values=['10', '20', '50', '100'], width=5,
-                                     font=('Arial', 8), state='readonly')
+                                     values=['10', '20', '50', '100'], width=4,
+                                     font=('Arial', 7), state='readonly')
         per_page_combo.pack(side='left', pady=4)
         per_page_combo.bind('<<ComboboxSelected>>', self.change_items_per_page)
     

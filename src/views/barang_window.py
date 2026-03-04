@@ -93,8 +93,8 @@ class BarangWindow:
 
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
-        self.window.transient(self.parent)
-        self.window.grab_set()
+        # Tidak pakai grab_set() dan transient() agar window bisa diatur bebas
+        # self.window.transient(self.parent)  # Dihapus agar main_window bisa di depan
 
         # Setup window restore behavior (fix minimize/restore issue)
         setup_window_restore_behavior(self.window)
@@ -162,37 +162,41 @@ class BarangWindow:
         
     def auto_calculate_volume(self, event=None):
         """Auto-calculate volume (m³) based on dimensions (P x L x T)"""
+        from decimal import Decimal, ROUND_HALF_UP
         try:
             # Get dimension values
             panjang_str = self.panjang_entry.get().strip()
             lebar_str = self.lebar_entry.get().strip()
             tinggi_str = self.tinggi_entry.get().strip()
-            
+
             # Check if all dimensions are filled
             if not panjang_str or not lebar_str or not tinggi_str:
                 return  # Don't calculate if any field is empty
-            
+
             # Skip if any field contains '-' or non-numeric
             if panjang_str == '-' or lebar_str == '-' or tinggi_str == '-':
                 return
-            
+
             # Convert to float
             panjang = float(panjang_str)
             lebar = float(lebar_str)
             tinggi = float(tinggi_str)
-            
+
             # Validate positive numbers
             if panjang <= 0 or lebar <= 0 or tinggi <= 0:
                 return  # Don't calculate if any dimension is zero or negative
-            
+
             # Calculate volume in m³
             # Formula: (P x L x T) / 1,000,000 (karena dimensi dalam cm, convert ke m³)
             volume_m3 = (panjang * lebar * tinggi) / 1000000
-            
-            # Update m3_entry dengan hasil perhitungan
-            # Format dengan 4 desimal untuk akurasi
+
+            # Simpan nilai asli untuk database
+            self._volume_raw = volume_m3
+
+            # Tampilkan dengan 3 desimal (ROUND_HALF_UP) untuk UI
+            volume_display = Decimal(str(volume_m3)).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
             self.m3_entry.delete(0, tk.END)
-            self.m3_entry.insert(0, f"{volume_m3:.4f}")
+            self.m3_entry.insert(0, str(volume_display))
             
             # Ubah background menjadi hijau muda untuk menandakan auto-calculated
             self.m3_entry.config(bg='#e8f5e9')
@@ -1381,7 +1385,18 @@ class BarangWindow:
                             except:
                                 return '-'
                         return '-'
-                    
+
+                    # Format volume dengan pembulatan 3 desimal (ROUND_HALF_UP)
+                    def format_volume(value):
+                        from decimal import Decimal, ROUND_HALF_UP
+                        if value and value != '-':
+                            try:
+                                vol = Decimal(str(float(value))).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+                                return str(vol)
+                            except:
+                                return '-'
+                        return '-'
+
                     harga_m3_pp = format_price(barang.get('m3_pp'))
                     harga_m3_pd = format_price(barang.get('m3_pd'))
                     harga_m3_dd = format_price(barang.get('m3_dd'))
@@ -1402,7 +1417,7 @@ class BarangWindow:
                         barang.get('receiver_name', ''),
                         barang.get('nama_barang', ''),
                         dimensi,
-                        barang.get('m3_barang', '-'),
+                        format_volume(barang.get('m3_barang', '-')),
                         barang.get('ton_barang', '-'),
                         harga_m3_pp,
                         harga_m3_pd,
@@ -1451,13 +1466,13 @@ class BarangWindow:
             print(f"[ERROR] Error in filter_barang: {str(e)}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal menerapkan filter: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menerapkan filter: {str(e)}", parent=self.window)
               
     def update_barang(self):
         """Update selected barang"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit dari tabel!")
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit dari tabel!", parent=self.window)
             return
         
         # Get selected item data
@@ -1507,7 +1522,7 @@ class BarangWindow:
         print(f"Selected barang: {selected_barang}")
 
         if not selected_barang:
-            messagebox.showerror("Error", "Data barang tidak ditemukan!")
+            messagebox.showerror("Error", "Data barang tidak ditemukan!", parent=self.window)
             return
         
         # Open update dialog
@@ -1517,14 +1532,14 @@ class BarangWindow:
         try:
             print(f"Updated data: {updated_barang}")
             self.db.update_barang(updated_barang)
-            messagebox.showinfo("Sukses", "Data barang berhasil disimpan!")
+            messagebox.showinfo("Sukses", "Data barang berhasil disimpan!", parent=self.window)
             # Reset flag to ensure data reloads when switching tabs
             self.list_tab_loaded = False
             self.load_barang()
             self.load_pengirim_penerima_filter()  # Refresh filter options
         except Exception as e:
             print(f"Error saat menyimpan data: {e}")
-            messagebox.showerror("Error", f"Gagal menyimpan data barang!\nError: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menyimpan data barang!\nError: {str(e)}", parent=self.window)
 
     def open_update_dialog(self, barang_data):
         """Open dialog to update barang data"""
@@ -1533,8 +1548,8 @@ class BarangWindow:
         update_window.title(f"✏️ Edit Barang - {barang_data.get('nama_barang', 'Unknown')}")
         update_window.geometry("700x800")
         update_window.configure(bg='#ecf0f1')
+        # Tidak pakai grab_set() agar bisa buka multiple window bersamaan
         update_window.transient(self.window)
-        update_window.grab_set()
         
         # Center window
         update_window.update_idletasks()
@@ -1633,9 +1648,68 @@ class BarangWindow:
         other_frame.pack(fill='x', pady=(5, 10))
 
         tk.Label(other_frame, text="Volume (m³):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        volume_var = tk.StringVar(value=str(barang_data.get('m3_barang', '') or '') or '-')
+        # Format volume dengan pembulatan 3 desimal untuk tampilan
+        from decimal import Decimal, ROUND_HALF_UP
+        raw_volume = barang_data.get('m3_barang', '')
+        if raw_volume and raw_volume != '' and raw_volume != '-':
+            try:
+                display_volume = str(Decimal(str(float(raw_volume))).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP))
+            except:
+                display_volume = str(raw_volume) if raw_volume else '-'
+        else:
+            display_volume = '-'
+        volume_var = tk.StringVar(value=display_volume)
         volume_entry = tk.Entry(other_frame, textvariable=volume_var, font=('Arial', 10), width=10)
         volume_entry.pack(side='left', padx=(5, 20))
+
+        # Variable untuk menyimpan nilai volume asli (tanpa pembulatan)
+        # Inisialisasi dengan nilai asli dari database
+        volume_raw_holder = {'value': float(raw_volume) if raw_volume and raw_volume != '-' else None}
+
+        # Auto-calculate volume function for edit dialog
+        def auto_calculate_volume_edit(event=None):
+            """Auto-calculate volume (m³) based on dimensions (P x L x T) in edit dialog"""
+            from decimal import Decimal, ROUND_HALF_UP
+            try:
+                panjang_str = panjang_var.get().strip()
+                lebar_str = lebar_var.get().strip()
+                tinggi_str = tinggi_var.get().strip()
+
+                # Check if all dimensions are filled
+                if not panjang_str or not lebar_str or not tinggi_str:
+                    return
+
+                # Skip if any field contains '-' or non-numeric
+                if panjang_str == '-' or lebar_str == '-' or tinggi_str == '-':
+                    return
+
+                # Convert to float
+                panjang = float(panjang_str)
+                lebar = float(lebar_str)
+                tinggi = float(tinggi_str)
+
+                # Validate positive numbers
+                if panjang <= 0 or lebar <= 0 or tinggi <= 0:
+                    return
+
+                # Calculate volume in m³ (dimensi dalam cm, convert ke m³)
+                volume_m3 = (panjang * lebar * tinggi) / 1000000
+
+                # Simpan nilai asli untuk database
+                volume_raw_holder['value'] = volume_m3
+
+                # Tampilkan dengan 3 desimal (ROUND_HALF_UP) untuk UI
+                volume_display = Decimal(str(volume_m3)).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)
+                volume_var.set(str(volume_display))
+                volume_entry.config(bg='#e8f5e9')  # Hijau muda untuk menandakan auto-calculated
+
+            except ValueError:
+                pass
+
+        # Bind auto-calculate to dimension entries
+        panjang_entry.bind('<KeyRelease>', auto_calculate_volume_edit)
+        lebar_entry.bind('<KeyRelease>', auto_calculate_volume_edit)
+        tinggi_entry.bind('<KeyRelease>', auto_calculate_volume_edit)
 
         tk.Label(other_frame, text="Berat (ton):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
         # Format berat with comma as decimal separator
@@ -1853,18 +1927,18 @@ class BarangWindow:
             
             # 1. Pengirim dan Penerima wajib
             if not pengirim_var.get().strip():
-                messagebox.showwarning("Peringatan", "Pengirim tidak boleh kosong.")
+                messagebox.showwarning("Peringatan", "Pengirim tidak boleh kosong.", parent=self.window)
                 pengirim_var.focus()
                 return False
                 
             if not penerima_var.get().strip():
-                messagebox.showwarning("Peringatan", "Penerima tidak boleh kosong.")
+                messagebox.showwarning("Peringatan", "Penerima tidak boleh kosong.", parent=self.window)
                 penerima_var.focus()
                 return False
             
             # 2. Nama Barang wajib
             if not nama_barang_var.get().strip():
-                messagebox.showwarning("Peringatan", "Nama Barang tidak boleh kosong.")
+                messagebox.showwarning("Peringatan", "Nama Barang tidak boleh kosong.", parent=self.window)
                 nama_barang_entry.focus()
                 return False
             
@@ -1898,7 +1972,7 @@ class BarangWindow:
                             raise ValueError("Tinggi harus lebih besar dari 0")
                         
             except ValueError as e:
-                messagebox.showwarning("Format Tidak Valid", f"Dimensi tidak valid: {str(e)}")
+                messagebox.showwarning("Format Tidak Valid", f"Dimensi tidak valid: {str(e)}", parent=self.window)
                 return False
 
             # 4. Validasi volume, berat, colli (jika diisi)
@@ -1923,7 +1997,7 @@ class BarangWindow:
                             raise ValueError("Berat harus lebih besar dari 0")
 
             except ValueError as e:
-                messagebox.showwarning("Format Tidak Valid", f"Volume/Berat tidak valid: {str(e)}")
+                messagebox.showwarning("Format Tidak Valid", f"Volume/Berat tidak valid: {str(e)}", parent=self.window)
                 return False
             
             # 5. Validasi harga - minimal salah satu kategori harus diisi
@@ -1935,14 +2009,14 @@ class BarangWindow:
             
             if not any(all_prices):
                 messagebox.showwarning(
-                    "Peringatan", 
+                    "Peringatan",
                     "Minimal salah satu harga harus diisi!\n\n" +
                     "💰 Pilihan pricing:\n" +
                     "• Harga per m³ (untuk volume)\n" +
                     "• Harga per ton (untuk berat)\n" +
                     "• Harga per colli (untuk jumlah kemasan)\n\n" +
-                    "Dan minimal salah satu kategori (PP/PD/DD)"
-                )
+                    "Dan minimal salah satu kategori (PP/PD/DD)",
+                    parent=self.window)
                 return False
             
             # 6. Validasi format harga yang diisi
@@ -1968,7 +2042,7 @@ class BarangWindow:
                             raise ValueError(f"Format {name} tidak valid: '{value}' (gunakan angka atau '-')")
                                     
             except ValueError as e:
-                messagebox.showwarning("Format Error", str(e))
+                messagebox.showwarning("Format Error", str(e), parent=self.window)
                 return False
             
             return True
@@ -1998,7 +2072,8 @@ class BarangWindow:
                 'panjang_barang': process_value(panjang_var.get()),
                 'lebar_barang': process_value(lebar_var.get()),
                 'tinggi_barang': process_value(tinggi_var.get()),
-                'm3_barang': process_value(volume_var.get()),
+                # Gunakan nilai volume asli (tanpa pembulatan) jika tersedia
+                'm3_barang': volume_raw_holder['value'] if volume_raw_holder['value'] is not None else process_value(volume_var.get()),
                 'ton_barang': process_value(berat_var.get()),
                 'container_barang': process_value(container_var.get()),
                 'm3_pp': process_value(harga_m3_pp_var.get()),
@@ -2080,46 +2155,63 @@ class BarangWindow:
             self.info_label.config(text="💡 Pilih barang dari tabel untuk edit/hapus")
     
     def delete_barang(self):
-        """Delete selected barang"""
+        """Delete selected barang (supports multiple selection)"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih barang yang akan dihapus dari tabel!")
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan dihapus dari tabel!", parent=self.window)
             return
-        
-        # Get selected item data
-        item = self.tree.item(selection[0])
-        barang_id = item['values'][0]
-        nama_barang = item['values'][2]
-        
-        # Confirm deletion
-        if not messagebox.askyesno(
-            "Konfirmasi Hapus", 
-            f"Yakin ingin menghapus barang?\n\n" +
-            f"ID: {barang_id}\n" +
-            f"Nama: {nama_barang}\n\n" +
-            f"⚠️ Aksi ini tidak dapat dibatalkan!"
-        ):
+
+        # Collect all selected items
+        items_to_delete = []
+        for sel in selection:
+            item = self.tree.item(sel)
+            barang_id = item['values'][0]
+            nama_barang = item['values'][2]
+            items_to_delete.append({'id': barang_id, 'nama': nama_barang})
+
+        # Build confirmation message
+        if len(items_to_delete) == 1:
+            confirm_msg = f"Yakin ingin menghapus barang?\n\n" + \
+                         f"ID: {items_to_delete[0]['id']}\n" + \
+                         f"Nama: {items_to_delete[0]['nama']}\n\n" + \
+                         f"⚠️ Aksi ini tidak dapat dibatalkan!"
+        else:
+            confirm_msg = f"Yakin ingin menghapus {len(items_to_delete)} barang?\n\n"
+            # Show first 5 items
+            for i, item in enumerate(items_to_delete[:5]):
+                confirm_msg += f"• {item['nama']}\n"
+            if len(items_to_delete) > 5:
+                confirm_msg += f"• ... dan {len(items_to_delete) - 5} lainnya\n"
+            confirm_msg += f"\n⚠️ Aksi ini tidak dapat dibatalkan!"
+
+        if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg, parent=self.window):
             return
-        
+
         try:
-            # Delete from database
-            self.db.delete_barang(barang_id)
-            
-            messagebox.showinfo("Sukses", f"Barang '{nama_barang}' berhasil dihapus!")
-            
+            # Delete all selected items from database
+            deleted_count = 0
+            for item in items_to_delete:
+                self.db.delete_barang(item['id'])
+                deleted_count += 1
+
+            if deleted_count == 1:
+                messagebox.showinfo("Sukses", f"Barang '{items_to_delete[0]['nama']}' berhasil dihapus!", parent=self.window)
+            else:
+                messagebox.showinfo("Sukses", f"{deleted_count} barang berhasil dihapus!", parent=self.window)
+
             # Refresh data
             self.load_barang()
             if self.refresh_callback:
                 self.refresh_callback()
-                
+
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menghapus barang:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal menghapus barang:\n{str(e)}", parent=self.window)
     
     def export_barang(self):
         """Export barang data to Excel - FIXED for pengirim-penerima system"""
         try:
             if not self.original_barang_data:
-                messagebox.showwarning("Peringatan", "Tidak ada data barang untuk diekspor!")
+                messagebox.showwarning("Peringatan", "Tidak ada data barang untuk diekspor!", parent=self.window)
                 return
             
             # Ask for save location
@@ -2210,13 +2302,13 @@ class BarangWindow:
                 "Export Berhasil",
                 f"Data barang berhasil diekspor ke:\n{filename}\n\n" +
                 f"📊 Total: {len(export_data)} barang\n" +
-                f"📋 Kolom: Pengirim, Penerima, Nama Barang, Dimensi, Harga lengkap"
-            )
+                f"📋 Kolom: Pengirim, Penerima, Nama Barang, Dimensi, Harga lengkap",
+                parent=self.window)
             
         except Exception as e:
             error_msg = f"Gagal export data: {str(e)}"
             print(f"Export error: {error_msg}")
-            messagebox.showerror("Error", error_msg)
+            messagebox.showerror("Error", error_msg, parent=self.window)
         
         
     def show_error_details(self, errors, customer_not_found_list, success_count, total_count):
@@ -2238,8 +2330,8 @@ class BarangWindow:
 
         error_window.geometry(f"{dialog_width}x{dialog_height}")
         error_window.configure(bg='#ecf0f1')
+        # Tidak pakai grab_set() agar bisa buka multiple window bersamaan
         error_window.transient(self.window)
-        error_window.grab_set()
 
         # Center the error window
         error_window.update_idletasks()
@@ -3015,8 +3107,8 @@ class BarangWindow:
                         "📋 Template berisi:\n" +
                         "• Sheet 'Data Barang' dengan contoh data\n" +
                         "• Sheet 'Panduan' dengan instruksi penggunaan\n\n" +
-                        "Silakan isi data sesuai panduan yang tersedia."
-                    )
+                        "Silakan isi data sesuai panduan yang tersedia.",
+                        parent=self.window)
                     
                 except Exception as save_error:
                     raise Exception(f"Gagal menyimpan file Excel: {str(save_error)}")
@@ -3057,7 +3149,7 @@ class BarangWindow:
                     f"• Coba lokasi penyimpanan yang berbeda"
                 )
             
-            messagebox.showerror("Error Download Template", error_dialog)     
+            messagebox.showerror("Error Download Template", error_dialog, parent=self.window)
            
     def validate_excel_row(self, row_data, column_mapping, existing_customers, row_index):
         """Validate single row from Excel data - UPDATED for Pengirim-Penerima system"""
@@ -3331,12 +3423,12 @@ class BarangWindow:
         """Upload Excel data with enhanced validation and error handling - CLEANED VERSION"""
         filename = self.file_path_var.get()
         if not filename:
-            messagebox.showerror("Error", "Pilih file Excel terlebih dahulu!")
+            messagebox.showerror("Error", "Pilih file Excel terlebih dahulu!", parent=self.window)
             return
         
         # ✅ ENHANCED: Check file exists and accessible
         if not os.path.exists(filename):
-            messagebox.showerror("Error", f"File tidak ditemukan: {filename}")
+            messagebox.showerror("Error", f"File tidak ditemukan: {filename}", parent=self.window)
             return
         
         # Disable upload button during process
@@ -3528,7 +3620,7 @@ class BarangWindow:
                 
                 error_summary += "Lihat detail lengkap error?"
                 
-                if messagebox.askyesno("Hasil Validasi", error_summary):
+                if messagebox.askyesno("Hasil Validasi", error_summary, parent=self.window):
                     self.show_enhanced_error_details(
                         validation_errors, 
                         customer_not_found_list, 
@@ -3540,25 +3632,20 @@ class BarangWindow:
             # Step 7: Confirm upload with detailed summary
             self.status_label.config(text="Semua data valid! Siap upload...", fg='#27ae60')
             
-            # ✅ ENHANCED: More informative confirmation dialog
-            confirmation_msg = (
-                f"VALIDASI BERHASIL!\n\n"
-                f"Total barang siap upload: {len(valid_data_for_upload)}\n"
-                f"File: {os.path.basename(filename)}\n\n"
-                f"Lanjutkan upload ke database?"
-            )
-            
-            if not messagebox.askyesno("Konfirmasi Upload", confirmation_msg):
-                self.status_label.config(text="Upload dibatalkan oleh user", fg='#95a5a6')
-                return
-            
-            # Step 8: Upload to database with BATCH INSERT for better performance
+            # Step 7.5: Get existing barang keys untuk filter duplikat
+            self.status_label.config(text="Mengecek data barang yang sudah ada...", fg='#3498db')
+            self.window.update()
+
+            existing_barang_keys = self.db.get_all_existing_barang_keys()
+            print(f"Found {len(existing_barang_keys)} existing barang in database")
+
+            # Step 8: Filter out barang yang sudah ada, hanya ambil yang baru
             self.status_label.config(text="Menyiapkan data untuk batch upload...", fg='#3498db')
             self.window.update()
 
-            # ✅ NEW: Prepare all data for batch insert
             barang_batch_list = []
             batch_metadata = []  # Store metadata for error reporting
+            skipped_count = 0  # Count barang yang sudah ada
 
             for idx, (original_idx, row, validation_data) in enumerate(valid_data_for_upload):
                 try:
@@ -3566,6 +3653,13 @@ class BarangWindow:
                     pengirim_id = validation_data['pengirim_id']
                     penerima_id = validation_data['penerima_id']
                     nama_barang = validation_data['nama_barang']
+
+                    # Check if barang already exists
+                    barang_key = (pengirim_id, penerima_id, nama_barang)
+                    if barang_key in existing_barang_keys:
+                        skipped_count += 1
+                        print(f"Skipping existing barang: {nama_barang} (pengirim={pengirim_id}, penerima={penerima_id})")
+                        continue
 
                     # Extract all fields with enhanced error handling
                     extracted_data = self.extract_row_data(row, column_mapping)
@@ -3586,6 +3680,37 @@ class BarangWindow:
 
                 except Exception as e:
                     print(f"Error preparing barang data at index {idx}: {str(e)}")
+
+            # ✅ ENHANCED: Show confirmation with info about new vs existing items
+            new_count = len(barang_batch_list)
+            confirmation_msg = (
+                f"VALIDASI BERHASIL!\n\n"
+                f"Total barang di file Excel: {len(valid_data_for_upload)}\n"
+                f"Barang sudah ada di database: {skipped_count} (akan dilewati)\n"
+                f"Barang baru yang akan ditambahkan: {new_count}\n"
+                f"File: {os.path.basename(filename)}\n\n"
+                f"Data barang yang sudah ada TIDAK akan dihapus.\n"
+                f"Hanya barang baru yang akan ditambahkan.\n\n"
+                f"Lanjutkan upload ke database?"
+            )
+
+            if not messagebox.askyesno("Konfirmasi Upload", confirmation_msg, parent=self.window):
+                self.status_label.config(text="Upload dibatalkan oleh user", fg='#95a5a6')
+                return
+
+            # Skip upload if no new barang to add
+            if new_count == 0:
+                self.status_label.config(
+                    text=f"Tidak ada barang baru untuk ditambahkan ({skipped_count} sudah ada)",
+                    fg='#f39c12'
+                )
+                messagebox.showinfo(
+                    "Info",
+                    f"Semua {skipped_count} barang dari file Excel sudah ada di database.\n"
+                    f"Tidak ada barang baru yang perlu ditambahkan.",
+                    parent=self.window)
+                self.load_barang()
+                return
 
             # ✅ NEW: Perform batch insert in single transaction
             print(f"Starting batch insert of {len(barang_batch_list)} items...")
@@ -3631,27 +3756,28 @@ class BarangWindow:
             # Step 9: Show comprehensive results
             if upload_errors:
                 self.status_label.config(
-                    text=f"Upload selesai: {success_count} berhasil, {len(upload_errors)} error",
+                    text=f"Upload selesai: {success_count} berhasil, {len(upload_errors)} error, {skipped_count} dilewati",
                     fg='#f39c12'
                 )
                 self.show_enhanced_error_details(
-                    upload_errors, [], success_count, len(valid_data_for_upload)
+                    upload_errors, [], success_count, new_count
                 )
             else:
                 self.status_label.config(
-                    text=f"Upload berhasil! {success_count} barang ditambahkan",
+                    text=f"Upload berhasil! {success_count} barang baru ditambahkan, {skipped_count} sudah ada",
                     fg='#27ae60'
                 )
                 
                 # ✅ ENHANCED: More detailed success message
                 success_msg = (
                     f"UPLOAD BERHASIL!\n\n"
-                    f"Total berhasil: {success_count} barang\n"
+                    f"Barang sudah ada di database (dilewati): {skipped_count}\n"
+                    f"Barang baru ditambahkan: {success_count}\n"
                     f"File: {os.path.basename(filename)}\n\n"
-                    f"Data telah tersimpan dalam database."
+                    f"Data barang yang sudah ada tetap aman."
                 )
-                
-                messagebox.showinfo("Upload Berhasil!", success_msg)
+
+                messagebox.showinfo("Upload Berhasil!", success_msg, parent=self.window)
             
             # Step 10: Refresh and cleanup
             try:
@@ -3682,7 +3808,7 @@ class BarangWindow:
                 f"• Gunakan template Excel yang disediakan"
             )
             
-            messagebox.showerror("Error Upload", error_dialog)
+            messagebox.showerror("Error Upload", error_dialog, parent=self.window)
             
         finally:
             # ✅ ENHANCED: Always restore button state
@@ -3852,12 +3978,12 @@ class BarangWindow:
             penerima_name = self.penerima_var.get().strip()
             
             if not pengirim_name:
-                messagebox.showerror("Error", "Pilih pengirim terlebih dahulu!")
+                messagebox.showerror("Error", "Pilih pengirim terlebih dahulu!", parent=self.window)
                 self.pengirim_combo.focus()
                 return
                 
             if not penerima_name:
-                messagebox.showerror("Error", "Pilih penerima terlebih dahulu!")
+                messagebox.showerror("Error", "Pilih penerima terlebih dahulu!", parent=self.window)
                 self.penerima_combo.focus()
                 return
             
@@ -3866,18 +3992,18 @@ class BarangWindow:
             penerima_id = self.db.get_customer_id_by_name(penerima_name)
             
             if not pengirim_id:
-                messagebox.showerror("Error", f"Pengirim '{pengirim_name}' tidak ditemukan dalam database!")
+                messagebox.showerror("Error", f"Pengirim '{pengirim_name}' tidak ditemukan dalam database!", parent=self.window)
                 return
                 
             if not penerima_id:
-                messagebox.showerror("Error", f"Penerima '{penerima_name}' tidak ditemukan dalam database!")
+                messagebox.showerror("Error", f"Penerima '{penerima_name}' tidak ditemukan dalam database!", parent=self.window)
                 return
             
             # Get basic barang data
             nama_barang = self.barang_entry.get().strip()
             
             if not nama_barang:
-                messagebox.showerror("Error", "Nama barang harus diisi!")
+                messagebox.showerror("Error", "Nama barang harus diisi!", parent=self.window)
                 self.barang_entry.focus()
                 return
             
@@ -3901,7 +4027,8 @@ class BarangWindow:
             panjang = get_numeric_value(self.panjang_entry, "panjang")
             lebar = get_numeric_value(self.lebar_entry, "lebar")
             tinggi = get_numeric_value(self.tinggi_entry, "tinggi")
-            m3 = get_numeric_value(self.m3_entry, "volume")
+            # Gunakan nilai volume asli (tanpa pembulatan) jika tersedia dari auto-calculate
+            m3 = getattr(self, '_volume_raw', None) or get_numeric_value(self.m3_entry, "volume")
             ton = get_numeric_value(self.ton_entry, "berat")
             container_barang = get_numeric_value(self.container_entry, "container")
 
@@ -3997,7 +4124,7 @@ class BarangWindow:
                 f"Penerima: {penerima_name}{pricing_info}"
             )
             
-            messagebox.showinfo("Sukses", success_msg)
+            messagebox.showinfo("Sukses", success_msg, parent=self.window)
             
             # Clear form and refresh
             self.clear_form()
@@ -4010,28 +4137,28 @@ class BarangWindow:
             # self.notebook.select(2)  # Switch to list tab
             
         except ValueError as ve:
-            messagebox.showerror("Format Error", str(ve))
+            messagebox.showerror("Format Error", str(ve), parent=self.window)
         except Exception as e:
             error_msg = f"Gagal menambahkan barang: {str(e)}"
             print(f"Add barang error: {error_msg}")
-            messagebox.showerror("Error", error_msg)
+            messagebox.showerror("Error", error_msg, parent=self.window)
             
     def validated_barang(self):
             # Validate input fields for barang
             if not self.pengirim_combo.get():
-                messagebox.showwarning("Peringatan", "Pilih Pengirim terlebih dahulu.")
+                messagebox.showwarning("Peringatan", "Pilih Pengirim terlebih dahulu.", parent=self.window)
                 return False
             if not self.penerima_var.get():
-                messagebox.showwarning("Peringatan", "Pilih Penerima terlebih dahulu.")
+                messagebox.showwarning("Peringatan", "Pilih Penerima terlebih dahulu.", parent=self.window)
                 return False
             if not self.barang_entry.get():
-                messagebox.showwarning("Peringatan", "Nama Barang tidak boleh kosong.")
+                messagebox.showwarning("Peringatan", "Nama Barang tidak boleh kosong.", parent=self.window)
                 return False
             if not self.panjang_entry.get() or not self.lebar_entry.get() or not self.tinggi_entry.get():
-                messagebox.showwarning("Peringatan", "Dimensi Barang tidak boleh kosong.")
+                messagebox.showwarning("Peringatan", "Dimensi Barang tidak boleh kosong.", parent=self.window)
                 return False
             if not self.m3_entry.get() or not self.ton_entry.get():
-                messagebox.showwarning("Peringatan", "Volume dan Berat Barang tidak boleh kosong.")
+                messagebox.showwarning("Peringatan", "Volume dan Berat Barang tidak boleh kosong.", parent=self.window)
                 return False
             
             harga_m3_pp = self.harga_m3_pp_entry.get().strip()
@@ -4050,13 +4177,13 @@ class BarangWindow:
                        harga_ton_pp or harga_ton_pd or harga_ton_dd or 
                        harga_col_pp or harga_col_pd or harga_col_dd):
                 messagebox.showwarning(
-                    "Peringatan", 
+                    "Peringatan",
                     "Minimal salah satu metode pricing harus diisi!\n\n" +
                     "💰 Pilihan pricing:\n" +
                     "• Harga per m³ (untuk volume)\n" +
                     "• Harga per ton (untuk berat)\n" +
-                    "• Harga per colli (untuk jumlah kemasan)"
-                )
+                    "• Harga per colli (untuk jumlah kemasan)",
+                    parent=self.window)
                 self.harga_m3_entry.focus()
                 return False
             return True
@@ -4161,6 +4288,15 @@ class BarangWindow:
                     except (ValueError, TypeError):
                         pass  # Keep original value if conversion fails
 
+                # Format volume dengan pembulatan 3 desimal (ROUND_HALF_UP)
+                from decimal import Decimal, ROUND_HALF_UP
+                m3_barang = barang.get('m3_barang', '-')
+                if m3_barang and m3_barang != '-':
+                    try:
+                        m3_barang = str(Decimal(str(float(m3_barang))).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP))
+                    except (ValueError, TypeError):
+                        pass  # Keep original value if conversion fails
+
                 # Buat tuple data untuk row ini
                 row_data = (
                     barang['barang_id'],
@@ -4168,7 +4304,7 @@ class BarangWindow:
                     barang['receiver_name'],
                     barang['nama_barang'],
                     dimensi,
-                    barang.get('m3_barang', '-'),
+                    m3_barang,
                     ton_barang,
                     harga_m3_pp,
                     harga_m3_pd,
@@ -4203,7 +4339,7 @@ class BarangWindow:
             print(f"Error loading barang: {str(e)}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat daftar barang: {str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat daftar barang: {str(e)}", parent=self.window)
         
     def on_tab_changed(self, event):
         """Handle tab change event with lazy loading"""

@@ -285,7 +285,7 @@ class CustomerOrdersWindow:
             print(f"✅ Loaded {len(customers)} customers with orders")
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal memuat data customer:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat data customer:\n{str(e)}", parent=self.window)
             import traceback
             traceback.print_exc()
 
@@ -368,7 +368,7 @@ class CustomerOrdersWindow:
             print(f"✅ Loaded {len(containers)} containers for customer {customer_id}")
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal memuat data container:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat data container:\n{str(e)}", parent=self.window)
             import traceback
             traceback.print_exc()
 
@@ -454,6 +454,6 @@ class CustomerOrdersWindow:
             print(f"✅ Loaded {len(barangs)} barang for container {container_id}")
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal memuat data barang:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat data barang:\n{str(e)}", parent=self.window)
             import traceback
             traceback.print_exc()

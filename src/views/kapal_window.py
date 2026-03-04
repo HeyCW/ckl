@@ -73,7 +73,7 @@ class KapalWindow:
                 self.window.focus()
         except Exception as e:
             logger.error(f"Error showing kapal window: {e}")
-            messagebox.showerror("Error", f"Tidak dapat membuka window kapal: {e}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window kapal: {e}", parent=self.window)
             return False
         return True
     
@@ -94,8 +94,8 @@ class KapalWindow:
 
             self.window.geometry(f"{window_width}x{window_height}")
             self.window.configure(bg='#ecf0f1')
-            self.window.transient(self.parent)
-            self.window.grab_set()
+            # Tidak pakai grab_set() dan transient() agar window bisa diatur bebas
+            # self.window.transient(self.parent)  # Dihapus agar main_window bisa di depan
 
             # Setup window restore behavior (fix minimize/restore issue)
             setup_window_restore_behavior(self.window)
@@ -440,7 +440,7 @@ class KapalWindow:
             
             # Validate required fields
             if not data.get('feeder') or not data.get('destination'):
-                messagebox.showerror("Error", "Feeder dan Destination wajib diisi!")
+                messagebox.showerror("Error", "Feeder dan Destination wajib diisi!", parent=self.window)
                 return
 
             # Query dengan shipping_line
@@ -461,18 +461,18 @@ class KapalWindow:
             )
             
             self.db.execute(query, params)
-            messagebox.showinfo("Sukses", "Data kapal berhasil ditambahkan!")
+            messagebox.showinfo("Sukses", "Data kapal berhasil ditambahkan!", parent=self.window)
             self.clear_form()
             self.load_data()
             
         except Exception as e:
             logger.error(f"Error adding kapal: {e}")
-            messagebox.showerror("Error", f"Gagal menambahkan data: {e}")
+            messagebox.showerror("Error", f"Gagal menambahkan data: {e}", parent=self.window)
         
     def update_kapal(self):
         """Update selected kapal data"""
         if not self.selected_item:
-            messagebox.showwarning("Peringatan", "Pilih data yang akan diupdate!")
+            messagebox.showwarning("Peringatan", "Pilih data yang akan diupdate!", parent=self.window)
             return
         
         try:
@@ -482,7 +482,7 @@ class KapalWindow:
             
             # Validate required fields
             if not data.get('feeder') or not data.get('destination'):
-                messagebox.showerror("Error", "Feeder dan Destination wajib diisi!")
+                messagebox.showerror("Error", "Feeder dan Destination wajib diisi!", parent=self.window)
                 return
             
             # Get kapal_id from selected item
@@ -509,43 +509,65 @@ class KapalWindow:
             )
             
             self.db.execute(query, params)
-            messagebox.showinfo("Sukses", "Data kapal berhasil diupdate!")
+            messagebox.showinfo("Sukses", "Data kapal berhasil diupdate!", parent=self.window)
             self.clear_form()
             self.load_data()
             
         except Exception as e:
             logger.error(f"Error updating kapal: {e}")
-            messagebox.showerror("Error", f"Gagal mengupdate data: {e}")
+            messagebox.showerror("Error", f"Gagal mengupdate data: {e}", parent=self.window)
 
     def delete_kapal(self):
-        """Delete selected kapal data"""
-        if not self.selected_item:
-            messagebox.showwarning("Peringatan", "Pilih data yang akan dihapus!")
+        """Delete selected kapal data (supports multiple selection)"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("Peringatan", "Pilih data yang akan dihapus!", parent=self.window)
             return
-        
-        # Confirm deletion
-        result = messagebox.askyesno(
-            "Konfirmasi", 
-            "Yakin ingin menghapus data kapal ini?\nData yang dihapus tidak dapat dikembalikan!"
-        )
-        
-        if not result:
+
+        # Collect all selected items
+        items_to_delete = []
+        for sel in selection:
+            values = self.tree.item(sel, 'values')
+            kapal_id = values[0]
+            feeder = values[2] if len(values) > 2 else '-'
+            items_to_delete.append({'id': kapal_id, 'feeder': feeder})
+
+        # Build confirmation message
+        if len(items_to_delete) == 1:
+            confirm_msg = f"Yakin ingin menghapus data kapal ini?\n\n" + \
+                         f"ID: {items_to_delete[0]['id']}\n" + \
+                         f"Feeder: {items_to_delete[0]['feeder']}\n\n" + \
+                         f"Data yang dihapus tidak dapat dikembalikan!"
+        else:
+            confirm_msg = f"Yakin ingin menghapus {len(items_to_delete)} data kapal?\n\n"
+            for i, item in enumerate(items_to_delete[:5]):
+                confirm_msg += f"• {item['feeder']}\n"
+            if len(items_to_delete) > 5:
+                confirm_msg += f"• ... dan {len(items_to_delete) - 5} lainnya\n"
+            confirm_msg += f"\nData yang dihapus tidak dapat dikembalikan!"
+
+        if not messagebox.askyesno("Konfirmasi", confirm_msg, parent=self.window):
             return
-        
+
         try:
-            # Get kapal_id from selected item
-            kapal_id = self.tree.item(self.selected_item, 'values')[0]
-            
-            query = "DELETE FROM kapals WHERE kapal_id=?"
-            self.db.execute(query, (kapal_id,))
-            
-            messagebox.showinfo("Sukses", "Data kapal berhasil dihapus!")
+            # Delete all selected items
+            deleted_count = 0
+            for item in items_to_delete:
+                query = "DELETE FROM kapals WHERE kapal_id=?"
+                self.db.execute(query, (item['id'],))
+                deleted_count += 1
+
+            if deleted_count == 1:
+                messagebox.showinfo("Sukses", "Data kapal berhasil dihapus!", parent=self.window)
+            else:
+                messagebox.showinfo("Sukses", f"{deleted_count} data kapal berhasil dihapus!", parent=self.window)
+
             self.clear_form()
             self.load_data()
-            
+
         except Exception as e:
             logger.error(f"Error deleting kapal: {e}")
-            messagebox.showerror("Error", f"Gagal menghapus data: {e}")
+            messagebox.showerror("Error", f"Gagal menghapus data: {e}", parent=self.window)
     
     def lazy_load_data(self):
         """Lazy load data - called after window is fully rendered"""
@@ -604,7 +626,7 @@ class KapalWindow:
             
         except Exception as e:
             logger.error(f"Error loading kapal data: {e}")
-            messagebox.showerror("Error", f"Gagal memuat data: {e}")
+            messagebox.showerror("Error", f"Gagal memuat data: {e}", parent=self.window)
     
     def get_form_data(self):
         """Get data from form entries"""

@@ -1043,15 +1043,18 @@ class BarangDatabase(SQLiteDatabase):
                 raise ValueError(f"Required field missing: {field}")
 
         try:
-            # Cek apakah barang_id ada sebelum update
+            # Cek apakah barang_id ada dan ambil nilai pajak lama
             existing_barang = self.execute_one(
-                "SELECT barang_id FROM barang WHERE barang_id = ?",
+                "SELECT barang_id, pajak FROM barang WHERE barang_id = ?",
                 (barang_data['barang_id'],)
             )
-        
+
             if not existing_barang:
                 raise ValueError(f"Barang dengan ID {barang_data['barang_id']} tidak ditemukan")
-        
+
+            old_pajak = existing_barang[1]  # Nilai pajak sebelum update
+            new_pajak = barang_data.get('pajak', 0)
+
             # Lakukan update
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -1087,6 +1090,21 @@ class BarangDatabase(SQLiteDatabase):
                 if rows_affected == 0:
                     raise ValueError(f"Gagal mengupdate barang ID {barang_data['barang_id']} - data tidak ditemukan")
 
+            # Jika pajak berubah dari 1 ke 0, hapus tax records yang ada
+            if old_pajak == 1 and new_pajak == 0:
+                barang_id = barang_data['barang_id']
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+                    # Hapus tax records untuk barang ini
+                    cursor.execute('DELETE FROM barang_tax WHERE barang_id = ?', (barang_id,))
+                    deleted_tax = cursor.rowcount
+
+                    # Update detail_container untuk set tax_id = NULL
+                    cursor.execute('UPDATE detail_container SET tax_id = NULL WHERE barang_id = ?', (barang_id,))
+
+                    if deleted_tax > 0:
+                        logger.info(f"Deleted {deleted_tax} tax records for barang {barang_id} (pajak changed 1->0)")
+
             logger.info(f"Barang updated successfully: ID {barang_data['barang_id']}")
 
         except ValueError:
@@ -1120,6 +1138,85 @@ class BarangDatabase(SQLiteDatabase):
         except Exception as e:
             logger.error(f"Failed to delete barang ID {barang_id}: {e}")
             raise DatabaseError(f"Failed to delete barang: {e}")
+
+    def delete_all_barang(self):
+        """Delete all barang from database and reset auto-increment ID"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                # Hapus semua barang
+                cursor.execute('DELETE FROM barang')
+                deleted_count = cursor.rowcount
+
+                # Reset auto-increment ID ke 1
+                cursor.execute("DELETE FROM sqlite_sequence WHERE name='barang'")
+
+            logger.info(f"All barang deleted successfully: {deleted_count} rows, ID reset")
+            return deleted_count
+
+        except Exception as e:
+            logger.error(f"Failed to delete all barang: {e}")
+            raise DatabaseError(f"Failed to delete all barang: {e}")
+
+    def delete_barang_not_in_container(self):
+        """Delete barang yang TIDAK ada di container manapun.
+        Barang yang sudah masuk container akan tetap dipertahankan."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # Hapus barang yang tidak ada di detail_container
+                cursor.execute('''
+                    DELETE FROM barang
+                    WHERE barang_id NOT IN (
+                        SELECT DISTINCT barang_id FROM detail_container
+                    )
+                ''')
+                deleted_count = cursor.rowcount
+
+            logger.info(f"Deleted {deleted_count} barang not in any container")
+            return deleted_count
+
+        except Exception as e:
+            logger.error(f"Failed to delete barang not in container: {e}")
+            raise DatabaseError(f"Failed to delete barang not in container: {e}")
+
+    def check_barang_exists(self, pengirim_id, penerima_id, nama_barang):
+        """Check if barang already exists in database by pengirim, penerima, nama_barang"""
+        try:
+            result = self.execute_one('''
+                SELECT barang_id FROM barang
+                WHERE pengirim = ? AND penerima = ? AND nama_barang = ?
+            ''', (pengirim_id, penerima_id, nama_barang))
+            return result[0] if result else None
+        except Exception as e:
+            logger.error(f"Failed to check barang exists: {e}")
+            return None
+
+    def get_all_existing_barang_keys(self):
+        """Get all existing barang keys (pengirim, penerima, nama_barang) for efficient batch checking"""
+        try:
+            result = self.execute('''
+                SELECT pengirim, penerima, nama_barang FROM barang
+            ''')
+            # Return as set of tuples for fast lookup
+            # Convert pengirim and penerima to int for consistent comparison with upload data
+            keys = set()
+            for row in result:
+                try:
+                    pengirim = int(row[0]) if row[0] is not None else None
+                    penerima = int(row[1]) if row[1] is not None else None
+                    nama_barang = row[2]
+                    if pengirim is not None and penerima is not None and nama_barang:
+                        keys.add((pengirim, penerima, nama_barang))
+                except (ValueError, TypeError):
+                    # Skip invalid data (e.g., if pengirim/penerima contains non-numeric string)
+                    logger.warning(f"Skipping invalid barang key: pengirim={row[0]}, penerima={row[1]}")
+                    continue
+            return keys
+        except Exception as e:
+            logger.error(f"Failed to get existing barang keys: {e}")
+            return set()
 
     def get_barang_by_customer(self, customer_id):
         """Get all barang for a customer with error handling"""

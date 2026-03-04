@@ -161,7 +161,7 @@ class ContainerWindow:
             
         except Exception as e:
             print(f"[ERROR] Failed to load kapals: {e}")
-            messagebox.showerror("Database Error", f"Gagal memuat daftar kapal:\n{str(e)}")
+            messagebox.showerror("Database Error", f"Gagal memuat daftar kapal:\n{str(e, parent=self.window)}")
             return False
     
     
@@ -259,8 +259,8 @@ class ContainerWindow:
 
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
-        self.window.transient(self.parent)
-        self.window.grab_set()
+        # Tidak pakai grab_set() dan transient() agar window bisa diatur bebas
+        # self.window.transient(self.parent)  # Dihapus agar main_window bisa di depan
 
         # Setup window restore behavior (fix minimize/restore issue)
         setup_window_restore_behavior(self.window)
@@ -707,7 +707,7 @@ class ContainerWindow:
         """Print invoice for selected container"""
         selection = self.container_tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih container yang akan diprint invoicenya!")
+            messagebox.showwarning("Peringatan", "Pilih container yang akan diprint invoicenya!", parent=self.window)
             return
         
         item = self.container_tree.item(selection[0])
@@ -715,7 +715,7 @@ class ContainerWindow:
         container_name = item['values'][4]  # Container column
         
         # Confirm print
-        if messagebox.askyesno("Konfirmasi Print", f"Print Invoice untuk Container '{container_name}'?"):
+        if messagebox.askyesno("Konfirmasi Print", f"Print Invoice untuk Container '{container_name}'?", parent=self.window):
             self.print_handler.print_container_invoice(container_id)
 
     def print_selected_container_invoice_pdf(self):
@@ -723,7 +723,7 @@ class ContainerWindow:
         try:
             selected_items = self.container_tree.selection()
             if not selected_items:
-                messagebox.showwarning("Peringatan", "Pilih satu atau lebih container yang akan diprint invoice PDF!")
+                messagebox.showwarning("Peringatan", "Pilih satu atau lebih container yang akan diprint invoice PDF!", parent=self.window)
                 return
             
             # Get all selected container IDs
@@ -746,17 +746,17 @@ class ContainerWindow:
                 if len(container_names) > 5:
                     confirm_msg += f"... dan {len(container_names) - 5} container lainnya\n"
                 
-                if not messagebox.askyesno("Konfirmasi Print Multiple", confirm_msg):
+                if not messagebox.askyesno("Konfirmasi Print Multiple", confirm_msg, parent=self.window):
                     return
             
             # Call print handler
             if hasattr(self, 'print_handler'):
                 self.print_handler.print_container_invoice_pdf(container_ids)
             else:
-                messagebox.showerror("Error", "Print handler tidak tersedia!")
+                messagebox.showerror("Error", "Print handler tidak tersedia!", parent=self.window)
                 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal print invoice PDF: {str(e)}")
+            messagebox.showerror("Error", f"Gagal print invoice PDF: {str(e, parent=self.window)}")
             print(f"Error in print_selected_container_invoice_pdf: {e}")
             
     
@@ -765,7 +765,7 @@ class ContainerWindow:
         try:
             selected_items = self.container_tree.selection()
             if not selected_items:
-                messagebox.showwarning("Peringatan", "Pilih satu atau lebih container yang akan diprint packing list PDF!")
+                messagebox.showwarning("Peringatan", "Pilih satu atau lebih container yang akan diprint packing list PDF!", parent=self.window)
                 return
             
             # Get all selected container IDs
@@ -788,17 +788,17 @@ class ContainerWindow:
                 if len(container_names) > 5:
                     confirm_msg += f"... dan {len(container_names) - 5} container lainnya\n"
                 
-                if not messagebox.askyesno("Konfirmasi Print Multiple", confirm_msg):
+                if not messagebox.askyesno("Konfirmasi Print Multiple", confirm_msg, parent=self.window):
                     return
             
             # Call print handler - SAME AS INVOICE
             if hasattr(self, 'print_handler'):
                 self.print_handler.print_customer_packing_list_pdf(container_ids)
             else:
-                messagebox.showerror("Error", "Print handler tidak tersedia!")
+                messagebox.showerror("Error", "Print handler tidak tersedia!", parent=self.window)
                 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal print packing list PDF: {str(e)}")
+            messagebox.showerror("Error", f"Gagal print packing list PDF: {str(e, parent=self.window)}")
             print(f"Error in print_selected_customer_packing_list: {e}")
 
     def preview_selected_ipl_excel(self):
@@ -806,7 +806,7 @@ class ContainerWindow:
         try:
             selected_items = self.container_tree.selection()
             if not selected_items:
-                messagebox.showwarning("Peringatan", "Pilih satu container untuk preview IPL Excel!")
+                messagebox.showwarning("Peringatan", "Pilih satu container untuk preview IPL Excel!", parent=self.window)
                 return
 
             # Get first selected container only
@@ -817,7 +817,7 @@ class ContainerWindow:
             self.show_ipl_preview_window(container_id)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal preview IPL Excel: {str(e)}")
+            messagebox.showerror("Error", f"Gagal preview IPL Excel: {str(e, parent=self.window)}")
             print(f"Error in preview_selected_ipl_excel: {e}")
 
     def show_ipl_preview_window(self, container_id):
@@ -829,14 +829,14 @@ class ContainerWindow:
             # Get container details
             container = self.db.get_container_by_id(container_id)
             if not container:
-                messagebox.showerror("Error", "Container tidak ditemukan!")
+                messagebox.showerror("Error", "Container tidak ditemukan!", parent=self.window)
                 return
 
             # Get barang in container with pricing
             container_barang = self.db.get_barang_in_container_with_colli_and_pricing(container_id)
 
             if not container_barang:
-                messagebox.showwarning("Peringatan", "Container kosong, tidak ada data untuk ditampilkan!")
+                messagebox.showwarning("Peringatan", "Container kosong, tidak ada data untuk ditampilkan!", parent=self.window)
                 return
 
             # Create preview window
@@ -1412,7 +1412,7 @@ class ContainerWindow:
             preview_window.protocol("WM_DELETE_WINDOW", on_close)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menampilkan preview: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menampilkan preview: {str(e, parent=self.window)}")
             print(f"Error in show_ipl_preview_window: {e}")
             import traceback
             traceback.print_exc()
@@ -1594,7 +1594,7 @@ class ContainerWindow:
         self.delivery_destination_var = tk.StringVar()
         self.delivery_destination_combo = ttk.Combobox(destination_row,
                                                     textvariable=self.delivery_destination_var,
-                                                    width=22, state="readonly", font=('Arial', self.scaled_font(9)))
+                                                    width=22, font=('Arial', self.scaled_font(9)))
         self.delivery_destination_combo.pack(side='left', padx=(5, 5))
 
         # RIGHT-TOP: Ringkasan/Pra-tabel Pajak
@@ -1990,7 +1990,7 @@ class ContainerWindow:
         """Tambah biaya pengantaran ke container yang dipilih"""
         container_id = self.get_selected_container_id()
         if not container_id:
-            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!", parent=self.window)
             return
         
         deskripsi = self.delivery_desc_var.get().strip()
@@ -1999,14 +1999,14 @@ class ContainerWindow:
         
         # Check jika masih placeholder text
         if not deskripsi or deskripsi == "":
-            messagebox.showwarning("Peringatan", "Masukkan title biaya pengantaran!")
+            messagebox.showwarning("Peringatan", "Masukkan title biaya pengantaran!", parent=self.window)
             return
         
         try:
             biaya = float(biaya_str) if biaya_str else 0
             # Izinkan nilai negatif untuk biaya (misalnya untuk koreksi atau refund)
         except:
-            messagebox.showwarning("Peringatan", "Format biaya tidak valid!")
+            messagebox.showwarning("Peringatan", "Format biaya tidak valid!", parent=self.window)
             return
         
         try:
@@ -2022,20 +2022,20 @@ class ContainerWindow:
             self.delivery_cost_var.set('0')
             self.delivery_destination_combo.set('Surabaya')
             
-            messagebox.showinfo("Sukses", f"Biaya {lokasi}: '{deskripsi}' sebesar Rp {biaya:,.0f} berhasil ditambahkan!")
+            messagebox.showinfo("Sukses", f"Biaya {lokasi}: '{deskripsi}' sebesar Rp {biaya:,.0f} berhasil ditambahkan!", parent=self.window)
             
             # Refresh container summary jika ada
             if hasattr(self, 'summary_window') and self.summary_window.winfo_exists():
                 self.view_container_summary()
                 
         except sqlite3.Error as e:
-            messagebox.showerror("Error Database", f"Gagal menyimpan biaya pengantaran: {str(e)}")
+            messagebox.showerror("Error Database", f"Gagal menyimpan biaya pengantaran: {str(e, parent=self.window)}")
 
     def manage_delivery_costs(self):
         """Window untuk mengelola biaya pengantaran container dengan lokasi"""
         container_id = self.get_selected_container_id()
         if not container_id:
-            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!", parent=self.window)
             return
         
         # Create window
@@ -2154,7 +2154,7 @@ class ContainerWindow:
         def edit_delivery_cost(tree):
             selected = tree.selection()
             if not selected:
-                messagebox.showwarning("Peringatan", "Pilih biaya yang akan diedit!")
+                messagebox.showwarning("Peringatan", "Pilih biaya yang akan diedit!", parent=self.window)
                 return
             
             item = tree.item(selected[0])
@@ -2171,7 +2171,7 @@ class ContainerWindow:
             edit_dialog.geometry("450x400")  # Lebih tinggi untuk field tambahan
             edit_dialog.configure(bg='#ecf0f1')
             edit_dialog.transient(delivery_window)
-            edit_dialog.grab_set()
+            # Tidak pakai grab_set() agar bisa buka multiple window
 
             # Center dialog
             edit_dialog.update_idletasks()
@@ -2190,8 +2190,8 @@ class ContainerWindow:
 
             tk.Label(edit_dialog, text="Lokasi:", font=('Arial', 11, 'bold'), bg='#ecf0f1').pack(pady=5)
             location_var = tk.StringVar(value=current_location)
-            location_combo = ttk.Combobox(edit_dialog, textvariable=location_var, 
-                                        font=('Arial', 10), width=37, state='readonly')
+            location_combo = ttk.Combobox(edit_dialog, textvariable=location_var,
+                                        font=('Arial', 10), width=37)
             
             # Set lokasi options berdasarkan container
             try:
@@ -2228,7 +2228,7 @@ class ContainerWindow:
                 new_cost_str = cost_var.get().replace(',', '').replace('.', '').strip()
 
                 if not new_desc or not new_location or not new_cost_str:
-                    messagebox.showwarning("Peringatan", "Lengkapi field Title, Lokasi, dan Biaya!")
+                    messagebox.showwarning("Peringatan", "Lengkapi field Title, Lokasi, dan Biaya!", parent=self.window)
                     return
 
                 try:
@@ -2241,10 +2241,10 @@ class ContainerWindow:
 
                     edit_dialog.destroy()
                     load_delivery_costs()
-                    messagebox.showinfo("Sukses", "Biaya pengantaran berhasil diupdate!")
+                    messagebox.showinfo("Sukses", "Biaya pengantaran berhasil diupdate!", parent=self.window)
 
                 except Exception as e:
-                    messagebox.showerror("Error", f"Gagal mengupdate: {str(e)}")
+                    messagebox.showerror("Error", f"Gagal mengupdate: {str(e, parent=self.window)}")
             
             # Buttons
             btn_frame = tk.Frame(edit_dialog, bg='#ecf0f1')
@@ -2264,7 +2264,7 @@ class ContainerWindow:
         def delete_delivery_cost(tree):
             selected = tree.selection()
             if not selected:
-                messagebox.showwarning("Peringatan", "Pilih biaya yang akan dihapus!")
+                messagebox.showwarning("Peringatan", "Pilih biaya yang akan dihapus!", parent=self.window)
                 return
             
             item = tree.item(selected[0])
@@ -2272,13 +2272,13 @@ class ContainerWindow:
             desc = item['values'][1]
             location = item['values'][2]
             
-            if messagebox.askyesno("Konfirmasi", f"Hapus biaya '{desc}' untuk lokasi '{location}'?"):
+            if messagebox.askyesno("Konfirmasi", f"Hapus biaya '{desc}' untuk lokasi '{location}'?", parent=self.window):
                 try:
                     self.db.execute("DELETE FROM container_delivery_costs WHERE id = ?", (cost_id,))
                     load_delivery_costs()
-                    messagebox.showinfo("Sukses", "Biaya pengantaran berhasil dihapus!")
+                    messagebox.showinfo("Sukses", "Biaya pengantaran berhasil dihapus!", parent=self.window)
                 except Exception as e:
-                    messagebox.showerror("Error", f"Gagal menghapus: {str(e)}")
+                    messagebox.showerror("Error", f"Gagal menghapus: {str(e, parent=self.window)}")
         
         # Load initial data
         load_delivery_costs()
@@ -2403,10 +2403,10 @@ class ContainerWindow:
                 f.write(f"GRAND TOTAL           : Rp {total_barang + total_delivery:>12,.0f}\n")
                 f.write("="*60 + "\n")
             
-            messagebox.showinfo("Sukses", f"Summary berhasil di-export ke:\n{filename}")
+            messagebox.showinfo("Sukses", f"Summary berhasil di-export ke:\n{filename}", parent=self.window)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal export summary: {str(e)}")
+            messagebox.showerror("Error", f"Gagal export summary: {str(e, parent=self.window)}")
             
 
     def on_sender_receiver_select(self, *args):
@@ -2430,7 +2430,7 @@ class ContainerWindow:
             summary_window.title(f"Summary Container - {container.get('container', 'N/A')}")
             summary_window.geometry("900x600")
             summary_window.transient(self.window)
-            summary_window.grab_set()
+            # Tidak pakai grab_set() agar bisa buka multiple window
             
             # Center window
             summary_window.update_idletasks()
@@ -2555,12 +2555,15 @@ class ContainerWindow:
             
         except Exception as e:
             print(f"Error creating sender/receiver summary dialog: {e}")
-            messagebox.showerror("Error", f"Gagal menampilkan summary: {e}")
+            messagebox.showerror("Error", f"Gagal menampilkan summary: {e}", parent=self.window)
 
     def create_pricing_dialog(self, selected_items, colli_amount):
         """Create dialog for pricing input with auto-price selection using Treeview table"""
         pricing_window = tk.Toplevel(self.window)
         pricing_window.title("💰 Set Harga Barang")
+
+        # Store reference for messagebox parent
+        self._active_pricing_window = pricing_window
 
         # Calculate responsive window size
         screen_width = pricing_window.winfo_screenwidth()
@@ -2577,7 +2580,7 @@ class ContainerWindow:
         pricing_window.geometry(f"{dialog_width}x{dialog_height}")
         pricing_window.configure(bg='#ecf0f1')
         pricing_window.transient(self.window)
-        pricing_window.grab_set()
+        # Tidak pakai grab_set() agar bisa buka multiple window
 
         # Center window
         self._center_window(pricing_window, dialog_width, dialog_height)
@@ -2649,17 +2652,24 @@ class ContainerWindow:
         # Create action buttons
         result = {'confirmed': False, 'pricing_data': {}}
         self._create_pricing_actions(parent_frame, pricing_window, pricing_tree, pricing_data_store, selected_items, colli_amount, result)
-        
+
         # Update canvas scroll region after all widgets are added
         pricing_window.update_idletasks()
         main_canvas.configure(scrollregion=main_canvas.bbox("all"))
-        
+
         # Focus on canvas to enable mouse wheel
         main_canvas.focus_set()
-        
+
         # Wait for dialog to close
         pricing_window.wait_window()
-        
+
+        # Clear pricing window reference
+        self._active_pricing_window = None
+
+        # Return focus to container window after dialog closes
+        self.window.lift()
+        self.window.focus_force()
+
         return result if result['confirmed'] else None
 
     def _create_pricing_controls_placeholder(self, parent, pricing_data_store):
@@ -2779,27 +2789,28 @@ class ContainerWindow:
 
     def _setup_pricing_controls_with_tree(self, controls_frame, pricing_tree, pricing_data_store):
         """Setup pricing controls after tree is created"""
-        
+
         # Setup custom amount input
         def apply_custom_amount():
+            parent_window = getattr(self, '_active_pricing_window', None) or self.window
             try:
                 amount_str = controls_frame['custom_var'].get().strip()
                 if not amount_str:
-                    messagebox.showwarning("Input Error", "Masukkan nilai harga!")
+                    messagebox.showwarning("Input Error", "Masukkan nilai harga!", parent=parent_window)
                     return
-                    
+
                 amount = float(amount_str.replace(',', '').replace('.', ''))
                 if amount >= 0:
                     print(f"Applying custom amount: {amount}")
                     self._quick_fill_manual(pricing_tree, pricing_data_store, amount)
                     controls_frame['custom_var'].set("")  # Clear after apply
-                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!")
+                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!", parent=parent_window)
                 else:
-                    messagebox.showwarning("Input Error", "Masukkan angka positif!")
+                    messagebox.showwarning("Input Error", "Masukkan angka positif!", parent=parent_window)
             except ValueError:
-                messagebox.showwarning("Input Error", "Masukkan angka yang valid!")
+                messagebox.showwarning("Input Error", "Masukkan angka yang valid!", parent=parent_window)
             except Exception as e:
-                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}")
+                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}", parent=parent_window)
         
         # Create apply button
         custom_btn = tk.Button(
@@ -2921,26 +2932,27 @@ class ContainerWindow:
         custom_entry.pack(side='left', padx=(5, 5))
         
         def apply_custom_amount():
+            parent_window = getattr(self, '_active_pricing_window', None) or self.window
             try:
                 amount_str = custom_var.get().strip()
                 if not amount_str:
-                    messagebox.showwarning("Input Error", "Masukkan nilai harga!")
+                    messagebox.showwarning("Input Error", "Masukkan nilai harga!", parent=parent_window)
                     return
-                    
+
                 amount = float(amount_str.replace(',', '').replace('.', ''))
                 if amount >= 0:
                     # FIX: Gunakan pricing_tree yang sudah dibuat, bukan parent
                     print(f"Applying custom amount: {amount}")
                     self._quick_fill_manual(pricing_tree, pricing_data_store, amount)
                     custom_var.set("")  # Clear after apply
-                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!")
+                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!", parent=parent_window)
                 else:
-                    messagebox.showwarning("Input Error", "Masukkan angka positif!")
+                    messagebox.showwarning("Input Error", "Masukkan angka positif!", parent=parent_window)
             except ValueError:
-                messagebox.showwarning("Input Error", "Masukkan angka yang valid!")
+                messagebox.showwarning("Input Error", "Masukkan angka yang valid!", parent=parent_window)
             except Exception as e:
-                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}")
-        
+                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}", parent=parent_window)
+
         custom_btn = tk.Button(
             custom_frame,
             text="✓ Apply",
@@ -3225,10 +3237,10 @@ class ContainerWindow:
             total = price * ton_barang * colli_amount
             print(f"  -> ton calculation: {price} × {ton_barang} × {colli_amount} = {total}")
         elif method.startswith('Harga/container'):
-            # container-based combinations: price × container_barang × colli
+            # container-based combinations: price × container_barang (NOT multiplied by colli)
             container_qty = pricing_info.get('container_barang', 0) or 1
             total = price * container_qty
-            print(f"  -> container calculation: {price} × {container_qty} × {colli_amount} = {total}")
+            print(f"  -> container calculation: {price} × {container_qty} = {total}")
         elif method.startswith('Harga/colli_'):
             # colli-based combinations: price × colli
             total = price * colli_amount
@@ -3446,9 +3458,9 @@ class ContainerWindow:
             return base_total
 
         elif method.startswith('Harga/container'):
-            # container-based combinations: price × container_barang × colli
+            # container-based combinations: price × container_barang (NOT multiplied by colli)
             container_qty = pricing_info.get('container_barang') or 1
-            base_total = price * container_qty * colli_amount
+            base_total = price * container_qty
 
             return base_total
 
@@ -3614,19 +3626,20 @@ class ContainerWindow:
     def _auto_fill_all(self, tree, pricing_data_store, method):
         """Auto fill all items with selected pricing method and update tax calculations"""
         updated_count = 0
+        parent_window = getattr(self, '_active_pricing_window', None) or self.window
         try:
             for item_id in pricing_data_store.keys():
                 # Skip tax rows
                 if pricing_data_store[item_id].get('is_tax_row', False):
                     continue
-                    
+
                 if tree.exists(item_id):
                     pricing_data_store[item_id]['current_method'] = method
-                    
+
                     # Calculate new price
                     new_price = self._calculate_auto_price(item_id, method, pricing_data_store)
                     pricing_data_store[item_id]['current_price'] = new_price
-                    
+
                     # Update tree
                     tree.set(item_id, 'auto_pricing', method)
                     tree.set(item_id, 'harga_unit', f"{new_price:,.0f}")
@@ -3635,57 +3648,58 @@ class ContainerWindow:
                     colli_amount = pricing_data_store[item_id]['colli_amount']
                     total = self._calculate_total_price_with_tax(item_id, pricing_data_store, colli_amount, tree)
                     tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
-                    
+
                     updated_count += 1
-            
+
             print(f"Auto fill completed: {updated_count} items updated with method {method}")
-            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.")
-            
+            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.", parent=parent_window)
+
         except Exception as e:
             print(f"Error in _auto_fill_all: {str(e)}")
-            messagebox.showerror("Error", f"Gagal menerapkan auto fill: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menerapkan auto fill: {str(e)}", parent=parent_window)
 
         
     def _quick_fill_manual_with_tax(self, tree, pricing_data_store, amount):
         """Quick fill all items with manual amount and update tax calculations"""
         updated_count = 0
+        parent_window = getattr(self, '_active_pricing_window', None) or self.window
         try:
             print(f"Starting quick fill manual with amount: {amount}")
-            
+
             for item_id in pricing_data_store.keys():
                 # Skip tax rows
                 if pricing_data_store[item_id].get('is_tax_row', False):
                     continue
-                    
+
                 if tree.exists(item_id):
                     # Update data store
                     pricing_data_store[item_id]['current_method'] = 'Manual'
                     pricing_data_store[item_id]['current_price'] = amount
-                    
+
                     # Update tree display
                     tree.set(item_id, 'auto_pricing', 'Manual')
                     tree.set(item_id, 'harga_unit', f"{amount:,.0f}")
-                    
+
                     # Calculate total with tax
                     colli_amount = pricing_data_store[item_id]['colli_amount']
                     total = self._calculate_total_price_with_tax(item_id, pricing_data_store, colli_amount, tree)
                     tree.set(item_id, 'total_harga', f"Rp {total:,.0f}")
-                    
+
                     updated_count += 1
                     print(f"Updated item {item_id}: price={amount}, total={total}")
-            
+
             print(f"Manual fill completed: {updated_count} items updated")
-            
+
             if updated_count > 0:
-                messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.")
+                messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.", parent=parent_window)
             else:
-                messagebox.showwarning("Peringatan", "Tidak ada barang yang berhasil diupdate!")
-            
+                messagebox.showwarning("Peringatan", "Tidak ada barang yang berhasil diupdate!", parent=parent_window)
+
         except Exception as e:
             print(f"Error in _quick_fill_manual_with_tax: {str(e)}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengisi harga manual: {str(e)}")
+            messagebox.showerror("Error", f"Gagal mengisi harga manual: {str(e)}", parent=parent_window)
         
         
     def _create_pricing_actions(self, parent_frame, pricing_window, tree, pricing_data_store, selected_items, colli_amount, result):
@@ -3736,13 +3750,13 @@ class ContainerWindow:
                             total_amount += tax_amount
                 
                 if not barang_data:
-                    messagebox.showwarning("Peringatan", "Tidak ada data pricing yang valid!")
+                    messagebox.showwarning("Peringatan", "Tidak ada data pricing yang valid!", parent=pricing_window)
                     return
-                
+
                 # Enhanced confirmation dialog with tax info
                 tax_count = len([data for data in barang_data.values() if data['has_tax']])
                 total_tax_amount = sum([sum([tax['amount'] for tax in taxes.values()]) for taxes in tax_data.values()])
-                
+
                 confirm_msg = f"Konfirmasi penambahan barang dengan harga dan pajak:\n\n"
                 confirm_msg += f"📊 RINGKASAN:\n"
                 confirm_msg += f"• Total {len(barang_data)} barang\n"
@@ -3753,8 +3767,8 @@ class ContainerWindow:
                     confirm_msg += f"• Total pajak: Rp {total_tax_amount:,.0f}\n"
                 confirm_msg += f"• GRAND TOTAL: Rp {total_amount:,.0f}\n\n"
                 confirm_msg += f"🚀 Lanjutkan proses?"
-                
-                if messagebox.askyesno("Konfirmasi Harga & Pajak", confirm_msg):
+
+                if messagebox.askyesno("Konfirmasi Harga & Pajak", confirm_msg, parent=pricing_window):
                     # Combine barang and tax data
                     pricing_data.update(barang_data)
                     for parent_id, taxes in tax_data.items():
@@ -3772,18 +3786,18 @@ class ContainerWindow:
                             'is_tax': True,
                             'parent_id': parent_id
                         }
-                    
+
                     result['confirmed'] = True
                     result['pricing_data'] = pricing_data
                     result['tax_data'] = tax_data
                     print(f"Pricing confirmed with {len(barang_data)} barang items and {len(tax_data)} tax items, total: {total_amount}")
                     pricing_window.destroy()
-                    
+
             except Exception as e:
                 print(f"Error in confirm_pricing_with_tax: {str(e)}")
                 import traceback
                 traceback.print_exc()
-                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
+                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}", parent=pricing_window)
         
         def cancel_pricing():
             print("Pricing canceled by user")
@@ -3841,13 +3855,16 @@ class ContainerWindow:
         
         confirm_msg += f"\n🚀 Lanjutkan proses?"
         
-        return messagebox.askyesno("Konfirmasi Harga", confirm_msg)
+        return messagebox.askyesno("Konfirmasi Harga", confirm_msg, parent=self.window)
 
 
     def create_edit_pricing_dialog(self, selected_items, container_id):
         """Create scrollable dialog for editing existing prices with auto-price options using Treeview"""
         pricing_window = tk.Toplevel(self.window)
         pricing_window.title("✏️ Edit Harga Barang")
+
+        # Store reference for messagebox parent
+        self._active_pricing_window = pricing_window
 
         # Calculate responsive window size
         screen_width = pricing_window.winfo_screenwidth()
@@ -3864,8 +3881,8 @@ class ContainerWindow:
         pricing_window.geometry(f"{dialog_width}x{dialog_height}")
         pricing_window.configure(bg='#ecf0f1')
         pricing_window.transient(self.window)
-        pricing_window.grab_set()
-        
+        # Tidak pakai grab_set() agar bisa buka multiple window
+
         try:
             # Load dan resize image
             icon_image = Image.open("assets/logo.jpg")
@@ -3971,17 +3988,24 @@ class ContainerWindow:
         # Create action buttons
         result = {'confirmed': False, 'pricing_data': {}}
         self._create_edit_pricing_actions(parent_frame, pricing_window, pricing_tree, pricing_data_store, selected_items, result)
-        
+
         # Update canvas scroll region after all widgets are added
         pricing_window.update_idletasks()
         main_canvas.configure(scrollregion=main_canvas.bbox("all"))
-        
+
         # Focus on canvas to enable mouse wheel
         main_canvas.focus_set()
-        
+
         # Wait for dialog to close
         pricing_window.wait_window()
-        
+
+        # Clear pricing window reference
+        self._active_pricing_window = None
+
+        # Return focus to container window after dialog closes
+        self.window.lift()
+        self.window.focus_force()
+
         return result if result['confirmed'] else None
 
     def _create_edit_pricing_controls(self, parent, pricing_data_store):
@@ -4188,7 +4212,8 @@ class ContainerWindow:
             elif (selected_items[0]['satuan'] == 'ton'):
                 total_baru = current_price * colli * (barang_detail.get('ton_barang', 0) or 0)
             elif (selected_items[0]['satuan'] == 'container'):
-                total_baru = current_price * colli * (barang_detail.get('container_barang', 0) or 0)
+                # Container pricing: NOT multiplied by colli
+                total_baru = current_price * (barang_detail.get('container_barang', 0) or 0)
             else:
                 total_baru = current_price * colli
             
@@ -4310,7 +4335,7 @@ class ContainerWindow:
             total = price * ton_barang * colli_amount
             print(f"  -> ton calculation: {price} × {ton_barang} × {colli_amount} = {total}")
         elif method.startswith('Harga/container'):
-            # container-based combinations: price × container_barang × colli
+            # container-based combinations: price × container_barang (NOT multiplied by colli)
             container_qty = pricing_info.get('container_barang', 0) or 1
             total = price * container_qty
             print(f"  -> container calculation: {price} × {container_qty} = {total}")
@@ -4338,12 +4363,13 @@ class ContainerWindow:
             item_id = tree.selection()[0] if tree.selection() else None
             if not item_id:
                 return
-            
+
             # Skip editing for tax rows
             if pricing_data_store.get(item_id, {}).get('is_tax_row', False):
-                messagebox.showinfo("Info", "Baris pajak dihitung otomatis berdasarkan harga barang utama.")
+                parent_window = getattr(self, '_active_pricing_window', None) or self.window
+                messagebox.showinfo("Info", "Baris pajak dihitung otomatis berdasarkan harga barang utama.", parent=parent_window)
                 return
-            
+
             # Get clicked column
             region = tree.identify_region(event.x, event.y)
             if region != "cell":
@@ -4587,24 +4613,25 @@ class ContainerWindow:
         
         # Setup custom amount input
         def apply_custom_amount():
+            parent_window = getattr(self, '_active_pricing_window', None) or self.window
             try:
                 amount_str = controls_frame['custom_var'].get().strip()
                 if not amount_str:
-                    messagebox.showwarning("Input Error", "Masukkan nilai harga!")
+                    messagebox.showwarning("Input Error", "Masukkan nilai harga!", parent=parent_window)
                     return
-                    
+
                 amount = float(amount_str.replace(',', '').replace('.', ''))
                 if amount >= 0:
                     self._edit_quick_fill_manual(pricing_tree, pricing_data_store, amount)
                     controls_frame['custom_var'].set("")
-                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!")
+                    messagebox.showinfo("Berhasil", f"Harga manual Rp {amount:,.0f} telah diterapkan ke semua barang!", parent=parent_window)
                 else:
-                    messagebox.showwarning("Input Error", "Masukkan angka positif!")
+                    messagebox.showwarning("Input Error", "Masukkan angka positif!", parent=parent_window)
             except ValueError:
-                messagebox.showwarning("Input Error", "Masukkan angka yang valid!")
+                messagebox.showwarning("Input Error", "Masukkan angka yang valid!", parent=parent_window)
             except Exception as e:
-                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}")
-        
+                messagebox.showerror("Error", f"Gagal menerapkan harga: {str(e)}", parent=parent_window)
+
         # Create apply button
         custom_btn = tk.Button(
             controls_frame['custom_entry'].master,
@@ -4718,80 +4745,82 @@ class ContainerWindow:
     def _edit_auto_fill_all(self, pricing_tree, pricing_data_store, method):
         """Auto fill all items with selected pricing method for edit dialog including tax"""
         updated_count = 0
+        parent_window = getattr(self, '_active_pricing_window', None) or self.window
         try:
             for item_id in pricing_data_store.keys():
                 # Skip tax rows - they will be calculated automatically
                 if pricing_data_store.get(item_id, {}).get('is_tax_row', False):
                     continue
-                    
+
                 if pricing_tree.exists(item_id):
                     # Ensure item data exists
                     if item_id not in pricing_data_store:
                         pricing_data_store[item_id] = {}
-                        
+
                     pricing_data_store[item_id]['current_method'] = method
-                    
+
                     # Calculate new price
                     new_price = self._calculate_edit_auto_price(item_id, method, pricing_data_store)
                     pricing_data_store[item_id]['current_price'] = new_price
-                    
+
                     # Update tree
                     pricing_tree.set(item_id, 'auto_pricing', method)
                     pricing_tree.set(item_id, 'harga_baru', f"{new_price:,.0f}")
-                    
+
                     # Calculate total with tax
                     total = self._calculate_edit_total_price_with_tax(item_id, pricing_data_store, pricing_tree)
                     pricing_tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
-                    
+
                     updated_count += 1
-            
+
             print(f"Edit auto fill completed: {updated_count} items updated with method {method}")
-            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.")
-            
+            messagebox.showinfo("Berhasil", f"Metode {method} telah diterapkan ke {updated_count} barang!\nPajak otomatis dihitung untuk barang yang memiliki pajak.", parent=parent_window)
+
         except Exception as e:
             print(f"Error in _edit_auto_fill_all: {str(e)}")
-            messagebox.showerror("Error", f"Gagal menerapkan auto fill: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menerapkan auto fill: {str(e)}", parent=parent_window)
             
     def _edit_quick_fill_manual(self, pricing_tree, pricing_data_store, amount):
         """Quick fill all items with manual amount for edit dialog including tax"""
         updated_count = 0
+        parent_window = getattr(self, '_active_pricing_window', None) or self.window
         try:
             print(f"Starting edit quick fill manual with amount: {amount}")
-            
+
             for item_id in pricing_data_store.keys():
                 # Skip tax rows - they will be calculated automatically
                 if pricing_data_store.get(item_id, {}).get('is_tax_row', False):
                     continue
-                    
+
                 if pricing_tree.exists(item_id):
                     # Ensure item data exists
                     if item_id not in pricing_data_store:
                         pricing_data_store[item_id] = {}
-                        
+
                     # Update data store
                     pricing_data_store[item_id]['current_method'] = 'Manual'
                     pricing_data_store[item_id]['current_price'] = amount
-                    
+
                     # Update tree display
                     pricing_tree.set(item_id, 'auto_pricing', 'Manual')
                     pricing_tree.set(item_id, 'harga_baru', f"{amount:,.0f}")
-                    
+
                     # Calculate total with tax
                     total = self._calculate_edit_total_price_with_tax(item_id, pricing_data_store, pricing_tree)
                     pricing_tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
-                    
+
                     updated_count += 1
                     print(f"Updated edit item {item_id}: price={amount}, total={total}")
                 else:
                     print(f"WARNING: Edit item {item_id} not found in tree")
-            
+
             print(f"Edit manual fill completed: {updated_count} items updated")
-            
+
         except Exception as e:
             print(f"Error in _edit_quick_fill_manual: {str(e)}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengisi harga manual: {str(e)}")
+            messagebox.showerror("Error", f"Gagal mengisi harga manual: {str(e)}", parent=parent_window)
             
             
     def _create_edit_pricing_actions(self, parent_frame, pricing_window, pricing_tree, pricing_data_store, selected_items, result):
@@ -4856,20 +4885,20 @@ class ContainerWindow:
                             })
                 
                 if not pricing_data:
-                    messagebox.showwarning("Peringatan", "Tidak ada data pricing yang valid!")
+                    messagebox.showwarning("Peringatan", "Tidak ada data pricing yang valid!", parent=pricing_window)
                     return
-                
+
                 if not changed_items:
-                    messagebox.showinfo("Info", "Tidak ada perubahan harga yang perlu disimpan!")
+                    messagebox.showinfo("Info", "Tidak ada perubahan harga yang perlu disimpan!", parent=pricing_window)
                     return
-                
+
                 # Enhanced confirmation dialog
                 confirm_msg = f"Konfirmasi perubahan harga:\n\n"
                 confirm_msg += f"📊 RINGKASAN PERUBAHAN:\n"
                 confirm_msg += f"• Total barang: {len(selected_items)}\n"
                 confirm_msg += f"• Barang yang berubah: {len(changed_items)}\n"
                 confirm_msg += f"• Total nilai baru: Rp {total_amount:,.0f}\n\n"
-                
+
                 # Show detailed changes (max 5 items)
                 confirm_msg += f"📋 DETAIL PERUBAHAN:\n"
                 for i, item in enumerate(changed_items[:5]):
@@ -4878,25 +4907,25 @@ class ContainerWindow:
                         confirm_msg += f"  Lama: Rp {item['old_price']:,.0f} → Baru: Rp {item['new_price']:,.0f} ({item['method']})\n"
                     else:
                         confirm_msg += f"  Satuan: {item['old_method']} → {item['method']} (Rp {item['new_price']:,.0f})\n"
-                
+
                 if len(changed_items) > 5:
                     remaining = len(changed_items) - 5
                     confirm_msg += f"... dan {remaining} perubahan lainnya\n"
-                
+
                 confirm_msg += f"\n🚀 Simpan perubahan?"
-                
-                if messagebox.askyesno("Konfirmasi Edit Harga", confirm_msg):
+
+                if messagebox.askyesno("Konfirmasi Edit Harga", confirm_msg, parent=pricing_window):
                     result['confirmed'] = True
                     result['pricing_data'] = pricing_data
                     result['changed_count'] = len(changed_items)
                     print(f"Edit pricing confirmed with {len(changed_items)} changes, total: {total_amount}")
                     pricing_window.destroy()
-                    
+
             except Exception as e:
                 print(f"Error in confirm_edit: {str(e)}")
                 import traceback
                 traceback.print_exc()
-                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}")
+                messagebox.showerror("Error", f"Terjadi kesalahan: {str(e)}", parent=pricing_window)
         
         def cancel_edit():
             print("Edit pricing canceled by user")
@@ -4928,12 +4957,12 @@ class ContainerWindow:
                         pricing_tree.set(item_id, 'total_baru', f"Rp {total:,.0f}")
                         
                         reset_count += 1
-                
-                messagebox.showinfo("Reset", f"Berhasil mereset {reset_count} barang ke harga asli!")
-                
+
+                messagebox.showinfo("Reset", f"Berhasil mereset {reset_count} barang ke harga asli!", parent=pricing_window)
+
             except Exception as e:
                 print(f"Error in reset_all_prices: {str(e)}")
-                messagebox.showerror("Error", f"Gagal mereset harga: {str(e)}")
+                messagebox.showerror("Error", f"Gagal mereset harga: {str(e)}", parent=pricing_window)
         
         
         tk.Button(
@@ -4980,12 +5009,12 @@ class ContainerWindow:
     def edit_barang_colli_in_container(self):
         """Edit colli amount of selected barang in container"""
         if not self.selected_container_var.get():
-            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!", parent=self.window)
             return
         
         selection = self.container_barang_tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit jumlah collinya!")
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit jumlah collinya!", parent=self.window)
             return
         
         try:
@@ -5016,7 +5045,7 @@ class ContainerWindow:
                 })
             
             if not selected_items:
-                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!")
+                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!", parent=self.window)
                 return
             
             # Show edit colli dialog
@@ -5026,7 +5055,7 @@ class ContainerWindow:
             print(f"Error in edit_barang_colli_in_container: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengedit colli: {str(e)}")
+            messagebox.showerror("Error", f"Gagal mengedit colli: {str(e, parent=self.window)}")
 
 
     def show_edit_colli_dialog(self, selected_items, container_id):
@@ -5036,8 +5065,8 @@ class ContainerWindow:
         edit_window.geometry("600x500")
         edit_window.configure(bg='#ecf0f1')
         edit_window.transient(self.window)
-        edit_window.grab_set()
-        
+        # Tidak pakai grab_set() agar bisa buka multiple window
+
         try:
             # Load dan resize image
             icon_image = Image.open("assets/logo.jpg")
@@ -5248,8 +5277,9 @@ class ContainerWindow:
                         print(f"   New Date (Indonesian): {new_date_indonesian}")
                         
                         if new_colli <= 0:
-                            messagebox.showwarning("Peringatan", 
-                                                f"Colli untuk '{entry_data['item']['name']}' harus lebih dari 0!")
+                            messagebox.showwarning("Peringatan",
+                                                f"Colli untuk '{entry_data['item']['name']}' harus lebih dari 0!",
+                                                parent=self.window)
                             error_count += 1
                             continue
                         
@@ -5260,10 +5290,11 @@ class ContainerWindow:
                             print(f"   New Date (DB Format): {new_date_db}")
                         except Exception as date_error:
                             print(f"❌ Date conversion error: {date_error}")
-                            messagebox.showwarning("Format Tanggal Salah", 
+                            messagebox.showwarning("Format Tanggal Salah",
                                                 f"Format tanggal untuk '{entry_data['item']['name']}' tidak valid!\n\n"
                                                 f"Gunakan format: DD/MM/YYYY\n"
-                                                f"Contoh: 31/10/2025")
+                                                f"Contoh: 31/10/2025",
+                                                parent=self.window)
                             error_count += 1
                             continue
                         
@@ -5334,7 +5365,8 @@ class ContainerWindow:
                                 elif new_satuan == 'ton':
                                     new_total = harga_unit * new_colli * ton_barang
                                 elif new_satuan == 'container':
-                                    new_total = harga_unit * new_colli * container_barang
+                                    # Container pricing: NOT multiplied by colli
+                                    new_total = harga_unit * container_barang
                                 else:
                                     new_total = harga_unit * new_colli
                             else:
@@ -5455,8 +5487,9 @@ class ContainerWindow:
                     except ValueError as ve:
                         error_count += 1
                         print(f"❌ ValueError for barang {barang_id}: {ve}")
-                        messagebox.showwarning("Peringatan", 
-                                            f"Format colli tidak valid untuk '{entry_data['item']['name']}'!")
+                        messagebox.showwarning("Peringatan",
+                                            f"Format colli tidak valid untuk '{entry_data['item']['name']}'!",
+                                            parent=self.window)
                     except Exception as e:
                         error_count += 1
                         print(f"❌ Error updating barang {barang_id}: {e}")
@@ -5483,7 +5516,7 @@ class ContainerWindow:
                     if len(changes_made) > 5:
                         result_msg += f"... dan {len(changes_made) - 5} perubahan lainnya\n"
                     
-                    messagebox.showinfo("Sukses", result_msg)
+                    messagebox.showinfo("Sukses", result_msg, parent=self.window)
                     
                     # Refresh displays
                     print("🔄 Refreshing display...")
@@ -5494,16 +5527,16 @@ class ContainerWindow:
                     
                     edit_window.destroy()
                 else:
-                    messagebox.showinfo("Info", "Tidak ada perubahan yang disimpan.")
+                    messagebox.showinfo("Info", "Tidak ada perubahan yang disimpan.", parent=self.window)
                     
                 if error_count > 0:
-                    messagebox.showwarning("Peringatan", f"{error_count} barang gagal diupdate.")
+                    messagebox.showwarning("Peringatan", f"{error_count} barang gagal diupdate.", parent=self.window)
                     
             except Exception as e:
                 print(f"❌ FATAL ERROR in save_colli_and_date_changes: {e}")
                 import traceback
                 traceback.print_exc()
-                messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e)}")
+                messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e, parent=self.window)}")
         
         
         # Create buttons
@@ -5551,8 +5584,8 @@ class ContainerWindow:
                 # ton-based pricing: harga_unit * ton_barang * colli
                 return harga_unit * ton_barang * new_colli
             elif satuan == 'container' and container_barang > 0:
-                # container-based pricing: harga_unit * container_barang * colli
-                return harga_unit * container_barang * new_colli
+                # container-based pricing: harga_unit * container_barang (NOT multiplied by colli)
+                return harga_unit * container_barang
             else:
                 # colli-based or manual pricing: harga_unit * colli
                 return harga_unit * new_colli
@@ -5565,12 +5598,12 @@ class ContainerWindow:
     def edit_barang_price_in_container(self):
         """Edit price of selected barang in container with tax recalculation"""
         if not self.selected_container_var.get():
-            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!", parent=self.window)
             return
         
         selection = self.container_barang_tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit harganya!")
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan diedit harganya!", parent=self.window)
             return
         
         try:
@@ -5651,7 +5684,7 @@ class ContainerWindow:
                 print(f"Added item: {nama_barang}, barang_id: {barang_id}, harga: {parsed_current_harga}, total: {parsed_current_total}, colli: {parsed_colli}")
             
             if not selected_items:
-                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!")
+                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!", parent=self.window)
                 return
             
             # Create edit pricing dialog
@@ -5818,7 +5851,7 @@ class ContainerWindow:
                         result_msg += f"\n• Pajak dihitung ulang: {tax_updated_count}"
                         result_msg += f"\n• PPN 1.1% dan PPH 23 2% telah disesuaikan dengan harga baru"
                     
-                    messagebox.showinfo("Sukses", result_msg)
+                    messagebox.showinfo("Sukses", result_msg, parent=self.window)
                     
                     # Refresh displays
                     self.load_container_barang(container_id)
@@ -5829,13 +5862,13 @@ class ContainerWindow:
                         print(f"🔄 Tax summary refreshed after updating {tax_updated_count} tax records")
                 
                 if error_count > 0:
-                    messagebox.showwarning("Peringatan", f"⚠️ {error_count} barang gagal diupdate.")
+                    messagebox.showwarning("Peringatan", f"⚠️ {error_count} barang gagal diupdate.", parent=self.window)
             
         except Exception as e:
             print(f"❌ Error in edit_barang_price_in_container: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengedit harga: {str(e)}")
+            messagebox.showerror("Error", f"Gagal mengedit harga: {str(e, parent=self.window)}")
         
           
     def load_customers(self):
@@ -6036,45 +6069,46 @@ class ContainerWindow:
         # STEP 1: Validate Container Selection
         # ============================================
         if not self.selected_container_var.get():
-            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!", parent=self.window)
             return
-        
+
         # ============================================
         # STEP 2: Validate Barang Selection
         # ============================================
         selection = self.available_tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih barang dari daftar barang tersedia!")
+            messagebox.showwarning("Peringatan", "Pilih barang dari daftar barang tersedia!", parent=self.window)
             return
-        
+
         # ============================================
         # STEP 3: Validate Colli
         # ============================================
         try:
             colli_amount = int(self.colli_var.get())
             if colli_amount <= 0:
-                messagebox.showwarning("Peringatan", "Jumlah colli harus lebih dari 0!")
+                messagebox.showwarning("Peringatan", "Jumlah colli harus lebih dari 0!", parent=self.window)
                 return
         except ValueError:
-            messagebox.showwarning("Peringatan", "Jumlah colli harus berupa angka!")
+            messagebox.showwarning("Peringatan", "Jumlah colli harus berupa angka!", parent=self.window)
             return
-        
+
         # ============================================
         # STEP 4: Validate Tanggal Indonesia
         # ============================================
         tanggal_indonesian = self.tanggal_entry.get().strip()  # ✅ DateEntry sudah return DD/MM/YYYY
-        
+
         if not tanggal_indonesian:
-            messagebox.showwarning("Validasi", "Masukkan tanggal!")
+            messagebox.showwarning("Validasi", "Masukkan tanggal!", parent=self.window)
             return
-        
+
         if not self.validate_indonesian_date(tanggal_indonesian):
             messagebox.showerror(
                 "Format Tanggal Salah",
                 f"Format tanggal tidak valid!\n\n"
                 f"Input Anda: {tanggal_indonesian}\n\n"
                 f"Gunakan format: DD/MM/YYYY\n"
-                f"Contoh: 31/10/2025"
+                f"Contoh: 31/10/2025",
+                parent=self.window
             )
             return
         
@@ -6110,20 +6144,21 @@ class ContainerWindow:
                 
                 if validation_error:
                     messagebox.showwarning(
-                        "Peringatan", 
-                        f"Barang '{barang_name}': {error_message.strip()}"
+                        "Peringatan",
+                        f"Barang '{barang_name}': {error_message.strip()}",
+                        parent=self.window
                     )
                     continue
-                
+
                 selected_items.append({
                     'id': barang_id,
                     'name': barang_name,
                     'sender': barang_sender,
                     'receiver': barang_receiver
                 })
-            
+
             if not selected_items:
-                messagebox.showwarning("Peringatan", "Tidak ada barang yang valid untuk ditambahkan!")
+                messagebox.showwarning("Peringatan", "Tidak ada barang yang valid untuk ditambahkan!", parent=self.window)
                 return
             
             # ============================================
@@ -6242,11 +6277,11 @@ class ContainerWindow:
             
             # Show appropriate message box
             if success_count > 0 and error_count == 0:
-                messagebox.showinfo("Berhasil!", result_msg)
+                messagebox.showinfo("Berhasil!", result_msg, parent=self.window)
             elif success_count > 0 and error_count > 0:
-                messagebox.showwarning("Sebagian Berhasil", result_msg)
+                messagebox.showwarning("Sebagian Berhasil", result_msg, parent=self.window)
             else:
-                messagebox.showerror("Gagal", result_msg)
+                messagebox.showerror("Gagal", result_msg, parent=self.window)
             
             # ============================================
             # STEP 11: Refresh Displays
@@ -6274,12 +6309,12 @@ class ContainerWindow:
                 print(f"✅ Successfully added {success_count} barang with date {tanggal_indonesian} ({tanggal_db})")
             
         except ValueError as ve:
-            messagebox.showerror("Error", f"Format data tidak valid: {str(ve)}")
+            messagebox.showerror("Error", f"Format data tidak valid: {str(ve)}", parent=self.window)
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()
             print(f"💥 Error in add_selected_barang_to_container: {error_detail}")
-            messagebox.showerror("Error", f"Gagal menambah barang ke container: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menambah barang ke container: {str(e)}", parent=self.window)
         
            
     def center_window(self):
@@ -6345,13 +6380,13 @@ class ContainerWindow:
         
         # Check if container is selected
         if not self.selected_container_var.get():
-            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!", parent=self.window)
             return
         
         # Check if barang is selected
         selection = self.container_barang_tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih barang yang akan dihapus dari container!")
+            messagebox.showwarning("Peringatan", "Pilih barang yang akan dihapus dari container!", parent=self.window)
             return
         
         try:
@@ -6401,7 +6436,7 @@ class ContainerWindow:
                 })
             
             if not selected_items:
-                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!")
+                messagebox.showerror("Error", "Tidak dapat menemukan data barang yang dipilih!", parent=self.window)
                 return
             
             # Confirm removal with details including pricing
@@ -6433,7 +6468,7 @@ class ContainerWindow:
                 confirm_msg += f"\nTotal nilai yang akan dihapus: Rp {total_nilai:,.0f}\n"
                 confirm_msg += f"Semua barang dan data pajaknya akan dihapus dari container."
             
-            if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg):
+            if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg, parent=self.window):
                 return
             
             # Remove barang from container with tax cleanup
@@ -6610,14 +6645,14 @@ class ContainerWindow:
                 if tax_cleaned_count > 0:
                     result_msg += f"🧾 {tax_cleaned_count} data pajak terkait berhasil dihapus.\n"
                 result_msg += f"\nBarang telah dikembalikan ke daftar barang tersedia."
-                messagebox.showinfo("Sukses", result_msg)
+                messagebox.showinfo("Sukses", result_msg, parent=self.window)
             else:
                 result_msg = f"✅ Berhasil: {success_count} barang\n" + \
                             f"❌ Gagal: {error_count} barang\n"
                 if tax_cleaned_count > 0:
                     result_msg += f"🧾 Tax cleanup: {tax_cleaned_count} record\n"
                 result_msg += f"\nPeriksa log untuk detail error."
-                messagebox.showwarning("Sebagian Berhasil", result_msg)
+                messagebox.showwarning("Sebagian Berhasil", result_msg, parent=self.window)
             
             # Refresh displays
             self.load_available_barang()
@@ -6638,18 +6673,18 @@ class ContainerWindow:
             print(f"🔄 Displays refreshed after removing {success_count} barang from container {container_id}")
             
         except ValueError as ve:
-            messagebox.showerror("Error", f"Format container ID tidak valid: {str(ve)}")
+            messagebox.showerror("Error", f"Format container ID tidak valid: {str(ve, parent=self.window)}")
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()
             print(f"💥 Error in remove_barang_from_container: {error_detail}")
-            messagebox.showerror("Error", f"Gagal menghapus barang dari container!\n\nError: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menghapus barang dari container!\n\nError: {str(e, parent=self.window)}")
             self.db.rollback()
         
     def view_container_summary(self):
         """View detailed summary of selected container including pricing"""
         if not self.selected_container_var.get():
-            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container terlebih dahulu!", parent=self.window)
             return
         
         try:
@@ -6658,7 +6693,7 @@ class ContainerWindow:
             # Get container details
             container = self.db.get_container_by_id(container_id)
             if not container:
-                messagebox.showerror("Error", "Container tidak ditemukan!")
+                messagebox.showerror("Error", "Container tidak ditemukan!", parent=self.window)
                 return
             
             # Get barang in container with colli and pricing
@@ -6759,7 +6794,7 @@ class ContainerWindow:
             print(f"Error in view_container_summary: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal membuat summary container: {str(e)}")
+            messagebox.showerror("Error", f"Gagal membuat summary container: {str(e, parent=self.window)}")
             
         
     def show_container_summary_dialog_with_pricing(self, container, barang_list, customer_summary, total_volume, total_weight, total_colli, total_nilai):
@@ -6809,8 +6844,8 @@ class ContainerWindow:
             summary_window.geometry(f"{dialog_width}x{dialog_height}")
             summary_window.configure(bg='#ecf0f1')
             summary_window.transient(self.window)
-            summary_window.grab_set()
-            
+            # Tidak pakai grab_set() agar bisa buka multiple window
+
             try:
                 icon_image = Image.open("assets/logo.jpg")
                 icon_image = icon_image.resize((32, 32), Image.Resampling.LANCZOS)
@@ -7089,7 +7124,7 @@ class ContainerWindow:
             print(f"Error creating summary dialog: {dialog_error}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal membuat dialog summary: {str(dialog_error)}")
+            messagebox.showerror("Error", f"Gagal membuat dialog summary: {str(dialog_error, parent=self.window)}")
             
         
         
@@ -7099,7 +7134,7 @@ class ContainerWindow:
         selected_items = self.container_tree.selection()
         
         if not selected_items:
-            messagebox.showwarning("Peringatan", "Pilih container dari tabel terlebih dahulu!")
+            messagebox.showwarning("Peringatan", "Pilih container dari tabel terlebih dahulu!", parent=self.window)
             return
         
         try:
@@ -7110,7 +7145,7 @@ class ContainerWindow:
             item_values = self.container_tree.item(selected_item)['values']
             
             if not item_values:
-                messagebox.showerror("Error", "Data container tidak valid!")
+                messagebox.showerror("Error", "Data container tidak valid!", parent=self.window)
                 return
             
             # Extract container ID (assuming it's in the first column)
@@ -7121,7 +7156,7 @@ class ContainerWindow:
             # Get container details
             container = self.db.get_container_by_id(container_id)
             if not container:
-                messagebox.showerror("Error", "Container tidak ditemukan!")
+                messagebox.showerror("Error", "Container tidak ditemukan!", parent=self.window)
                 return
             
             # Get barang in container with colli and pricing
@@ -7222,7 +7257,7 @@ class ContainerWindow:
             print(f"Error in view_selected_container_summary: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal membuat summary container: {str(e)}")
+            messagebox.showerror("Error", f"Gagal membuat summary container: {str(e, parent=self.window)}")
         
         
     def view_container_details(self, event):
@@ -7289,15 +7324,15 @@ class ContainerWindow:
             # STEP 2: Validasi Input
             # ============================================
             if not feeder_name:
-                messagebox.showwarning("Validasi", "Pilih atau ketik nama kapal terlebih dahulu!")
+                messagebox.showwarning("Validasi", "Pilih atau ketik nama kapal terlebih dahulu!", parent=self.window)
                 return
             
             if not container:
-                messagebox.showwarning("Validasi", "Masukkan nomor container!")
+                messagebox.showwarning("Validasi", "Masukkan nomor container!", parent=self.window)
                 return
             
             if not etd_indonesian:
-                messagebox.showwarning("Validasi", "Masukkan ETD!")
+                messagebox.showwarning("Validasi", "Masukkan ETD!", parent=self.window)
                 return
             
             # ============================================
@@ -7309,7 +7344,8 @@ class ContainerWindow:
                     f"Format ETD tidak valid!\n\n"
                     f"Input Anda: {etd_indonesian}\n\n"
                     f"Gunakan format: DD/MM/YYYY\n"
-                    f"Contoh: 31/10/2025"
+                    f"Contoh: 31/10/2025",
+                    parent=self.window
                 )
                 return
             
@@ -7355,13 +7391,15 @@ class ContainerWindow:
                         f"ETD yang tersedia untuk kapal ini:\n{etd_list}\n\n"
                         f"Silakan:\n"
                         f"1. Pilih ETD yang tersedia di atas, atau\n"
-                        f"2. Tambahkan data kapal dengan ETD '{etd_indonesian}' di menu Kelola Kapal"
+                        f"2. Tambahkan data kapal dengan ETD '{etd_indonesian}' di menu Kelola Kapal",
+                        parent=self.window
                     )
                 else:
                     messagebox.showerror(
                         "❌ Kapal Tidak Ditemukan",
                         f"Kapal '{feeder_name}' tidak ditemukan di database!\n\n"
-                        f"Silakan tambahkan kapal ini terlebih dahulu di menu Kelola Kapal."
+                        f"Silakan tambahkan kapal ini terlebih dahulu di menu Kelola Kapal.",
+                        parent=self.window
                     )
                 return
             
@@ -7392,23 +7430,24 @@ class ContainerWindow:
             # STEP 7: Success & Refresh
             # ============================================
             messagebox.showinfo(
-                "✅ Sukses", 
+                "✅ Sukses",
                 f"Container berhasil ditambahkan!\n\n"
                 f"Container   : {container}\n"
                 f"Kapal       : {kapal_feeder}\n"
                 f"ETD         : {etd_indonesian}\n"
                 f"Destination : {kapal_destination}\n"
-                f"Kapal ID    : {kapal_id}"
+                f"Kapal ID    : {kapal_id}",
+                parent=self.window
             )
 
             # Refresh
             self.clear_form()
             self.load_containers()
             self.load_container_combo()
-            
+
             if self.refresh_callback:
                 self.refresh_callback()
-                
+
             print(f"✅ Container '{container}' berhasil ditambahkan dengan kapal_id={kapal_id}")
 
         except Exception as e:
@@ -7418,14 +7457,14 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             print(f"{'='*60}\n")
-            messagebox.showerror("Database Error", f"Gagal menambahkan container:\n{str(e)}")
+            messagebox.showerror("Database Error", f"Gagal menambahkan container:\n{str(e)}", parent=self.window)
          
      
     def edit_container(self):
         """Edit selected container"""
         selection = self.container_tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih container yang akan diedit!")
+            messagebox.showwarning("Peringatan", "Pilih container yang akan diedit!", parent=self.window)
             return
         
         item = self.container_tree.item(selection[0])
@@ -7448,7 +7487,7 @@ class ContainerWindow:
         """, (container_id,))
         
         if not container:
-            messagebox.showerror("Error", "Container tidak ditemukan!")
+            messagebox.showerror("Error", "Container tidak ditemukan!", parent=self.window)
             return
         
         # Open edit dialog
@@ -7463,7 +7502,9 @@ class ContainerWindow:
             edit_window.geometry("650x550")
             edit_window.configure(bg='#ecf0f1')
             edit_window.transient(self.window)
-            edit_window.grab_set()
+            # Store reference for messagebox parent
+            self._active_edit_window = edit_window
+            # Tidak pakai grab_set() agar bisa buka multiple window
 
             try:
                 icon_image = Image.open("assets/logo.jpg")
@@ -7609,15 +7650,15 @@ class ContainerWindow:
                     # STEP 2: Validasi Input
                     # ============================================
                     if not feeder_name:
-                        messagebox.showwarning("Validasi", "Pilih kapal!")
+                        messagebox.showwarning("Validasi", "Pilih kapal!", parent=self.window)
                         return
                     
                     if not container_value:
-                        messagebox.showwarning("Validasi", "Container tidak boleh kosong!")
+                        messagebox.showwarning("Validasi", "Container tidak boleh kosong!", parent=self.window)
                         return
                     
                     if not etd_indonesian:
-                        messagebox.showwarning("Validasi", "ETD tidak boleh kosong!")
+                        messagebox.showwarning("Validasi", "ETD tidak boleh kosong!", parent=self.window)
                         return
                     
                     # ============================================
@@ -7628,7 +7669,8 @@ class ContainerWindow:
                             "Format Tanggal Salah",
                             f"Format ETD tidak valid!\n\n"
                             f"Input Anda: {etd_indonesian}\n\n"
-                            f"Gunakan format: DD/MM/YYYY"
+                            f"Gunakan format: DD/MM/YYYY",
+                            parent=edit_window
                         )
                         return
                     
@@ -7675,13 +7717,15 @@ class ContainerWindow:
                                 f"ETD yang tersedia untuk kapal ini:\n{etd_list}\n\n"
                                 f"Silakan:\n"
                                 f"1. Cek kembali ETD yang benar\n"
-                                f"2. Atau tambahkan data kapal dengan ETD tersebut"
+                                f"2. Atau tambahkan data kapal dengan ETD tersebut",
+                                parent=edit_window
                             )
                         else:
                             messagebox.showerror(
                                 "❌ Error - Kapal Tidak Ditemukan",
                                 f"Kapal '{feeder_name}' tidak ditemukan di database!\n\n"
-                                f"Silakan tambahkan kapal ini di menu Kelola Kapal."
+                                f"Silakan tambahkan kapal ini di menu Kelola Kapal.",
+                                parent=edit_window
                             )
                         return  # ✅ STOP - tidak bisa update
                     
@@ -7700,16 +7744,17 @@ class ContainerWindow:
                     # ============================================
                     # STEP 6: Konfirmasi Update
                     # ============================================
-                    if not messagebox.askyesno("Konfirmasi Update", 
-                            f"Simpan perubahan untuk container ID {container_id}?"):
+                    if not messagebox.askyesno("Konfirmasi Update",
+                            f"Simpan perubahan untuk container ID {container_id}?",
+                            parent=edit_window):
                         return
 
                     # ============================================
                     # STEP 7: UPDATE Database
                     # ============================================
                     self.db.execute("""
-                        UPDATE containers SET 
-                        kapal_id = ?, etd = ?, party = ?, container = ?, seal = ?, ref_joa = ?, 
+                        UPDATE containers SET
+                        kapal_id = ?, etd = ?, party = ?, container = ?, seal = ?, ref_joa = ?,
                         updated_at = CURRENT_TIMESTAMP
                         WHERE container_id = ?
                     """, (
@@ -7722,15 +7767,15 @@ class ContainerWindow:
                         container_id
                     ))
 
-                    messagebox.showinfo("Sukses", "✅ Container berhasil diupdate!")
-                    
+                    messagebox.showinfo("Sukses", "✅ Container berhasil diupdate!", parent=edit_window)
+
                     # Refresh
                     self.load_containers()
                     self.load_container_combo()
-                    
+
                     if self.refresh_callback:
                         self.refresh_callback()
-                        
+
                     edit_window.destroy()
 
                 except Exception as e:
@@ -7740,7 +7785,7 @@ class ContainerWindow:
                     import traceback
                     traceback.print_exc()
                     print(f"{'='*60}\n")
-                    messagebox.showerror("Error", f"Gagal menyimpan perubahan:\n{str(e)}")
+                    messagebox.showerror("Error", f"Gagal menyimpan perubahan:\n{str(e)}", parent=edit_window)
 
             # Buttons
             btn_frame = tk.Frame(edit_window, bg='#ecf0f1')
@@ -7765,7 +7810,7 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             print(f"{'='*60}\n")
-            messagebox.showerror("Error", f"Gagal membuat dialog edit:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal membuat dialog edit:\n{str(e, parent=self.window)}")
         
         
     def is_valid_date_format(self, date_string):
@@ -7780,50 +7825,74 @@ class ContainerWindow:
             return False
     
     def delete_container(self):
-        """Delete selected container"""
+        """Delete selected container (supports multiple selection)"""
         selection = self.container_tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih container yang akan dihapus!")
+            messagebox.showwarning("Peringatan", "Pilih container yang akan dihapus!", parent=self.window)
             return
-        
-        item = self.container_tree.item(selection[0])
-        container_id = item['values'][0]
-        container_name = item['values'][4]  # Container column
-        
-        # Check if container has barang
-        container_barang = self.db.get_barang_in_container(container_id)
-        if container_barang:
-            if not messagebox.askyesno(
-                "Konfirmasi Hapus",
-                f"Container '{container_name}' berisi {len(container_barang)} barang.\n\n" +
-                "Menghapus container akan mengeluarkan semua barang dari container.\n" +
-                "Yakin ingin melanjutkan?"
-            ):
-                return
+
+        # Collect all selected items and check for barang
+        items_to_delete = []
+        total_barang_count = 0
+        for sel in selection:
+            item = self.container_tree.item(sel)
+            container_id = item['values'][0]
+            container_name = item['values'][4]  # Container column
+
+            container_barang = self.db.get_barang_in_container(container_id)
+            barang_count = len(container_barang) if container_barang else 0
+            total_barang_count += barang_count
+            items_to_delete.append({'id': container_id, 'nama': container_name, 'barang_count': barang_count})
+
+        # Build confirmation message
+        if len(items_to_delete) == 1:
+            if items_to_delete[0]['barang_count'] > 0:
+                confirm_msg = f"Container '{items_to_delete[0]['nama']}' berisi {items_to_delete[0]['barang_count']} barang.\n\n" + \
+                             "Menghapus container akan mengeluarkan semua barang dari container.\n" + \
+                             "Yakin ingin melanjutkan?"
+            else:
+                confirm_msg = f"Yakin ingin menghapus container '{items_to_delete[0]['nama']}'?"
         else:
-            if not messagebox.askyesno("Konfirmasi Hapus", f"Yakin ingin menghapus container '{container_name}'?"):
-                return
-        
+            confirm_msg = f"Yakin ingin menghapus {len(items_to_delete)} container?\n\n"
+            for i, item in enumerate(items_to_delete[:5]):
+                confirm_msg += f"• {item['nama']}"
+                if item['barang_count'] > 0:
+                    confirm_msg += f" ({item['barang_count']} barang)"
+                confirm_msg += "\n"
+            if len(items_to_delete) > 5:
+                confirm_msg += f"• ... dan {len(items_to_delete) - 5} lainnya\n"
+            if total_barang_count > 0:
+                confirm_msg += f"\n⚠️ Total {total_barang_count} barang akan dikeluarkan dari container."
+
+        if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg, parent=self.window):
+            return
+
         try:
-            # Remove all barang from container first
-            self.db.execute("DELETE FROM detail_container WHERE container_id = ?", (container_id,))
-            
-            # Delete container
-            self.db.execute("DELETE FROM containers WHERE container_id = ?", (container_id,))
-            
-            messagebox.showinfo("Sukses", f"Container '{container_name}' berhasil dihapus!")
-            
+            # Delete all selected containers
+            deleted_count = 0
+            for item in items_to_delete:
+                # Remove all barang from container first
+                self.db.execute("DELETE FROM detail_container WHERE container_id = ?", (item['id'],))
+                # Delete container
+                self.db.execute("DELETE FROM containers WHERE container_id = ?", (item['id'],))
+                deleted_count += 1
+
+            if deleted_count == 1:
+                messagebox.showinfo("Sukses", f"Container '{items_to_delete[0]['nama']}' berhasil dihapus!", parent=self.window)
+            else:
+                messagebox.showinfo("Sukses", f"{deleted_count} container berhasil dihapus!", parent=self.window)
+
             self.load_containers()
             self.load_container_combo()
             self.load_available_barang()  # Refresh available barang
             self.load_customers()  # Refresh customers
             self.load_pengirim()   # Refresh pengirim
-            
+
             if self.refresh_callback:
                 self.refresh_callback()
-                
+
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menghapus container: {str(e)}")
+            messagebox.showerror("Error", f"Gagal menghapus container: {str(e, parent=self.window)}")
     
     def clear_form(self):
         """Clear form fields"""
@@ -7894,7 +7963,7 @@ class ContainerWindow:
             print(f"Error loading containers: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat daftar container: {str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat daftar container: {str(e, parent=self.window)}")
             
         
     
@@ -8134,7 +8203,7 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             self.container_barang_tree.set_data([])
-            messagebox.showerror("Error", f"Gagal memuat data barang:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat data barang:\n{str(e, parent=self.window)}")
     
         
         

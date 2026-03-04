@@ -241,7 +241,7 @@ class MainWindow:
             from src.views.customer_window import CustomerWindow
             CustomerWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}", parent=self.root)
 
     def show_customer_orders_window(self):
         """Show customer orders window"""
@@ -249,7 +249,7 @@ class MainWindow:
             from src.views.customer_orders_window import CustomerOrdersWindow
             CustomerOrdersWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window customer orders:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window customer orders:\n{str(e)}", parent=self.root)
 
     def show_lifting_window(self):
         """Show lifting management window - OWNER ONLY"""
@@ -258,15 +258,15 @@ class MainWindow:
             messagebox.showwarning(
                 "Akses Ditolak",
                 "⚠️ Maaf, menu Data Lifting hanya dapat diakses oleh Owner atau Admin.\n\n"
-                "Silakan hubungi administrator untuk mendapatkan akses."
-            )
+                "Silakan hubungi administrator untuk mendapatkan akses.",
+                parent=self.root)
             return
 
         try:
             from src.views.lifting_window import LiftingWindow
             LiftingWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window lifting:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window lifting:\n{str(e)}", parent=self.root)
     
     def show_job_order_window(self):
         """Show job order management window"""
@@ -274,7 +274,7 @@ class MainWindow:
             from src.views.job_order_window import JobOrderWindow
             JobOrderWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window job order:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window job order:\n{str(e)}", parent=self.root)
 
     def show_barang_window(self):
         """Show barang management window"""
@@ -282,7 +282,7 @@ class MainWindow:
             from src.views.barang_window import BarangWindow
             BarangWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window barang:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window barang:\n{str(e)}", parent=self.root)
 
     def show_kapal_window(self):
         """Show kapal management window"""
@@ -290,7 +290,7 @@ class MainWindow:
             from src.views.kapal_window import KapalWindow
             KapalWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window kapal:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window kapal:\n{str(e)}", parent=self.root)
 
     def show_container_window(self):
         """Show container management window"""
@@ -298,7 +298,7 @@ class MainWindow:
             from src.views.container_window import ContainerWindow
             ContainerWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window container:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window container:\n{str(e)}", parent=self.root)
 
     def show_reports_window(self):
         """Show reports window"""
@@ -306,11 +306,11 @@ class MainWindow:
             from src.views.report_window import ReportsWindow
             ReportsWindow(self.root, self.db)
         except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window laporan:\n{str(e)}")
+            messagebox.showerror("Error", f"Tidak dapat membuka window laporan:\n{str(e)}", parent=self.root)
     
     def on_window_closing(self):
         """Handle window closing"""
-        if messagebox.askyesno("Konfirmasi", "Yakin ingin keluar dari aplikasi?"):
+        if messagebox.askyesno("Konfirmasi", "Yakin ingin keluar dari aplikasi?", parent=self.root):
             self.root.quit()
 
 # Usage example

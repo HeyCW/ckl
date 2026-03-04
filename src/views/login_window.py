@@ -227,7 +227,7 @@ class LoginWindow:
             self.login_window.attributes('-topmost', True)
             self.login_window.after(2000, lambda: self.login_window.attributes('-topmost', False))
             
-            messagebox.showinfo("Test", "If you see this, the window is working!")
+            messagebox.showinfo("Test", "If you see this, the window is working!", parent=self.login_window)
         else:
             print("❌ Login window does not exist!")
         

@@ -39,15 +39,32 @@ def setup_window_restore_behavior(window):
     Args:
         window: tk.Tk or tk.Toplevel window instance
     """
-    def on_window_restore(event=None):
-        """Force window to front when restored from minimize"""
+    # Track if window was actually minimized
+    window._was_minimized = False
+
+    def on_window_unmap(event=None):
+        """Track when window is minimized"""
         try:
-            window.lift()
-            window.attributes('-topmost', True)
-            window.after(100, lambda: window.attributes('-topmost', False))
-            window.focus_force()
+            # Check if this is a minimize event (not just hidden by other windows)
+            if window.state() == 'iconic':
+                window._was_minimized = True
         except:
             pass
 
+    def on_window_restore(event=None):
+        """Force window to front when restored from minimize"""
+        try:
+            # Only lift if window was actually minimized before
+            if getattr(window, '_was_minimized', False):
+                window._was_minimized = False
+                window.lift()
+                window.attributes('-topmost', True)
+                window.after(100, lambda: window.attributes('-topmost', False))
+                window.focus_force()
+        except:
+            pass
+
+    # Bind to Unmap event (triggered when window is minimized/hidden)
+    window.bind('<Unmap>', on_window_unmap)
     # Bind to Map event (triggered when window is deiconified/restored)
     window.bind('<Map>', on_window_restore)

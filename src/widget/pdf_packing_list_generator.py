@@ -1353,9 +1353,9 @@ class PDFPackingListGenerator:
                         '', '', '', f"PPH 23",  # Kolom pengirim kosong
                         '', '', '', '', '', f"- Rp {tax_data['pph_amount']:,.0f}"
                     ])
-                    total_price += tax_data['pph_amount']
+                    total_price -= tax_data['pph_amount']
                     tax_row_count += 1
-                    print(f"[DEBUG] Added PPH row: Rp {tax_data['pph_amount']:,.0f}")
+                    print(f"[DEBUG] Added PPH row: -Rp {tax_data['pph_amount']:,.0f}")
             else:
                 print("[DEBUG] No tax rows added (has_tax = False)")
             

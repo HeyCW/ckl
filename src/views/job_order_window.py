@@ -462,7 +462,7 @@ class JobOrderWindow:
         except Exception as e:
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat daftar JOA:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat daftar JOA:\n{str(e)}", parent=self.window)
     
     def filter_joa_list(self):
         """Filter JOA list based on search"""
@@ -811,7 +811,7 @@ class JobOrderWindow:
             import traceback
             traceback.print_exc()
             print(f"ERROR in load_joa_details: {str(e)}")
-            messagebox.showerror("Error", f"Gagal memuat detail JOA:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat detail JOA:\n{str(e)}", parent=self.window)
 
     def refresh_current_joa(self):
         """Refresh current JOA data"""
@@ -821,7 +821,7 @@ class JobOrderWindow:
     def export_to_excel(self):
         """Export current JOA to Excel"""
         if not self.selected_joa:
-            messagebox.showwarning("Warning", "Pilih JOA terlebih dahulu!")
+            messagebox.showwarning("Warning", "Pilih JOA terlebih dahulu!", parent=self.window)
             return
         
         try:
@@ -868,9 +868,9 @@ class JobOrderWindow:
             
             # Tanya user apakah mau buka file
             response = messagebox.askyesno(
-                "Export Berhasil", 
-                f"File berhasil disimpan:\n{filename}\n\nApakah Anda ingin membuka file sekarang?"
-            )
+                "Export Berhasil",
+                f"File berhasil disimpan:\n{filename}\n\nApakah Anda ingin membuka file sekarang?",
+                parent=self.window)
             
             if response:
                 try:
@@ -882,12 +882,12 @@ class JobOrderWindow:
                         subprocess.run(['xdg-open', filename])
                 except Exception as e:
                     print(f"Error opening file: {e}")
-                    messagebox.showinfo("Info", "File berhasil disimpan, tapi gagal membuka otomatis.")
+                    messagebox.showinfo("Info", "File berhasil disimpan, tapi gagal membuka otomatis.", parent=self.window)
             
         except Exception as e:
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengekspor ke Excel:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal mengekspor ke Excel:\n{str(e)}", parent=self.window)
 
     def _apply_border_to_range(self, ws, start_row, start_col, end_row, end_col, border):
         """Helper function to apply border to a range of cells"""
@@ -1266,7 +1266,7 @@ class JobOrderWindow:
     def print_preview(self):
         """Show print preview window"""
         if not self.selected_joa:
-            messagebox.showwarning("Warning", "Pilih JOA terlebih dahulu!")
+            messagebox.showwarning("Warning", "Pilih JOA terlebih dahulu!", parent=self.window)
             return
         
         preview_window = tk.Toplevel(self.window)
@@ -1326,6 +1326,6 @@ Tanggal Print  : {datetime.now().strftime('%d-%m-%Y %H:%M')}
         btn_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
         
         ttk.Button(btn_frame, text="🖨️ Print", 
-                  command=lambda: messagebox.showinfo("Info", "Fungsi print akan dihubungkan ke printer")).pack(side=tk.LEFT, padx=5)
+                  command=lambda: messagebox.showinfo("Info", "Fungsi print akan dihubungkan ke printer")).pack(side=tk.LEFT, padx=5, parent=self.window)
         ttk.Button(btn_frame, text="❌ Close", 
                   command=preview_window.destroy).pack(side=tk.RIGHT, padx=5)

@@ -92,8 +92,8 @@ class CustomerWindow:
 
         self.window.geometry(f"{window_width}x{window_height}")
         self.window.configure(bg='#ecf0f1')
-        self.window.transient(self.parent)
-        self.window.grab_set()
+        # Tidak pakai grab_set() dan transient() agar window bisa diatur bebas
+        # self.window.transient(self.parent)  # Dihapus agar main_window bisa di depan
 
         # Setup window restore behavior (fix minimize/restore issue)
         setup_window_restore_behavior(self.window)
@@ -572,7 +572,7 @@ class CustomerWindow:
         """Update selected customer"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih customer yang akan diedit dari tabel!")
+            messagebox.showwarning("Peringatan", "Pilih customer yang akan diedit dari tabel!", parent=self.window)
             return
         
         item = self.tree.item(selection[0])
@@ -585,7 +585,7 @@ class CustomerWindow:
                 break
         
         if not selected_customer:
-            messagebox.showerror("Error", "Data customer tidak ditemukan!")
+            messagebox.showerror("Error", "Data customer tidak ditemukan!", parent=self.window)
             return
         
         self.open_update_dialog(selected_customer)
@@ -596,7 +596,7 @@ class CustomerWindow:
         update_window.title(f"✏️ Edit Customer - {customer_data['nama_customer']}")
         update_window.configure(bg='#ecf0f1')
         update_window.transient(self.window)
-        update_window.grab_set()
+        # Tidak pakai grab_set() agar bisa buka multiple window
         
         dialog_width = 500
         dialog_height = 500
@@ -668,7 +668,7 @@ class CustomerWindow:
                 new_alamat = alamat_text.get('1.0', tk.END).strip()
                 
                 if not new_nama:
-                    messagebox.showerror("Error", "Nama customer harus diisi!")
+                    messagebox.showerror("Error", "Nama customer harus diisi!", parent=self.window)
                     nama_entry.focus()
                     return
                 
@@ -678,7 +678,7 @@ class CustomerWindow:
                     alamat_customer=new_alamat
                 )
                 
-                messagebox.showinfo("Sukses", "Data customer berhasil diupdate!")
+                messagebox.showinfo("Sukses", "Data customer berhasil diupdate!", parent=self.window)
 
                 # Reset flag to ensure data reloads when switching tabs
                 self.list_tab_loaded = False
@@ -689,9 +689,9 @@ class CustomerWindow:
                 update_window.destroy()
                 
             except ValueError as ve:
-                messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}")
+                messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}", parent=self.window)
             except Exception as e:
-                messagebox.showerror("Error", f"Gagal mengupdate customer!\nError: {str(e)}")
+                messagebox.showerror("Error", f"Gagal mengupdate customer!\nError: {str(e)}", parent=self.window)
         
         btn_frame = tk.Frame(update_window, bg='#ecf0f1')
         btn_frame.pack(fill='x', padx=20, pady=10, side='bottom')
@@ -726,55 +726,79 @@ class CustomerWindow:
         nama_entry.select_range(0, tk.END)
     
     def delete_customer(self):
-        """Delete selected customer"""
+        """Delete selected customer (supports multiple selection)"""
         selection = self.tree.selection()
         if not selection:
-            messagebox.showwarning("Peringatan", "Pilih customer yang akan dihapus dari tabel!")
+            messagebox.showwarning("Peringatan", "Pilih customer yang akan dihapus dari tabel!", parent=self.window)
             return
-        
-        item = self.tree.item(selection[0])
-        customer_id = item['values'][0]
-        nama_customer = item['values'][1]
-        
-        try:
-            barang_count = self.db.execute_one(
-                "SELECT COUNT(*) as count FROM barang WHERE pengirim = ? OR penerima = ?",
-                (customer_id, customer_id)
-            )
 
-            has_barang = barang_count['count'] > 0 if barang_count else False
-            
-            confirm_msg = f"Yakin ingin menghapus customer?\n\n" + \
-                         f"ID: {customer_id}\n" + \
-                         f"Nama: {nama_customer}\n\n"
-            
-            if has_barang:
-                confirm_msg += f"⚠️ PERINGATAN: Customer ini memiliki {barang_count['count']} barang terkait!\n" + \
-                              f"Menghapus customer akan menghapus semua barang terkait.\n\n"
-            
-            confirm_msg += f"⚠️ Aksi ini tidak dapat dibatalkan!"
-            
-            if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg):
+        try:
+            # Collect all selected items and check for related barang
+            items_to_delete = []
+            total_barang_count = 0
+            for sel in selection:
+                item = self.tree.item(sel)
+                customer_id = item['values'][0]
+                nama_customer = item['values'][1]
+
+                barang_count = self.db.execute_one(
+                    "SELECT COUNT(*) as count FROM barang WHERE pengirim = ? OR penerima = ?",
+                    (customer_id, customer_id)
+                )
+                count = barang_count['count'] if barang_count else 0
+                total_barang_count += count
+                items_to_delete.append({'id': customer_id, 'nama': nama_customer, 'barang_count': count})
+
+            # Build confirmation message
+            if len(items_to_delete) == 1:
+                confirm_msg = f"Yakin ingin menghapus customer?\n\n" + \
+                             f"ID: {items_to_delete[0]['id']}\n" + \
+                             f"Nama: {items_to_delete[0]['nama']}\n\n"
+                if items_to_delete[0]['barang_count'] > 0:
+                    confirm_msg += f"⚠️ PERINGATAN: Customer ini memiliki {items_to_delete[0]['barang_count']} barang terkait!\n" + \
+                                  f"Menghapus customer akan menghapus semua barang terkait.\n\n"
+            else:
+                confirm_msg = f"Yakin ingin menghapus {len(items_to_delete)} customer?\n\n"
+                for i, item in enumerate(items_to_delete[:5]):
+                    confirm_msg += f"• {item['nama']}"
+                    if item['barang_count'] > 0:
+                        confirm_msg += f" ({item['barang_count']} barang)"
+                    confirm_msg += "\n"
+                if len(items_to_delete) > 5:
+                    confirm_msg += f"• ... dan {len(items_to_delete) - 5} lainnya\n"
+                if total_barang_count > 0:
+                    confirm_msg += f"\n⚠️ PERINGATAN: Total {total_barang_count} barang terkait akan terpengaruh!\n"
+
+            confirm_msg += f"\n⚠️ Aksi ini tidak dapat dibatalkan!"
+
+            if not messagebox.askyesno("Konfirmasi Hapus", confirm_msg, parent=self.window):
                 return
-            
-            self.db.execute("DELETE FROM customers WHERE customer_id = ?", (customer_id,))
-            
-            messagebox.showinfo("Sukses", f"Customer '{nama_customer}' berhasil dihapus!")
+
+            # Delete all selected customers
+            deleted_count = 0
+            for item in items_to_delete:
+                self.db.execute("DELETE FROM customers WHERE customer_id = ?", (item['id'],))
+                deleted_count += 1
+
+            if deleted_count == 1:
+                messagebox.showinfo("Sukses", f"Customer '{items_to_delete[0]['nama']}' berhasil dihapus!", parent=self.window)
+            else:
+                messagebox.showinfo("Sukses", f"{deleted_count} customer berhasil dihapus!", parent=self.window)
 
             # Reset flag to ensure data reloads when switching tabs
             self.list_tab_loaded = False
             self.load_customers()
             if self.refresh_callback:
                 self.refresh_callback()
-                
+
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menghapus customer:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal menghapus customer:\n{str(e)}", parent=self.window)
     
     def export_customers(self):
         """Export customer data to Excel"""
         try:
             if not self.original_customer_data:
-                messagebox.showwarning("Peringatan", "Tidak ada data customer untuk diekspor!")
+                messagebox.showwarning("Peringatan", "Tidak ada data customer untuk diekspor!", parent=self.window)
                 return
             
             filename = filedialog.asksaveasfilename(
@@ -831,11 +855,11 @@ class CustomerWindow:
             messagebox.showinfo(
                 "Export Berhasil",
                 f"Data customer berhasil diekspor ke:\n{filename}\n\n" +
-                f"📊 Total: {len(export_data)} customer"
-            )
+                f"📊 Total: {len(export_data)} customer",
+                parent=self.window)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal export data:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal export data:\n{str(e)}", parent=self.window)
     
     def show_error_details(self, errors, duplicate_list, success_count, total_count):
         """Show detailed error modal"""
@@ -844,7 +868,7 @@ class CustomerWindow:
         error_window.geometry("900x600")
         error_window.configure(bg='#ecf0f1')
         error_window.transient(self.window)
-        error_window.grab_set()
+        # Tidak pakai grab_set() agar bisa buka multiple window
         
         error_window.update_idletasks()
         x = (error_window.winfo_screenwidth() // 2) - (900 // 2)
@@ -1203,7 +1227,7 @@ class CustomerWindow:
         """Upload Excel data to database"""
         filename = self.file_path_var.get()
         if not filename:
-            messagebox.showerror("Error", "Pilih file Excel terlebih dahulu!")
+            messagebox.showerror("Error", "Pilih file Excel terlebih dahulu!", parent=self.window)
             return
         
         try:
@@ -1216,20 +1240,20 @@ class CustomerWindow:
             alamat_col = getattr(self, 'alamat_column', 'Alamat')
             
             if nama_col not in df.columns:
-                messagebox.showerror("Error", f"Kolom '{nama_col}' tidak ditemukan!")
+                messagebox.showerror("Error", f"Kolom '{nama_col}' tidak ditemukan!", parent=self.window)
                 return
             
             valid_rows = df[df[nama_col].notna() & (df[nama_col].astype(str).str.strip() != '')]
             
             if len(valid_rows) == 0:
-                messagebox.showerror("Error", "Tidak ada data valid untuk diupload!")
+                messagebox.showerror("Error", "Tidak ada data valid untuk diupload!", parent=self.window)
                 return
             
             if not messagebox.askyesno(
-                "Konfirmasi Upload", 
+                "Konfirmasi Upload",
                 f"Upload {len(valid_rows)} customer ke database?\n\n" +
-                f"Data yang sudah ada tidak akan terduplikasi."
-            ):
+                f"Data yang sudah ada tidak akan terduplikasi.",
+                parent=self.window):
                 return
             
             existing_customers = {c['nama_customer'].upper(): c['customer_id'] for c in self.db.get_all_customers()}
@@ -1270,11 +1294,11 @@ class CustomerWindow:
                 self.show_error_details(errors, duplicate_list, success_count, total_processed)
             else:
                 messagebox.showinfo(
-                    "Upload Berhasil! 🎉", 
+                    "Upload Berhasil! 🎉",
                     f"Semua data berhasil diupload!\n\n" +
                     f"✅ Total berhasil: {success_count} customer\n" +
-                    f"📊 Total diproses: {total_processed} baris data"
-                )
+                    f"📊 Total diproses: {total_processed} baris data",
+                    parent=self.window)
 
             # Reset flag to ensure data reloads when switching tabs
             self.list_tab_loaded = False
@@ -1295,7 +1319,7 @@ class CustomerWindow:
             import traceback
             error_detail = traceback.format_exc()
             print(f"Upload error: {error_detail}")
-            messagebox.showerror("Error", f"Gagal upload data:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal upload data:\n{str(e)}", parent=self.window)
     
     def download_template(self):
         """Download Excel template"""
@@ -1395,14 +1419,14 @@ class CustomerWindow:
                 
                 print("✅ Template saved successfully")
                 messagebox.showinfo(
-                    "Sukses", 
+                    "Sukses",
                     f"Template lengkap berhasil disimpan:\n{filename}\n\n" +
                     "Template berisi:\n" +
                     "• Sheet 'Data Customer' - contoh data customer\n" +
                     "• Sheet 'Petunjuk' - penjelasan format\n" +
                     "• Contoh nama dan alamat yang lengkap\n\n" +
-                    "Pastikan nama customer unik untuk menghindari duplikasi!"
-                )
+                    "Pastikan nama customer unik untuk menghindari duplikasi!",
+                    parent=self.window)
             else:
                 print("❌ Save cancelled by user")
         
@@ -1411,7 +1435,7 @@ class CustomerWindow:
             error_detail = traceback.format_exc()
             print(f"Template download error: {error_detail}")
             
-            messagebox.showerror("Error", f"Gagal membuat template:\n\nError: {str(e)}")
+            messagebox.showerror("Error", f"Gagal membuat template:\n\nError: {str(e)}", parent=self.window)
     
     def add_customer(self):
         """Add new customer manually"""
@@ -1419,13 +1443,13 @@ class CustomerWindow:
         address = self.address_entry.get(1.0, tk.END).strip()
         
         if not name:
-            messagebox.showerror("Error", "Nama customer harus diisi!")
+            messagebox.showerror("Error", "Nama customer harus diisi!", parent=self.window)
             self.name_entry.focus()
             return
         
         try:
             customer_id = self.db.create_customer(name, address)
-            messagebox.showinfo("Sukses", f"Customer berhasil ditambahkan dengan ID: {customer_id}")
+            messagebox.showinfo("Sukses", f"Customer berhasil ditambahkan dengan ID: {customer_id}", parent=self.window)
             self.clear_form()
 
             # Reset flag to ensure data reloads when switching tabs
@@ -1438,9 +1462,9 @@ class CustomerWindow:
             # self.notebook.select(2)
             
         except ValueError as ve:
-            messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}")
+            messagebox.showerror("Error Validasi", f"Data tidak valid!\nError: {str(ve)}", parent=self.window)
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menambahkan customer:\n{str(e)}")
+            messagebox.showerror("Error", f"Gagal menambahkan customer:\n{str(e)}", parent=self.window)
     
     def clear_form(self):
         """Clear form fields"""
@@ -1480,7 +1504,7 @@ class CustomerWindow:
             print(f"Error loading customers: {str(e)}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat daftar customer: {str(e)}")
+            messagebox.showerror("Error", f"Gagal memuat daftar customer: {str(e)}", parent=self.window)
     
     def on_tab_changed(self, event):
         """Handle tab change event with lazy loading"""
