@@ -355,10 +355,18 @@ class BarangWindow:
         self.tinggi_entry = tk.Entry(dim_frame, font=('Arial', 10), width=10)
         self.tinggi_entry.pack(side='left', padx=5)
         
-        self.panjang_entry.bind('<KeyRelease>', self.auto_calculate_volume)
-        self.lebar_entry.bind('<KeyRelease>', self.auto_calculate_volume)
-        self.tinggi_entry.bind('<KeyRelease>', self.auto_calculate_volume)
-        
+        # Button hitung volume
+        hitung_btn_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        hitung_btn_frame.pack(fill='x', pady=(0, 5))
+        hitung_btn = tk.Button(hitung_btn_frame, text="Hitung Volume", font=('Arial', 10, 'bold'),
+                  bg='#2980b9', fg='white', cursor='hand2',
+                  command=self.auto_calculate_volume)
+        hitung_btn.pack(side='left')
+        hitung_btn.bind('<Return>', lambda e: self.auto_calculate_volume())
+        self.panjang_entry.bind('<Return>', lambda e: self.auto_calculate_volume())
+        self.lebar_entry.bind('<Return>', lambda e: self.auto_calculate_volume())
+        self.tinggi_entry.bind('<Return>', lambda e: self.auto_calculate_volume())
+
         # Other fields frame
         other_frame = tk.Frame(form_frame, bg='#ecf0f1')
         other_frame.pack(fill='x', pady=10)
@@ -1642,30 +1650,6 @@ class BarangWindow:
         tinggi_entry = tk.Entry(dim_frame, textvariable=tinggi_var, font=('Arial', 10), width=10)
         tinggi_entry.pack(side='left', padx=5)
 
-        # Other fields
-        tk.Label(form_frame, text="Spesifikasi Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 0))
-        other_frame = tk.Frame(form_frame, bg='#ecf0f1')
-        other_frame.pack(fill='x', pady=(5, 10))
-
-        tk.Label(other_frame, text="Volume (m³):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
-        # Format volume dengan pembulatan 3 desimal untuk tampilan
-        from decimal import Decimal, ROUND_HALF_UP
-        raw_volume = barang_data.get('m3_barang', '')
-        if raw_volume and raw_volume != '' and raw_volume != '-':
-            try:
-                display_volume = str(Decimal(str(float(raw_volume))).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP))
-            except:
-                display_volume = str(raw_volume) if raw_volume else '-'
-        else:
-            display_volume = '-'
-        volume_var = tk.StringVar(value=display_volume)
-        volume_entry = tk.Entry(other_frame, textvariable=volume_var, font=('Arial', 10), width=10)
-        volume_entry.pack(side='left', padx=(5, 20))
-
-        # Variable untuk menyimpan nilai volume asli (tanpa pembulatan)
-        # Inisialisasi dengan nilai asli dari database
-        volume_raw_holder = {'value': float(raw_volume) if raw_volume and raw_volume != '-' else None}
-
         # Auto-calculate volume function for edit dialog
         def auto_calculate_volume_edit(event=None):
             """Auto-calculate volume (m³) based on dimensions (P x L x T) in edit dialog"""
@@ -1706,10 +1690,41 @@ class BarangWindow:
             except ValueError:
                 pass
 
-        # Bind auto-calculate to dimension entries
-        panjang_entry.bind('<KeyRelease>', auto_calculate_volume_edit)
-        lebar_entry.bind('<KeyRelease>', auto_calculate_volume_edit)
-        tinggi_entry.bind('<KeyRelease>', auto_calculate_volume_edit)
+        # Button hitung volume (edit dialog)
+        hitung_btn_frame_edit = tk.Frame(form_frame, bg='#ecf0f1')
+        hitung_btn_frame_edit.pack(fill='x', pady=(0, 5))
+        hitung_btn_edit = tk.Button(hitung_btn_frame_edit, text="Hitung Volume", font=('Arial', 10, 'bold'),
+                  bg='#2980b9', fg='white', cursor='hand2',
+                  command=auto_calculate_volume_edit)
+        hitung_btn_edit.pack(side='left')
+        hitung_btn_edit.bind('<Return>', lambda e: auto_calculate_volume_edit())
+        panjang_entry.bind('<Return>', lambda e: auto_calculate_volume_edit())
+        lebar_entry.bind('<Return>', lambda e: auto_calculate_volume_edit())
+        tinggi_entry.bind('<Return>', lambda e: auto_calculate_volume_edit())
+
+        # Other fields
+        tk.Label(form_frame, text="Spesifikasi Barang:", font=('Arial', 12, 'bold'), bg='#ecf0f1').pack(anchor='w', pady=(10, 0))
+        other_frame = tk.Frame(form_frame, bg='#ecf0f1')
+        other_frame.pack(fill='x', pady=(5, 10))
+
+        tk.Label(other_frame, text="Volume (m³):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
+        # Format volume dengan pembulatan 3 desimal untuk tampilan
+        from decimal import Decimal, ROUND_HALF_UP
+        raw_volume = barang_data.get('m3_barang', '')
+        if raw_volume and raw_volume != '' and raw_volume != '-':
+            try:
+                display_volume = str(Decimal(str(float(raw_volume))).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP))
+            except:
+                display_volume = str(raw_volume) if raw_volume else '-'
+        else:
+            display_volume = '-'
+        volume_var = tk.StringVar(value=display_volume)
+        volume_entry = tk.Entry(other_frame, textvariable=volume_var, font=('Arial', 10), width=10)
+        volume_entry.pack(side='left', padx=(5, 20))
+
+        # Variable untuk menyimpan nilai volume asli (tanpa pembulatan)
+        # Inisialisasi dengan nilai asli dari database
+        volume_raw_holder = {'value': float(raw_volume) if raw_volume and raw_volume != '-' else None}
 
         tk.Label(other_frame, text="Berat (ton):", font=('Arial', 10, 'bold'), bg='#ecf0f1').pack(side='left')
         # Format berat with comma as decimal separator
