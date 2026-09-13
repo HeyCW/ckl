@@ -20,3 +20,18 @@ def db_error_classes():
     except ImportError:
         pass
     return classes
+
+
+def postgres_connection_error_classes():
+    """psycopg errors meaning the connection itself is unusable, so the
+    caller should fail over rather than surface the error.
+
+    OperationalError is the right net: connection loss and admin
+    shutdown derive from it, while constraint violations
+    (IntegrityError) and bad SQL (ProgrammingError) do not.
+    """
+    try:
+        import psycopg
+        return (psycopg.OperationalError,)
+    except ImportError:
+        return ()

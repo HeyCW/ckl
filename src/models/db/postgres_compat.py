@@ -6,6 +6,8 @@ Only used when the active backend is Postgres — the SQLite path keeps
 using the native sqlite3 connection/cursor untouched.
 """
 
+import logging
+
 from .row import Row
 from .translate import (
     translate_query,
@@ -14,6 +16,8 @@ from .translate import (
     has_returning,
     PRIMARY_KEYS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CompatCursor:
@@ -86,8 +90,18 @@ class CompatCursor:
 
 
 class CompatConnection:
-    def __init__(self, conn):
+    """Wraps a psycopg connection so sqlite3-shaped call sites work.
+
+    When the connection came from a pool, close() and context-manager
+    exit return it to the pool instead of closing the socket - callers
+    written against sqlite3 treat connections as disposable, but
+    throwing away a pooled Postgres connection would defeat the pool.
+    """
+
+    def __init__(self, conn, pool=None):
         self._conn = conn
+        self._pool = pool
+        self._released = False
 
     def cursor(self):
         return CompatCursor(self._conn.cursor())
@@ -98,8 +112,19 @@ class CompatConnection:
     def rollback(self):
         self._conn.rollback()
 
+    def _release(self):
+        # Guarded because some call sites both use `with` and call
+        # close(); returning one connection to the pool twice corrupts it.
+        if self._released:
+            return
+        self._released = True
+        if self._pool is not None:
+            self._pool.putconn(self._conn)
+        else:
+            self._conn.close()
+
     def close(self):
-        self._conn.close()
+        self._release()
 
     def __enter__(self):
         return self
@@ -110,8 +135,17 @@ class CompatConnection:
                 self._conn.commit()
             else:
                 self._conn.rollback()
+        except Exception as cleanup_error:
+            # A connection that died mid-statement can't be committed or
+            # rolled back. When we're already unwinding a failure, don't
+            # let this second error mask the real one - the server
+            # discards the uncommitted transaction regardless. A failed
+            # commit on the success path is a genuine error, so re-raise.
+            logger.warning(f"Connection cleanup failed: {cleanup_error}")
+            if exc_type is None:
+                raise
         finally:
-            self._conn.close()
+            self._release()
         return False
 
     def __getattr__(self, name):

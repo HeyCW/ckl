@@ -103,6 +103,7 @@ def main():
             try:
                 if hasattr(login, 'db') and login.db:
                     print("🗃️ Closing database connection...")
+                    login.db.close()
                 root.quit()
             except:
                 root.quit()

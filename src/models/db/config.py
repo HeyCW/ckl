@@ -53,3 +53,21 @@ def get_connect_timeout():
         return float(os.environ.get("DB_CONNECT_TIMEOUT", "5"))
     except ValueError:
         return 5.0
+
+
+def _int_env(name, default):
+    _ensure_dotenv_loaded()
+    try:
+        return int(os.environ.get(name, default))
+    except ValueError:
+        return default
+
+
+def get_pool_min_size():
+    return _int_env("DB_POOL_MIN", 1)
+
+
+def get_pool_max_size():
+    # The app is single-threaded, so 1 connection is normally enough;
+    # the headroom only exists so a nested checkout can never deadlock.
+    return _int_env("DB_POOL_MAX", 4)

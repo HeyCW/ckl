@@ -5,7 +5,7 @@ import hashlib
 import logging
 
 from src.models.db.errors import DatabaseError
-from src.models.db.errors_compat import db_error_classes
+from src.models.db.errors_compat import db_error_classes, postgres_connection_error_classes
 from src.models.db.schema import ddl_for
 from src.models.db import config as db_config
 from src.models.db import connect as db_connect
@@ -31,6 +31,9 @@ if not logger.handlers:
 # Exception classes from whichever DB-API driver is actually connected
 # (sqlite3 always, psycopg only when Postgres is configured/installed).
 _ERR = db_error_classes()
+
+# Errors meaning the Postgres connection died, so we should fail over.
+_PG_CONN_ERRORS = postgres_connection_error_classes()
 
 class SQLiteDatabase:
     """Database access layer. Despite the name, this now connects to
@@ -97,9 +100,7 @@ class SQLiteDatabase:
             try:
                 return db_connect.open_postgres_connection()
             except Exception as e:
-                logger.warning(f"Postgres connection lost, falling back to SQLite: {e}")
-                self.backend_name = "sqlite"
-                self._ensure_sqlite_ready()
+                self._failover_to_sqlite(e)
 
         try:
             conn = sqlite3.connect(self.db_path, timeout=30.0)
@@ -109,15 +110,44 @@ class SQLiteDatabase:
             logger.error(f"Database connection failed: {e}")
             raise DatabaseError(f"Cannot connect to database: {e}")
 
+    def _failover_to_sqlite(self, reason):
+        """Switch this session over to the local SQLite file."""
+        logger.warning(f"Postgres unavailable, falling back to SQLite: {reason}")
+        self.backend_name = "sqlite"
+        # Stop the pool from holding/retrying connections we no longer intend to use.
+        db_connect.close_pool()
+        self._ensure_sqlite_ready()
+
+    def _attempt(self, run):
+        """Run a database operation, failing over to SQLite and retrying
+        once if the Postgres connection turns out to be dead.
+
+        A connection that dies mid-statement raises here rather than in
+        get_connection(), so without this a Postgres outage that starts
+        while a connection is checked out would surface as an error
+        instead of falling back. Retrying is safe because Postgres
+        discards the uncommitted transaction when the connection drops.
+        """
+        try:
+            return run()
+        except _PG_CONN_ERRORS as e:
+            if self.backend_name != "postgres":
+                raise
+            self._failover_to_sqlite(e)
+            return run()
+
     def execute(self, query, params=()):
         """Execute query and return results with error handling"""
-        try:
+        def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
-                result = cursor.fetchall()
-                logger.debug(f"Query executed successfully: {query[:50]}...")
-                return result
+                return cursor.fetchall()
+
+        try:
+            result = self._attempt(run)
+            logger.debug(f"Query executed successfully: {query[:50]}...")
+            return result
         except _ERR["IntegrityError"] as e:
             logger.error(f"Integrity constraint violation: {e}")
             raise DatabaseError(f"Data integrity error: {e}")
@@ -133,13 +163,16 @@ class SQLiteDatabase:
 
     def execute_one(self, query, params=()):
         """Execute query and return single result with error handling"""
-        try:
+        def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
-                result = cursor.fetchone()
-                logger.debug(f"Single query executed successfully: {query[:50]}...")
-                return result
+                return cursor.fetchone()
+
+        try:
+            result = self._attempt(run)
+            logger.debug(f"Single query executed successfully: {query[:50]}...")
+            return result
         except _ERR["Error"] as e:
             logger.error(f"Database error in execute_one: {e}")
             raise DatabaseError(f"Database query failed: {e}")
@@ -149,13 +182,16 @@ class SQLiteDatabase:
 
     def execute_insert(self, query, params=()):
         """Execute insert and return last row id with error handling"""
-        try:
+        def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
-                last_id = cursor.lastrowid
-                logger.info(f"Insert successful, ID: {last_id}")
-                return last_id
+                return cursor.lastrowid
+
+        try:
+            last_id = self._attempt(run)
+            logger.info(f"Insert successful, ID: {last_id}")
+            return last_id
         except _ERR["IntegrityError"] as e:
             logger.error(f"Insert failed - integrity constraint: {e}")
             raise DatabaseError(f"Data already exists or constraint violation: {e}")
@@ -168,13 +204,16 @@ class SQLiteDatabase:
 
     def execute_many(self, query, params_list):
         """Execute query with multiple parameter sets with error handling"""
-        try:
+        def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.executemany(query, params_list)
-                row_count = cursor.rowcount
-                logger.info(f"Bulk operation completed, rows affected: {row_count}")
-                return row_count
+                return cursor.rowcount
+
+        try:
+            row_count = self._attempt(run)
+            logger.info(f"Bulk operation completed, rows affected: {row_count}")
+            return row_count
         except _ERR["Error"] as e:
             logger.error(f"Bulk operation failed: {e}")
             raise DatabaseError(f"Bulk operation error: {e}")
@@ -1292,7 +1331,11 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
         except Exception as e:
             logger.error(f"Failed to initialize AppDatabase: {e}")
             raise
-    
+
+    def close(self):
+        """Release the Postgres connection pool on application exit."""
+        db_connect.close_pool()
+
     def get_user_stats(self, user_id):
         """Get user statistics with error handling"""
         if not user_id:
