@@ -88,7 +88,7 @@ class MainWindow:
             bg='#2c3e50'
         )
         welcome_label.pack(side='left', padx=20, pady=25)
-        
+
         # Logout button
         logout_btn = tk.Button(
             header_frame,
@@ -102,10 +102,39 @@ class MainWindow:
             command=self.on_window_closing
         )
         logout_btn.pack(side='right', padx=20, pady=20)
-        
+
         # Main content area (reduced padding for smaller screens)
         main_frame = tk.Frame(self.root, bg='#ecf0f1')
         main_frame.pack(fill='both', expand=True, padx=20, pady=20)
+
+        # Sync status row - its own row with plenty of width, rather
+        # than crammed into the header (which overflows the header
+        # alongside the welcome text at the app's own minimum window
+        # width of 800px).
+        sync_row = tk.Frame(main_frame, bg='#ecf0f1')
+        sync_row.pack(fill='x', pady=(0, 5))
+
+        self.sync_btn = tk.Button(
+            sync_row,
+            text="🔄 Sync",
+            font=('Arial', 10, 'bold'),
+            bg='#34495e',
+            fg='white',
+            relief='flat',
+            padx=10,
+            pady=3,
+            command=self.manual_sync
+        )
+        self.sync_btn.pack(side='right')
+
+        self.sync_status_label = tk.Label(
+            sync_row,
+            text="",
+            font=('Arial', 10, 'bold'),
+            bg='#ecf0f1'
+        )
+        self.sync_status_label.pack(side='right', padx=(0, 10))
+        self.update_sync_status_label()
 
         # Title
         title_label = tk.Label(
@@ -312,6 +341,62 @@ class MainWindow:
         """Handle window closing"""
         if messagebox.askyesno("Konfirmasi", "Yakin ingin keluar dari aplikasi?", parent=self.root):
             self.root.quit()
+
+    def refresh_sync_status_text(self):
+        """Update the online/offline + pending-changes label text.
+        Reads local state only (no network call) - safe to call often."""
+        if not hasattr(self, 'sync_status_label') or not self.sync_status_label.winfo_exists():
+            return
+        try:
+            status = self.db.get_sync_status()
+        except Exception:
+            return
+        if status['online']:
+            self.sync_status_label.config(text="🟢 Online", fg='#2ecc71')
+        else:
+            pending = status['pending_changes']
+            suffix = f" ({pending} belum sync)" if pending else ""
+            self.sync_status_label.config(text=f"🔴 Offline{suffix}", fg='#e74c3c')
+
+    def update_sync_status_label(self):
+        """Refresh the label, then reschedule itself. Only call this
+        once to start the periodic refresh loop - use
+        refresh_sync_status_text() for a one-off update (e.g. right
+        after a manual sync), or this would stack duplicate timers.
+        """
+        self.refresh_sync_status_text()
+        self.root.after(15000, self.update_sync_status_label)
+
+    def manual_sync(self):
+        """Sync button: push pending offline changes, refresh the mirror."""
+        self.sync_btn.config(state='disabled', text="🔄 Syncing...")
+        self.root.update_idletasks()
+        try:
+            result = self.db.sync_now()
+        except Exception as e:
+            result = None
+            messagebox.showerror("Sync Gagal", f"Terjadi kesalahan saat sync:\n{e}", parent=self.root)
+        finally:
+            self.sync_btn.config(state='normal', text="🔄 Sync")
+
+        # Update the indicator before the dialog, not after - it's a
+        # blocking modal, so anything after it wouldn't run until the
+        # user dismisses it, leaving the indicator stale behind the dialog.
+        self.refresh_sync_status_text()
+
+        if result is not None:
+            if result.ok:
+                messagebox.showinfo(
+                    "Sync Selesai",
+                    f"Berhasil sync!\nDikirim: {result.pushed} perubahan\nDiperbarui: {result.pulled} data",
+                    parent=self.root
+                )
+            else:
+                messagebox.showwarning(
+                    "Masih Offline",
+                    f"Tidak bisa terhubung ke server:\n{result.reason}",
+                    parent=self.root
+                )
 
 # Usage example
 if __name__ == "__main__":

@@ -865,10 +865,14 @@ class ContainerDatabase(SQLiteDatabase):
             logger.error(f"Failed to create container: {e}")
             raise DatabaseError(f"Failed to create container: {e}")
     
-    def get_all_containers(self):
+    def get_all_containers(self, include_archived=False):
         """Get all containers with error handling"""
         try:
-            containers = self.execute("SELECT * FROM containers ORDER BY container_id")
+            query = "SELECT * FROM containers"
+            if not include_archived:
+                query += " WHERE archived = 0"
+            query += " ORDER BY container_id"
+            containers = self.execute(query)
             return [dict(container) for container in containers]
         except Exception as e:
             logger.error(f"Failed to get all containers: {e}")
@@ -1299,12 +1303,12 @@ class BarangDatabase(SQLiteDatabase):
             logger.error(f"Failed to get barang for customer ID {customer_id}: {e}")
             raise DatabaseError(f"Failed to retrieve barang: {e}")
     
-    def get_all_barang(self):
+    def get_all_barang(self, include_archived=False):
         """Get all barang with customer info and error handling"""
-        
+
         try:
-            barang_list = self.execute('''
-                SELECT 
+            query = '''
+                SELECT
                     b.*,
                     s.nama_customer AS sender_name,
                     r.nama_customer AS receiver_name,
@@ -1312,11 +1316,12 @@ class BarangDatabase(SQLiteDatabase):
                 FROM barang b
                 LEFT JOIN customers r ON b.penerima = r.customer_id
                 LEFT JOIN customers s ON b.pengirim = s.customer_id
-                ORDER BY b.barang_id ASC;
+            '''
+            if not include_archived:
+                query += " WHERE b.archived = 0"
+            query += " ORDER BY b.barang_id ASC"
+            barang_list = self.execute(query)
 
-            ''')
-            
-            
             return [dict(barang) for barang in barang_list]
             
         except Exception as e:
@@ -1478,8 +1483,8 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
         """Get dashboard statistics with error handling"""
         try:
             total_customers = self.execute_one("SELECT COUNT(*) as count FROM customers")
-            total_barang = self.execute_one("SELECT COUNT(*) as count FROM barang")
-            total_containers = self.execute_one("SELECT COUNT(*) as count FROM containers")
+            total_barang = self.execute_one("SELECT COUNT(*) as count FROM barang WHERE archived = 0")
+            total_containers = self.execute_one("SELECT COUNT(*) as count FROM containers WHERE archived = 0")
             
             return {
                 'total_customers': total_customers['count'] if total_customers else 0,
@@ -1745,22 +1750,24 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
             logger.error(f"Error getting customer container summary with pricing: {e}")
             return []
 
-    def get_all_containers_with_value(self):
+    def get_all_containers_with_value(self, include_archived=False):
         """Get all containers with total value"""
         try:
-            result = self.execute("""
-                SELECT 
+            where = "" if include_archived else "WHERE cont.archived = 0"
+            result = self.execute(f"""
+                SELECT
                     cont.*,
                     COUNT(dc.barang_id) as jumlah_barang,
                     SUM(COALESCE(dc.total_harga, 0)) as total_nilai
                 FROM containers cont
                 LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                {where}
                 GROUP BY cont.container_id
                 ORDER BY cont.container_id DESC
             """)
-            
+
             return [dict(container) for container in result]
-            
+
         except Exception as e:
             logger.error(f"Error getting containers with value: {e}")
             return self.get_all_containers()  # Fallback to original method
@@ -1892,56 +1899,61 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
             logger.error(f"Error getting container pricing summary: {e}")
             return None
 
-    def search_containers_by_value_range(self, min_value=0, max_value=None):
+    def search_containers_by_value_range(self, min_value=0, max_value=None, include_archived=False):
         """Search containers by value range"""
         try:
+            where = "" if include_archived else "WHERE cont.archived = 0"
             if max_value is None:
-                result = self.execute("""
-                    SELECT 
+                result = self.execute(f"""
+                    SELECT
                         cont.*,
                         SUM(COALESCE(dc.total_harga, 0)) as total_nilai
                     FROM containers cont
                     LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                    {where}
                     GROUP BY cont.container_id
-                    HAVING total_nilai >= ?
+                    HAVING SUM(COALESCE(dc.total_harga, 0)) >= ?
                     ORDER BY total_nilai DESC
                 """, (min_value,))
             else:
-                result = self.execute("""
-                    SELECT 
+                result = self.execute(f"""
+                    SELECT
                         cont.*,
                         SUM(COALESCE(dc.total_harga, 0)) as total_nilai
                     FROM containers cont
                     LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                    {where}
                     GROUP BY cont.container_id
-                    HAVING total_nilai BETWEEN ? AND ?
+                    HAVING SUM(COALESCE(dc.total_harga, 0)) BETWEEN ? AND ?
                     ORDER BY total_nilai DESC
                 """, (min_value, max_value))
-            
+
             return [dict(container) for container in result]
-            
+
         except Exception as e:
             logger.error(f"Error searching containers by value range: {e}")
             return []
 
-    def get_top_value_containers(self, limit=10):
+    def get_top_value_containers(self, limit=10, include_archived=False):
         """Get top containers by value"""
         try:
-            result = self.execute("""
-                SELECT 
+            where = "" if include_archived else "WHERE cont.archived = 0"
+            result = self.execute(f"""
+                SELECT
                     cont.*,
                     SUM(COALESCE(dc.total_harga, 0)) as total_nilai,
                     COUNT(dc.barang_id) as jumlah_barang
                 FROM containers cont
                 LEFT JOIN detail_container dc ON cont.container_id = dc.container_id
+                {where}
                 GROUP BY cont.container_id
-                HAVING total_nilai > 0
+                HAVING SUM(COALESCE(dc.total_harga, 0)) > 0
                 ORDER BY total_nilai DESC
                 LIMIT ?
             """, (limit,))
-            
+
             return [dict(container) for container in result]
-            
+
         except Exception as e:
             logger.error(f"Error getting top value containers: {e}")
             return []

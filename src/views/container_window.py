@@ -160,7 +160,7 @@ class ContainerWindow:
             
         except Exception as e:
             print(f"[ERROR] Failed to load kapals: {e}")
-            messagebox.showerror("Database Error", f"Gagal memuat daftar kapal:\n{str(e, parent=self.window)}")
+            messagebox.showerror("Database Error", f"Gagal memuat daftar kapal:\n{e}", parent=self.window)
             return False
     
     
@@ -524,7 +524,20 @@ class ContainerWindow:
         )
         self.make_button_keyboard_accessible(delete_btn)
         delete_btn.pack(side='left', padx=(0, 10))
-        
+
+        archive_btn = tk.Button(
+            btn_frame,
+            text="📦 Arsipkan",
+            font=('Arial', self.scaled_font(9), 'bold'),
+            bg='#7f8c8d',
+            fg='white',
+            padx=10,
+            pady=5,
+            command=self.archive_selected_container
+        )
+        self.make_button_keyboard_accessible(archive_btn)
+        archive_btn.pack(side='left', padx=(0, 10))
+
         summary_btn = tk.Button(
             btn_frame,
             text="📊 Lihat Summary",
@@ -755,7 +768,7 @@ class ContainerWindow:
                 messagebox.showerror("Error", "Print handler tidak tersedia!", parent=self.window)
                 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal print invoice PDF: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal print invoice PDF: {e}", parent=self.window)
             print(f"Error in print_selected_container_invoice_pdf: {e}")
             
     
@@ -797,7 +810,7 @@ class ContainerWindow:
                 messagebox.showerror("Error", "Print handler tidak tersedia!", parent=self.window)
                 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal print packing list PDF: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal print packing list PDF: {e}", parent=self.window)
             print(f"Error in print_selected_customer_packing_list: {e}")
 
     def preview_selected_ipl_excel(self):
@@ -816,7 +829,7 @@ class ContainerWindow:
             self.show_ipl_preview_window(container_id)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal preview IPL Excel: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal preview IPL Excel: {e}", parent=self.window)
             print(f"Error in preview_selected_ipl_excel: {e}")
 
     def show_ipl_preview_window(self, container_id):
@@ -1411,7 +1424,7 @@ class ContainerWindow:
             preview_window.protocol("WM_DELETE_WINDOW", on_close)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menampilkan preview: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal menampilkan preview: {e}", parent=self.window)
             print(f"Error in show_ipl_preview_window: {e}")
             import traceback
             traceback.print_exc()
@@ -2243,7 +2256,7 @@ class ContainerWindow:
                     messagebox.showinfo("Sukses", "Biaya pengantaran berhasil diupdate!", parent=self.window)
 
                 except Exception as e:
-                    messagebox.showerror("Error", f"Gagal mengupdate: {str(e, parent=self.window)}")
+                    messagebox.showerror("Error", f"Gagal mengupdate: {e}", parent=self.window)
             
             # Buttons
             btn_frame = tk.Frame(edit_dialog, bg='#ecf0f1')
@@ -2277,7 +2290,7 @@ class ContainerWindow:
                     load_delivery_costs()
                     messagebox.showinfo("Sukses", "Biaya pengantaran berhasil dihapus!", parent=self.window)
                 except Exception as e:
-                    messagebox.showerror("Error", f"Gagal menghapus: {str(e, parent=self.window)}")
+                    messagebox.showerror("Error", f"Gagal menghapus: {e}", parent=self.window)
         
         # Load initial data
         load_delivery_costs()
@@ -2405,7 +2418,7 @@ class ContainerWindow:
             messagebox.showinfo("Sukses", f"Summary berhasil di-export ke:\n{filename}", parent=self.window)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal export summary: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal export summary: {e}", parent=self.window)
             
 
     def on_sender_receiver_select(self, *args):
@@ -5054,7 +5067,7 @@ class ContainerWindow:
             print(f"Error in edit_barang_colli_in_container: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengedit colli: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal mengedit colli: {e}", parent=self.window)
 
 
     def show_edit_colli_dialog(self, selected_items, container_id):
@@ -5535,7 +5548,7 @@ class ContainerWindow:
                 print(f"❌ FATAL ERROR in save_colli_and_date_changes: {e}")
                 import traceback
                 traceback.print_exc()
-                messagebox.showerror("Error", f"Gagal menyimpan perubahan: {str(e, parent=self.window)}")
+                messagebox.showerror("Error", f"Gagal menyimpan perubahan: {e}", parent=self.window)
         
         
         # Create buttons
@@ -5867,7 +5880,7 @@ class ContainerWindow:
             print(f"❌ Error in edit_barang_price_in_container: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal mengedit harga: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal mengedit harga: {e}", parent=self.window)
         
           
     def load_customers(self):
@@ -6677,7 +6690,7 @@ class ContainerWindow:
             import traceback
             error_detail = traceback.format_exc()
             print(f"💥 Error in remove_barang_from_container: {error_detail}")
-            messagebox.showerror("Error", f"Gagal menghapus barang dari container!\n\nError: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal menghapus barang dari container!\n\nError: {e}", parent=self.window)
             self.db.rollback()
         
     def view_container_summary(self):
@@ -6793,7 +6806,7 @@ class ContainerWindow:
             print(f"Error in view_container_summary: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal membuat summary container: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal membuat summary container: {e}", parent=self.window)
             
         
     def show_container_summary_dialog_with_pricing(self, container, barang_list, customer_summary, total_volume, total_weight, total_colli, total_nilai):
@@ -7256,7 +7269,7 @@ class ContainerWindow:
             print(f"Error in view_selected_container_summary: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal membuat summary container: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal membuat summary container: {e}", parent=self.window)
         
         
     def view_container_details(self, event):
@@ -7809,7 +7822,7 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             print(f"{'='*60}\n")
-            messagebox.showerror("Error", f"Gagal membuat dialog edit:\n{str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal membuat dialog edit:\n{e}", parent=self.window)
         
         
     def is_valid_date_format(self, date_string):
@@ -7894,8 +7907,54 @@ class ContainerWindow:
                 self.refresh_callback()
 
         except Exception as e:
-            messagebox.showerror("Error", f"Gagal menghapus container: {str(e, parent=self.window)}")
-    
+            messagebox.showerror("Error", f"Gagal menghapus container: {e}", parent=self.window)
+
+    def archive_selected_container(self):
+        """Archive selected container(s) - excludes them from the
+        offline mirror and normal lists without deleting server data.
+        Requires being online (archiving offline would race with the
+        next sync's mirror refresh)."""
+        selection = self.container_tree.selection()
+        if not selection:
+            messagebox.showwarning("Peringatan", "Pilih container yang akan diarsipkan!", parent=self.window)
+            return
+
+        items = []
+        for sel in selection:
+            item = self.container_tree.item(sel)
+            items.append({'id': item['values'][0], 'nama': item['values'][4]})
+
+        if len(items) == 1:
+            confirm_msg = f"Arsipkan container '{items[0]['nama']}'?\n\nContainer dan barangnya akan disembunyikan dari daftar, tapi data tetap tersimpan."
+        else:
+            names = "\n".join(f"• {i['nama']}" for i in items[:5])
+            more = f"\n• ... dan {len(items) - 5} lainnya" if len(items) > 5 else ""
+            confirm_msg = f"Arsipkan {len(items)} container berikut?\n\n{names}{more}"
+
+        if not messagebox.askyesno("Konfirmasi Arsip", confirm_msg, parent=self.window):
+            return
+
+        try:
+            for item in items:
+                self.db.archive_container(item['id'])
+
+            if len(items) == 1:
+                messagebox.showinfo("Sukses", f"Container '{items[0]['nama']}' berhasil diarsipkan!", parent=self.window)
+            else:
+                messagebox.showinfo("Sukses", f"{len(items)} container berhasil diarsipkan!", parent=self.window)
+
+            self.load_containers()
+            self.load_container_combo()
+            self.load_available_barang()
+
+            if self.refresh_callback:
+                self.refresh_callback()
+
+        except DatabaseError as e:
+            messagebox.showwarning("Tidak Bisa Arsipkan", str(e), parent=self.window)
+        except Exception as e:
+            messagebox.showerror("Error", f"Gagal mengarsipkan container: {e}", parent=self.window)
+
     def clear_form(self):
         """Clear form fields"""
         self.container_entry.delete(0, tk.END)
@@ -7928,6 +7987,7 @@ class ContainerWindow:
                     c.updated_at
                 FROM containers c
                 LEFT JOIN kapals k ON c.kapal_id = k.kapal_id
+                WHERE c.archived = 0
                 ORDER BY c.container_id DESC
             """)
             
@@ -7965,7 +8025,7 @@ class ContainerWindow:
             print(f"Error loading containers: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("Error", f"Gagal memuat daftar container: {str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal memuat daftar container: {e}", parent=self.window)
             
         
     
@@ -8205,7 +8265,7 @@ class ContainerWindow:
             import traceback
             traceback.print_exc()
             self.container_barang_tree.set_data([])
-            messagebox.showerror("Error", f"Gagal memuat data barang:\n{str(e, parent=self.window)}")
+            messagebox.showerror("Error", f"Gagal memuat data barang:\n{e}", parent=self.window)
     
         
         
