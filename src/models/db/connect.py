@@ -21,6 +21,28 @@ from .postgres_compat import CompatConnection
 logger = logging.getLogger(__name__)
 
 _pool = None
+_adapters_registered = False
+
+
+def _register_type_adapters():
+    """Return NUMERIC columns as float, the way SQLite always did.
+
+    psycopg decodes NUMERIC to decimal.Decimal, but the app's money
+    columns (detail_container.harga_per_unit/total_harga) get mixed with
+    float literals throughout the views - `total * 0.011` for tax,
+    `total += harga` in summaries. Decimal and float don't combine in
+    Python (TypeError), so the default would break those paths on
+    Postgres while they worked fine on SQLite.
+    """
+    global _adapters_registered
+    if _adapters_registered:
+        return
+    import psycopg
+    from psycopg.types.numeric import FloatLoader
+
+    psycopg.adapters.register_loader("numeric", FloatLoader)
+    _adapters_registered = True
+
 
 # A connection used this recently is assumed still alive, so we skip the
 # liveness ping. Keeps a screen that fires ten queries in a row from
@@ -50,6 +72,7 @@ def _create_pool():
 
     from psycopg_pool import ConnectionPool
 
+    _register_type_adapters()
     timeout = db_config.get_connect_timeout()
     pool = ConnectionPool(
         dsn,
