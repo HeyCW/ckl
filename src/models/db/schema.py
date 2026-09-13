@@ -112,6 +112,7 @@ TABLE_DDL = {
                 container TEXT NOT NULL,
                 seal TEXT,
                 ref_joa TEXT,
+                archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (kapal_id) REFERENCES kapals(kapal_id) ON DELETE SET NULL
@@ -126,6 +127,7 @@ TABLE_DDL = {
                 container TEXT NOT NULL,
                 seal TEXT,
                 ref_joa TEXT,
+                archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (kapal_id) REFERENCES kapals(kapal_id) ON DELETE SET NULL
@@ -167,6 +169,7 @@ TABLE_DDL = {
                 container_40hc_pd REAL,
                 container_40hc_dd REAL,
                 pajak INTEGER DEFAULT 0,
+                archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -205,6 +208,7 @@ TABLE_DDL = {
                 container_40hc_pd DOUBLE PRECISION,
                 container_40hc_dd DOUBLE PRECISION,
                 pajak INTEGER DEFAULT 0,
+                archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )

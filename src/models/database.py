@@ -9,6 +9,8 @@ from src.models.db.errors_compat import db_error_classes, postgres_connection_er
 from src.models.db.schema import ddl_for
 from src.models.db import config as db_config
 from src.models.db import connect as db_connect
+from src.models.db import mirror as db_mirror
+from src.models.db import sync_engine
 
 # Setup logging - optimized untuk singleton pattern
 logger = logging.getLogger(__name__)
@@ -50,6 +52,10 @@ class SQLiteDatabase:
             self.init_db()
             if self.backend_name == "sqlite":
                 self._sqlite_ready = True
+            if db_config.postgres_requested():
+                self._bootstrap_mirror()
+            if self.backend_name == "postgres":
+                self._initial_sync()
             logger.info(f"Database initialized successfully: backend={self.backend_name}")
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
@@ -77,6 +83,40 @@ class SQLiteDatabase:
         self.ensure_data_dir()
         self.init_db()
         self._sqlite_ready = True
+
+    def _bootstrap_mirror(self):
+        """Ensure the local SQLite file has the full schema plus sync
+        bookkeeping (archived columns, change-log, triggers), on a raw
+        connection independent of whichever backend is currently
+        active. Runs regardless of backend so the mirror is ready
+        immediately - for the offline stretch after a failover, or for
+        the next pull while already online.
+        """
+        conn = db_mirror.open_mirror_connection(self.db_path)
+        try:
+            db_mirror.ensure_mirror_schema(conn)
+            if self.backend_name == "sqlite":
+                # Already offline right from startup - anything created
+                # now needs a temp ID that can't collide with a real one.
+                db_mirror.seed_offline_sequences(conn)
+        finally:
+            conn.close()
+        self._sqlite_ready = True
+
+    def _initial_sync(self):
+        """Best-effort push+pull at startup: send up anything left
+        over from an offline session that ended before it could sync,
+        then refresh the mirror. Never blocks startup on failure - the
+        app can run directly against Postgres with a stale mirror.
+        """
+        try:
+            result = sync_engine.sync_now(self)
+            if result.ok:
+                logger.info(f"Startup sync: pushed {result.pushed}, pulled {result.pulled}")
+            else:
+                logger.warning(f"Startup sync skipped: {result.reason}")
+        except Exception as e:
+            logger.warning(f"Startup sync failed (continuing without it): {e}")
 
     def ensure_data_dir(self):
         """Ensure data directory exists"""
@@ -117,6 +157,12 @@ class SQLiteDatabase:
         # Stop the pool from holding/retrying connections we no longer intend to use.
         db_connect.close_pool()
         self._ensure_sqlite_ready()
+        if db_config.postgres_requested():
+            conn = db_mirror.open_mirror_connection(self.db_path)
+            try:
+                db_mirror.seed_offline_sequences(conn)
+            finally:
+                conn.close()
 
     def _attempt(self, run):
         """Run a database operation, failing over to SQLite and retrying
@@ -236,6 +282,7 @@ class SQLiteDatabase:
                     logger.info("Database already initialized, skipping table creation")
                     # Hanya insert default data jika belum ada
                     self.insert_default_data()
+                    self._run_migrations()
                     return
             except:
                 pass  # Jika error, lanjutkan normal init
@@ -254,10 +301,39 @@ class SQLiteDatabase:
             self.create_delivery_costs_table()
             self.create_pengirim_table()
             self.insert_default_data()
+            self._run_migrations()
             logger.info("Database tables initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize database tables: {e}")
             raise DatabaseError(f"Table initialization failed: {e}")
+
+    def _run_migrations(self):
+        """Column migrations that must run on every startup, not just
+        the first one - init_db()'s early-return (above) skips the
+        create_*_table() calls once `users` already exists, so a
+        migration that only lived inside one of those methods would
+        never run again after initial setup.
+        """
+        self.migrate_barang_container_sizes()
+        self._add_column_if_missing("containers", "archived", "INTEGER DEFAULT 0")
+        self._add_column_if_missing("barang", "archived", "INTEGER DEFAULT 0")
+
+    def _add_column_if_missing(self, table, column, col_type):
+        """Dialect-aware ALTER TABLE ... ADD COLUMN, safe to call every startup."""
+        try:
+            if self.backend_name == "postgres":
+                self.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}")
+            else:
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(f"PRAGMA table_info({table})")
+                    existing_cols = [row[1] for row in cursor.fetchall()]
+                    if column not in existing_cols:
+                        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+                        conn.commit()
+                        logger.info(f"Added column {table}.{column}")
+        except Exception as e:
+            logger.warning(f"Migration warning adding {table}.{column} (may be harmless): {e}")
     
     def create_users_table(self):
         """Create users table with error handling"""
@@ -305,7 +381,6 @@ class SQLiteDatabase:
         try:
             self.execute(query)
             logger.info("Barang table created successfully")
-            self.migrate_barang_container_sizes()
         except Exception as e:
             logger.error(f"Failed to create barang table: {e}")
             raise
@@ -1335,6 +1410,53 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
     def close(self):
         """Release the Postgres connection pool on application exit."""
         db_connect.close_pool()
+
+    def sync_now(self):
+        """Push any pending offline changes to Postgres, then refresh
+        the local mirror. Safe to call anytime - if Postgres is
+        unreachable this is a no-op that reports why, not an error.
+        """
+        return sync_engine.sync_now(self)
+
+    def get_sync_status(self):
+        """Online/offline state plus how many local changes are
+        waiting to be pushed - for a status indicator or manual sync
+        button in the UI."""
+        pending = 0
+        if db_config.postgres_requested():
+            conn = db_mirror.open_mirror_connection(self.db_path)
+            try:
+                pending = db_mirror.pending_change_count(conn)
+            finally:
+                conn.close()
+        return {
+            "backend": self.backend_name,
+            "online": self.backend_name == "postgres",
+            "pending_changes": pending,
+        }
+
+    def archive_container(self, container_id):
+        """Mark a container and its assigned barang archived, so they
+        drop out of the offline mirror and the normal lists. Online
+        only - archiving offline would race with the next sync pull.
+        """
+        if self.backend_name != "postgres":
+            raise DatabaseError("Archiving requires an online connection")
+        self.execute("UPDATE containers SET archived = 1 WHERE container_id = ?", (container_id,))
+        self.execute("""
+            UPDATE barang SET archived = 1
+            WHERE barang_id IN (SELECT barang_id FROM detail_container WHERE container_id = ?)
+        """, (container_id,))
+
+    def unarchive_container(self, container_id):
+        """Undo archive_container."""
+        if self.backend_name != "postgres":
+            raise DatabaseError("Unarchiving requires an online connection")
+        self.execute("UPDATE containers SET archived = 0 WHERE container_id = ?", (container_id,))
+        self.execute("""
+            UPDATE barang SET archived = 0
+            WHERE barang_id IN (SELECT barang_id FROM detail_container WHERE container_id = ?)
+        """, (container_id,))
 
     def get_user_stats(self, user_id):
         """Get user statistics with error handling"""
