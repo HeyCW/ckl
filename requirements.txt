@@ -2,6 +2,10 @@
 Pillow==9.5.0
 ttkthemes>=3.2.0       # Tema tambahan untuk ttk
 
+# Database (Postgres primary, SQLite fallback - see .env.example)
+psycopg[binary]>=3.1
+python-dotenv>=1.0.0
+
 # Development dependencies (optional)
 pytest>=6.0.0
 black>=21.0.0

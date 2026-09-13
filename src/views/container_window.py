@@ -1,9 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from src.models.database import AppDatabase
+from src.models.database import AppDatabase, DatabaseError
 from src.utils.print_handler import PrintHandler
 from datetime import datetime
-import sqlite3
 from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
@@ -2028,8 +2027,8 @@ class ContainerWindow:
             if hasattr(self, 'summary_window') and self.summary_window.winfo_exists():
                 self.view_container_summary()
                 
-        except sqlite3.Error as e:
-            messagebox.showerror("Error Database", f"Gagal menyimpan biaya pengantaran: {str(e, parent=self.window)}")
+        except DatabaseError as e:
+            messagebox.showerror("Error Database", f"Gagal menyimpan biaya pengantaran: {e}", parent=self.window)
 
     def manage_delivery_costs(self):
         """Window untuk mengelola biaya pengantaran container dengan lokasi"""
@@ -7871,8 +7870,11 @@ class ContainerWindow:
             # Delete all selected containers
             deleted_count = 0
             for item in items_to_delete:
-                # Remove all barang from container first
+                # Remove all dependent rows first (barang_tax/detail_container/
+                # container_delivery_costs FKs don't cascade)
                 self.db.execute("DELETE FROM detail_container WHERE container_id = ?", (item['id'],))
+                self.db.execute("DELETE FROM barang_tax WHERE container_id = ?", (item['id'],))
+                self.db.execute("DELETE FROM container_delivery_costs WHERE container_id = ?", (item['id'],))
                 # Delete container
                 self.db.execute("DELETE FROM containers WHERE container_id = ?", (item['id'],))
                 deleted_count += 1

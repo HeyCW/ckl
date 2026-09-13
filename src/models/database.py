@@ -4,6 +4,12 @@ from datetime import datetime
 import hashlib
 import logging
 
+from src.models.db.errors import DatabaseError
+from src.models.db.errors_compat import db_error_classes
+from src.models.db.schema import ddl_for
+from src.models.db import config as db_config
+from src.models.db import connect as db_connect
+
 # Setup logging - optimized untuk singleton pattern
 logger = logging.getLogger(__name__)
 
@@ -22,21 +28,53 @@ if not logger.handlers:
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
 
-class DatabaseError(Exception):
-    """Custom database exception"""
-    pass
+# Exception classes from whichever DB-API driver is actually connected
+# (sqlite3 always, psycopg only when Postgres is configured/installed).
+_ERR = db_error_classes()
 
 class SQLiteDatabase:
+    """Database access layer. Despite the name, this now connects to
+    Postgres when DB_HOST is configured and reachable, falling back to
+    the local SQLite file otherwise (see _connect_backend)."""
+
     def __init__(self, db_path):
         self.db_path = db_path
+        self.backend_name = "sqlite"
+        self._sqlite_ready = False
         try:
             self.ensure_data_dir()
+            self._connect_backend()
             self.init_db()
-            logger.info(f"Database initialized successfully: {db_path}")
+            if self.backend_name == "sqlite":
+                self._sqlite_ready = True
+            logger.info(f"Database initialized successfully: backend={self.backend_name}")
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
             raise DatabaseError(f"Database initialization failed: {e}")
-    
+
+    def _connect_backend(self):
+        """Pick Postgres if configured and reachable, otherwise SQLite."""
+        if db_config.postgres_requested():
+            if db_connect.probe_postgres():
+                self.backend_name = "postgres"
+                logger.info("Using Postgres backend")
+                return
+            logger.warning("Postgres configured but unreachable, falling back to SQLite")
+        self.backend_name = "sqlite"
+
+    def _ensure_sqlite_ready(self):
+        """Make sure the local SQLite fallback file has its schema.
+
+        Needed when failing over mid-session: init_db() only ran
+        against Postgres at startup, so the SQLite file is still empty
+        the first time we actually need it.
+        """
+        if self._sqlite_ready:
+            return
+        self.ensure_data_dir()
+        self.init_db()
+        self._sqlite_ready = True
+
     def ensure_data_dir(self):
         """Ensure data directory exists"""
         try:
@@ -49,7 +87,20 @@ class SQLiteDatabase:
             raise DatabaseError(f"Cannot create data directory: {e}")
     
     def get_connection(self):
-        """Get database connection with error handling"""
+        """Get database connection with error handling.
+
+        If the backend is Postgres and it has become unreachable mid
+        session, this demotes the instance to SQLite for the rest of
+        the session instead of failing every subsequent call.
+        """
+        if self.backend_name == "postgres":
+            try:
+                return db_connect.open_postgres_connection()
+            except Exception as e:
+                logger.warning(f"Postgres connection lost, falling back to SQLite: {e}")
+                self.backend_name = "sqlite"
+                self._ensure_sqlite_ready()
+
         try:
             conn = sqlite3.connect(self.db_path, timeout=30.0)
             conn.row_factory = sqlite3.Row  # Enable dict-like access
@@ -57,7 +108,7 @@ class SQLiteDatabase:
         except sqlite3.Error as e:
             logger.error(f"Database connection failed: {e}")
             raise DatabaseError(f"Cannot connect to database: {e}")
-    
+
     def execute(self, query, params=()):
         """Execute query and return results with error handling"""
         try:
@@ -67,19 +118,19 @@ class SQLiteDatabase:
                 result = cursor.fetchall()
                 logger.debug(f"Query executed successfully: {query[:50]}...")
                 return result
-        except sqlite3.IntegrityError as e:
+        except _ERR["IntegrityError"] as e:
             logger.error(f"Integrity constraint violation: {e}")
             raise DatabaseError(f"Data integrity error: {e}")
-        except sqlite3.OperationalError as e:
+        except _ERR["OperationalError"] as e:
             logger.error(f"Operational error: {e}")
             raise DatabaseError(f"Database operation failed: {e}")
-        except sqlite3.Error as e:
+        except _ERR["Error"] as e:
             logger.error(f"Database error: {e}")
             raise DatabaseError(f"Database error: {e}")
         except Exception as e:
             logger.error(f"Unexpected error during query execution: {e}")
             raise DatabaseError(f"Unexpected database error: {e}")
-    
+
     def execute_one(self, query, params=()):
         """Execute query and return single result with error handling"""
         try:
@@ -89,13 +140,13 @@ class SQLiteDatabase:
                 result = cursor.fetchone()
                 logger.debug(f"Single query executed successfully: {query[:50]}...")
                 return result
-        except sqlite3.Error as e:
+        except _ERR["Error"] as e:
             logger.error(f"Database error in execute_one: {e}")
             raise DatabaseError(f"Database query failed: {e}")
         except Exception as e:
             logger.error(f"Unexpected error in execute_one: {e}")
             raise DatabaseError(f"Unexpected error: {e}")
-    
+
     def execute_insert(self, query, params=()):
         """Execute insert and return last row id with error handling"""
         try:
@@ -105,16 +156,16 @@ class SQLiteDatabase:
                 last_id = cursor.lastrowid
                 logger.info(f"Insert successful, ID: {last_id}")
                 return last_id
-        except sqlite3.IntegrityError as e:
+        except _ERR["IntegrityError"] as e:
             logger.error(f"Insert failed - integrity constraint: {e}")
             raise DatabaseError(f"Data already exists or constraint violation: {e}")
-        except sqlite3.Error as e:
+        except _ERR["Error"] as e:
             logger.error(f"Insert failed: {e}")
             raise DatabaseError(f"Failed to insert data: {e}")
         except Exception as e:
             logger.error(f"Unexpected error during insert: {e}")
             raise DatabaseError(f"Unexpected insert error: {e}")
-    
+
     def execute_many(self, query, params_list):
         """Execute query with multiple parameter sets with error handling"""
         try:
@@ -124,7 +175,7 @@ class SQLiteDatabase:
                 row_count = cursor.rowcount
                 logger.info(f"Bulk operation completed, rows affected: {row_count}")
                 return row_count
-        except sqlite3.Error as e:
+        except _ERR["Error"] as e:
             logger.error(f"Bulk operation failed: {e}")
             raise DatabaseError(f"Bulk operation error: {e}")
         except Exception as e:
@@ -136,7 +187,12 @@ class SQLiteDatabase:
         try:
             # Check if database already initialized (cek table users)
             try:
-                existing = self.execute_one("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+                if self.backend_name == "postgres":
+                    existing = self.execute_one(
+                        "SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename='users'"
+                    )
+                else:
+                    existing = self.execute_one("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
                 if existing:
                     logger.info("Database already initialized, skipping table creation")
                     # Hanya insert default data jika belum ada
@@ -146,15 +202,18 @@ class SQLiteDatabase:
                 pass  # Jika error, lanjutkan normal init
 
             # Full initialization jika belum ada
+            # Order matters: a table must exist before another table's
+            # FOREIGN KEY can reference it. SQLite never checks this at
+            # CREATE TABLE time; Postgres does.
             self.create_users_table()
             self.create_customers_table()
+            self.create_kapals_table()
             self.create_containers_table()
             self.create_barang_table()
             self.create_tax_table()
             self.create_detail_container_table()
             self.create_delivery_costs_table()
             self.create_pengirim_table()
-            self.create_kapals_table()
             self.insert_default_data()
             logger.info("Database tables initialized successfully")
         except Exception as e:
@@ -163,20 +222,7 @@ class SQLiteDatabase:
     
     def create_users_table(self):
         """Create users table with error handling"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            email TEXT,
-            role TEXT DEFAULT 'user',
-            is_active BOOLEAN DEFAULT 1,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_login TIMESTAMP,
-            login_count INTEGER DEFAULT 0
-        )
-        '''
+        query = ddl_for("users", self.backend_name)
         try:
             self.execute(query)
             logger.info("Users table created successfully")
@@ -186,15 +232,7 @@ class SQLiteDatabase:
     
     def create_customers_table(self):
         """Create customers table with error handling"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS customers (
-            customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nama_customer TEXT NOT NULL,
-            alamat_customer TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        '''
+        query = ddl_for("customers", self.backend_name)
         try:
             self.execute(query)
             logger.info("Customers table created successfully")
@@ -204,20 +242,7 @@ class SQLiteDatabase:
         
     def create_kapals_table(self):
         """Create kapals table - DENGAN field shipping_line"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS kapals (
-            kapal_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            shipping_line TEXT,
-            feeder TEXT,
-            etd_sub DATE,
-            cls DATE,
-            open DATE,
-            full DATE,
-            destination TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        '''
+        query = ddl_for("kapals", self.backend_name)
         try:
             self.execute(query)
             logger.info("Kapals table created successfully")
@@ -227,20 +252,7 @@ class SQLiteDatabase:
 
     def create_containers_table(self):
         """Create containers table dengan field etd"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS containers (
-            container_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kapal_id INTEGER,
-            etd DATE,
-            party TEXT,
-            container TEXT NOT NULL,
-            seal TEXT,
-            ref_joa TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (kapal_id) REFERENCES kapals(kapal_id) ON DELETE SET NULL
-        )
-        '''
+        query = ddl_for("containers", self.backend_name)
         try:
             self.execute(query)
             logger.info("Containers table created successfully")
@@ -250,44 +262,7 @@ class SQLiteDatabase:
         
     def create_barang_table(self):
         """Create barang table with error handling"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS barang (
-            barang_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            pengirim TEXT NOT NULL,
-            penerima TEXT NOT NULL,
-            nama_barang TEXT NOT NULL,
-            panjang_barang  REAL,
-            lebar_barang REAL,
-            tinggi_barang REAL,
-            m3_barang REAL,
-            ton_barang REAL,
-            container_barang REAL,
-            m3_pp REAL,
-            m3_pd REAL,
-            m3_dd REAL,
-            ton_pp REAL,
-            ton_pd REAL,
-            ton_dd REAL,
-            col_pp INTEGER,
-            col_pd INTEGER,
-            col_dd INTEGER,
-            container_pp REAL,
-            container_pd REAL,
-            container_dd REAL,
-            container_20_pp REAL,
-            container_20_pd REAL,
-            container_20_dd REAL,
-            container_21_pp REAL,
-            container_21_pd REAL,
-            container_21_dd REAL,
-            container_40hc_pp REAL,
-            container_40hc_pd REAL,
-            container_40hc_dd REAL,
-            pajak INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        '''
+        query = ddl_for("barang", self.backend_name)
         try:
             self.execute(query)
             logger.info("Barang table created successfully")
@@ -297,7 +272,13 @@ class SQLiteDatabase:
             raise
 
     def migrate_barang_container_sizes(self):
-        """Add container size-specific columns if they don't exist"""
+        """Add container size-specific columns if they don't exist.
+
+        SQLite-only: the Postgres DDL in schema.py already defines
+        every column from the start, so there's nothing to migrate.
+        """
+        if self.backend_name == "postgres":
+            return
         try:
             # Check if new columns exist
             with self.get_connection() as conn:
@@ -324,23 +305,7 @@ class SQLiteDatabase:
         
     def create_tax_table(self):
         """Create tax management table for tracking tax calculations"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS barang_tax (
-            tax_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            container_id INTEGER NOT NULL,
-            barang_id INTEGER NOT NULL,
-            penerima TEXT NOT NULL,
-            total_nilai_barang REAL NOT NULL,
-            ppn_rate REAL DEFAULT 0.011,  -- PPN 1.1%
-            pph23_rate REAL DEFAULT 0.02,  -- PPH 23 2%
-            ppn_amount REAL NOT NULL,
-            pph23_amount REAL NOT NULL,
-            total_tax REAL NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (container_id) REFERENCES containers (container_id),
-            FOREIGN KEY (barang_id) REFERENCES barang (barang_id)
-        )
-        '''
+        query = ddl_for("barang_tax", self.backend_name)
         try:
             self.execute(query)
             logger.info("Tax table created successfully")
@@ -418,60 +383,22 @@ class SQLiteDatabase:
     
     def create_detail_container_table(self):
         """Create detail container table with pricing columns and sender/receiver info"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS detail_container (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tanggal DATE NOT NULL,
-            barang_id INTEGER NOT NULL,
-            container_id INTEGER NOT NULL,
-            tax_id INTEGER,
-            satuan TEXT NOT NULL,
-            door_type TEXT NOT NULL,
-            colli_amount INTEGER NOT NULL DEFAULT 1,
-            harga_per_unit DECIMAL(15,2) DEFAULT 0,
-            total_harga DECIMAL(15,2) DEFAULT 0,
-            assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT,
-            FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
-            FOREIGN KEY (container_id) REFERENCES containers (container_id),
-            FOREIGN KEY (tax_id) REFERENCES barang_tax (id)
-        )
-        '''
+        query = ddl_for("detail_container", self.backend_name)
         try:
             self.execute(query)
             print("[OK] Detail container table created/updated successfully")
         except Exception as e:
             print(f"[ERROR] Failed to create detail container table: {e}")
             raise
-        
-        
+
+
     def create_delivery_costs_table(self):
         """Buat tabel untuk biaya pengantaran jika belum ada"""
-        
-        self.execute("""
-            CREATE TABLE IF NOT EXISTS container_delivery_costs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                container_id INTEGER NOT NULL,
-                delivery TEXT,
-                description TEXT NOT NULL,
-                cost_description TEXT,
-                cost REAL NOT NULL DEFAULT 0,
-                created_date TEXT NOT NULL,
-                FOREIGN KEY (container_id) REFERENCES containers (id)
-            )
-        """)
-        
+        self.execute(ddl_for("container_delivery_costs", self.backend_name))
+
     def create_pengirim_table(self):
         """Create pengirim table with error handling"""
-        query = '''
-        CREATE TABLE IF NOT EXISTS pengirim (
-            pengirim_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nama_pengirim TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-        '''
+        query = ddl_for("pengirim", self.backend_name)
         try:
             self.execute(query)
             logger.info("Pengirim table created successfully")
@@ -1122,10 +1049,14 @@ class BarangDatabase(SQLiteDatabase):
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+                # Hapus dependent rows dulu (barang_tax/detail_container
+                # FK ke barang tidak punya ON DELETE CASCADE)
+                cursor.execute('DELETE FROM detail_container WHERE barang_id = ?', (barang_id,))
+                cursor.execute('DELETE FROM barang_tax WHERE barang_id = ?', (barang_id,))
                 cursor.execute('''
                     DELETE FROM barang WHERE barang_id = ?
                 ''', (barang_id,))
-                
+
                 # Cek apakah ada row yang terhapus
                 if cursor.rowcount == 0:
                     raise ValueError(f"Barang dengan ID {barang_id} tidak ditemukan")
@@ -1144,12 +1075,19 @@ class BarangDatabase(SQLiteDatabase):
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+                # Hapus dependent rows dulu (barang_tax/detail_container
+                # FK ke barang tidak punya ON DELETE CASCADE)
+                cursor.execute('DELETE FROM detail_container')
+                cursor.execute('DELETE FROM barang_tax')
                 # Hapus semua barang
                 cursor.execute('DELETE FROM barang')
                 deleted_count = cursor.rowcount
 
                 # Reset auto-increment ID ke 1
-                cursor.execute("DELETE FROM sqlite_sequence WHERE name='barang'")
+                if self.backend_name == "postgres":
+                    cursor.execute("ALTER SEQUENCE barang_barang_id_seq RESTART WITH 1")
+                else:
+                    cursor.execute("DELETE FROM sqlite_sequence WHERE name='barang'")
 
             logger.info(f"All barang deleted successfully: {deleted_count} rows, ID reset")
             return deleted_count
@@ -1164,6 +1102,15 @@ class BarangDatabase(SQLiteDatabase):
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
+
+                # Hapus tax record punya barang yang tidak ada di container
+                # manapun dulu (barang_tax.barang_id FK tidak punya ON DELETE CASCADE)
+                cursor.execute('''
+                    DELETE FROM barang_tax
+                    WHERE barang_id NOT IN (
+                        SELECT DISTINCT barang_id FROM detail_container
+                    )
+                ''')
 
                 # Hapus barang yang tidak ada di detail_container
                 cursor.execute('''
