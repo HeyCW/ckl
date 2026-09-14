@@ -232,20 +232,6 @@ class MainWindow:
         )
         job_order_btn.pack(side='left', padx=15)
 
-        # Customer Orders button (NEW)
-        # customer_orders_btn = tk.Button(
-        #     row2_frame,
-        #     text="📊\n\nCUSTOMER ORDERS\n\nLihat Pesanan Customer",
-        #     font=('Arial', 14, 'bold'),
-        #     bg="#16a085",
-        #     fg='white',
-        #     relief='flat',
-        #     width=20,
-        #     height=6,
-        #     command=self.show_customer_orders_window
-        # )
-        # customer_orders_btn.pack(side='left', padx=30)
-
         # Row 3: Lifting button (only for owner)
         if self.is_owner():
             row3_frame = tk.Frame(menu_frame, bg='#ecf0f1')
@@ -271,14 +257,6 @@ class MainWindow:
             CustomerWindow(self.root, self.db)
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}", parent=self.root)
-
-    def show_customer_orders_window(self):
-        """Show customer orders window"""
-        try:
-            from src.views.customer_orders_window import CustomerOrdersWindow
-            CustomerOrdersWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window customer orders:\n{str(e)}", parent=self.root)
 
     def show_lifting_window(self):
         """Show lifting management window - OWNER ONLY"""
@@ -329,14 +307,6 @@ class MainWindow:
         except Exception as e:
             messagebox.showerror("Error", f"Tidak dapat membuka window container:\n{str(e)}", parent=self.root)
 
-    def show_reports_window(self):
-        """Show reports window"""
-        try:
-            from src.views.report_window import ReportsWindow
-            ReportsWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window laporan:\n{str(e)}", parent=self.root)
-    
     def on_window_closing(self):
         """Handle window closing"""
         if messagebox.askyesno("Konfirmasi", "Yakin ingin keluar dari aplikasi?", parent=self.root):

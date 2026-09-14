@@ -544,14 +544,6 @@ class SQLiteDatabase:
             logger.error(f"Failed to create pengirim table: {e}")
             raise
         
-    def get_all_senders(self):
-        """Get all senders from database"""
-        try:
-            return self.execute("SELECT * FROM pengirim ORDER BY pengirim_id")
-        except sqlite3.Error as e:
-            print(f"Database error: {e}")
-            return []
-        
     def get_sender_by_id(self, sender_id):
         """Get sender by ID"""
         try:
@@ -559,18 +551,6 @@ class SQLiteDatabase:
         except sqlite3.Error as e:
             print(f"Database error: {e}")
             return None
-
-    def create_sender(self, nama):
-        """Add new sender"""
-        try:
-            self.execute("""
-                INSERT INTO pengirim (nama_pengirim) VALUES (?)
-            """, (nama,))
-        except sqlite3.IntegrityError:
-            return False  # Duplicate name
-        except sqlite3.Error as e:
-            print(f"Database error: {e}")
-            return False
 
     def get_container_delivery_total(self, container_id):
         """Mendapatkan total biaya pengantaran untuk container tertentu"""
@@ -1344,25 +1324,6 @@ class BarangDatabase(SQLiteDatabase):
             logger.error(f"Failed to get existing barang keys: {e}")
             return set()
 
-    def get_barang_by_customer(self, customer_id):
-        """Get all barang for a customer with error handling"""
-        if not customer_id:
-            raise ValueError("Customer ID is required")
-        
-        try:
-            barang_list = self.execute('''
-                SELECT b.*, c.nama_customer 
-                FROM barang b
-                JOIN customers c ON b.customer_id = c.customer_id
-                WHERE b.customer_id = ?
-                ORDER BY b.created_at DESC
-            ''', (customer_id,))
-            
-            return [dict(barang) for barang in barang_list]
-            
-        except Exception as e:
-            logger.error(f"Failed to get barang for customer ID {customer_id}: {e}")
-            raise DatabaseError(f"Failed to retrieve barang: {e}")
     
     def get_all_barang(self, include_archived=False):
         """Get all barang with customer info and error handling"""
