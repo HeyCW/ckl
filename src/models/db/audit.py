@@ -31,15 +31,22 @@ def get_current_user():
     return _current_user["username"] or "system"
 
 
-# INSERT INTO table (col, col, ...) VALUES (?, ?, ...) [trailing text]
+# INSERT INTO table (col, col, ...) VALUES (?, ?, ...)[, (?, ?, ...), ...] [trailing text]
+# The tuples group grabs one or more comma-separated (?, ?, ...) groups
+# in a row - a multi-row VALUES list, as a batch insert uses - leaving
+# anything after the last tuple (a RETURNING clause, a trailing `;`) in
+# suffix. None of this app's placeholders are ever nested parens, so a
+# plain [^()]* per tuple is safe.
 _INSERT_RE = re.compile(
     r'^(?P<prefix>\s*INSERT\s+INTO\s+"?(?P<table>\w+)"?\s*)'
     r"\((?P<cols>[^)]*)\)"
     r"(?P<values_kw>\s*VALUES\s*)"
-    r"\((?P<vals>[^)]*)\)"
+    r"(?P<tuples>(?:\([^()]*\)\s*,?\s*)+)"
     r"(?P<suffix>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
+
+_TUPLE_RE = re.compile(r"\(([^()]*)\)")
 
 # UPDATE table SET ... WHERE ...  (every UPDATE in this app has a WHERE)
 _UPDATE_RE = re.compile(
@@ -77,16 +84,35 @@ def _rewrite_insert(m, params):
     detection needed (unlike the UPDATE case for updated_at below)."""
     username = get_current_user()
     cols = m.group("cols").rstrip()
-    vals = m.group("vals").rstrip()
+    tuple_strs = _TUPLE_RE.findall(m.group("tuples"))
 
     new_cols = f"{cols}, created_by, edited_by"
-    new_vals = f"{vals}, ?, ?"
+    new_tuples = ", ".join(f"({t.rstrip()}, ?, ?)" for t in tuple_strs)
     new_query = (
         f"{m.group('prefix')}({new_cols}){m.group('values_kw')}"
-        f"({new_vals}){m.group('suffix')}"
+        f"{new_tuples}{m.group('suffix')}"
     )
-    new_params = tuple(params) + (username, username)
-    return new_query, new_params
+
+    # Each VALUES tuple gets its own (username, username) pair inserted
+    # after its own placeholders - params are one flat tuple, ordered
+    # tuple-by-tuple, so this can't just be appended once at the end
+    # the way the single-row case could. Split by placeholder count per
+    # tuple (not by column count) so a tuple mixing ? with a literal
+    # still lines up correctly.
+    placeholders_per_tuple = [t.count("?") for t in tuple_strs]
+    if sum(placeholders_per_tuple) != len(params):
+        # Shape doesn't match what we expected (e.g. a literal contains
+        # a literal '?') - fail open rather than risk misaligning params.
+        return m.string, params
+
+    new_params = []
+    offset = 0
+    for n in placeholders_per_tuple:
+        new_params.extend(params[offset:offset + n])
+        new_params.append(username)
+        new_params.append(username)
+        offset += n
+    return new_query, tuple(new_params)
 
 
 def _rewrite_update(m, params):
