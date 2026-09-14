@@ -7,7 +7,7 @@ import re
 from src.models.database import AppDatabase
 from PIL import Image, ImageTk
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import setup_window_restore_behavior
+from src.utils.helpers import setup_window_restore_behavior, format_audit_line
 
 class CustomerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -541,7 +541,7 @@ class CustomerWindow:
             filtered_data.append(customer)
         
         for customer in filtered_data:
-            created_date = customer.get('created_at', '')[:10] if customer.get('created_at') else '-'
+            created_date = str(customer.get('created_at', ''))[:10] if customer.get('created_at') else '-'
             
             self.tree.insert('', tk.END, values=(
                 customer['customer_id'],
@@ -660,8 +660,17 @@ class CustomerWindow:
         alamat_text = tk.Text(form_frame, font=('Arial', self.scaled_font(11)), height=6)
         self.make_text_widget_tabbable(alamat_text)
         alamat_text.insert('1.0', customer_data['alamat_customer'] or '')
-        alamat_text.pack(fill='x', pady=(5, 20))
-        
+        alamat_text.pack(fill='x', pady=(5, 10))
+
+        tk.Label(
+            form_frame,
+            text=format_audit_line(customer_data),
+            font=('Arial', self.scaled_font(8)),
+            bg='#ecf0f1',
+            fg='#7f8c8d',
+            anchor='w'
+        ).pack(fill='x', pady=(0, 10))
+
         def on_save():
             try:
                 new_nama = nama_var.get().strip()
@@ -1484,7 +1493,7 @@ class CustomerWindow:
             formatted_data = []
             
             for customer in customers:
-                created_date = customer.get('created_at', '')[:10] if customer.get('created_at') else '-'
+                created_date = str(customer.get('created_at', ''))[:10] if customer.get('created_at') else '-'
                 
                 formatted_data.append({
                     'iid': str(customer['customer_id']),

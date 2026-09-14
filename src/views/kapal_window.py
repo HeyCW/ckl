@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import setup_window_restore_behavior
+from src.utils.helpers import setup_window_restore_behavior, format_audit_line
 
 logger = logging.getLogger(__name__)
 
@@ -286,7 +286,18 @@ class KapalWindow:
         # Configure grid weights for destination field (spans multiple columns)
         if 'destination' in self.entries:
             self.entries['destination'].grid(columnspan=3, sticky='ew')
-        
+
+        # Who created/last edited the selected kapal (populated on selection)
+        self.audit_label = tk.Label(
+            form_frame,
+            text="",
+            font=('Arial', self.scaled_font(8)),
+            bg='#ecf0f1',
+            fg='#7f8c8d',
+            anchor='w'
+        )
+        self.audit_label.grid(row=3, column=0, columnspan=6, sticky='ew', padx=(0, 5), pady=(5, 0))
+
         # Configure column weights
         for i in range(6):
             form_frame.columnconfigure(i, weight=1)
@@ -445,7 +456,7 @@ class KapalWindow:
 
             # Query dengan shipping_line
             query = '''
-                INSERT INTO kapals (shipping_line, feeder, etd_sub, cls, open, full, destination)
+                INSERT INTO kapals (shipping_line, feeder, etd_sub, cls, "open", "full", destination)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             '''
 
@@ -491,7 +502,7 @@ class KapalWindow:
             # Query dengan shipping_line
             query = '''
                 UPDATE kapals
-                SET shipping_line=?, feeder=?, etd_sub=?, cls=?, open=?, full=?,
+                SET shipping_line=?, feeder=?, etd_sub=?, cls=?, "open"=?, "full"=?,
                     destination=?, updated_at=CURRENT_TIMESTAMP
                 WHERE kapal_id=?
             '''
@@ -581,7 +592,7 @@ class KapalWindow:
         try:
             # Query dengan shipping_line
             query = """
-                SELECT kapal_id, shipping_line, feeder, etd_sub, cls, open, full,
+                SELECT kapal_id, shipping_line, feeder, etd_sub, cls, "open", "full",
                     destination, created_at, updated_at
                 FROM kapals
                 ORDER BY created_at DESC
@@ -653,14 +664,25 @@ class KapalWindow:
             else:
                 entry.delete(0, tk.END)
         self.selected_item = None
-    
+        if hasattr(self, 'audit_label'):
+            self.audit_label.config(text="")
+
     def on_item_select(self, event):
         """Handle treeview item selection"""
         selected = self.tree.selection()
         if selected:
             self.selected_item = selected[0]
             values = self.tree.item(self.selected_item, 'values')
-            
+
+            # Who created/last edited this kapal - fetched fresh rather
+            # than from the list query, which doesn't carry these columns
+            if hasattr(self, 'audit_label') and values:
+                audit_row = self.db.execute_one(
+                    "SELECT created_by, edited_by, created_at, updated_at FROM kapals WHERE kapal_id = ?",
+                    (values[0],)
+                )
+                self.audit_label.config(text=format_audit_line(dict(audit_row) if audit_row else None))
+
             # Fill form with selected data (DENGAN shipping_line)
             fields = ['shipping_line', 'feeder', 'etd_sub', 'cls', 'open', 'full', 'destination']
             for i, field in enumerate(fields):

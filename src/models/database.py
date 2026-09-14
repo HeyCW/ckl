@@ -11,6 +11,7 @@ from src.models.db import config as db_config
 from src.models.db import connect as db_connect
 from src.models.db import mirror as db_mirror
 from src.models.db import sync_engine
+from src.models.db import audit as db_audit
 
 # Setup logging - optimized untuk singleton pattern
 logger = logging.getLogger(__name__)
@@ -184,6 +185,8 @@ class SQLiteDatabase:
 
     def execute(self, query, params=()):
         """Execute query and return results with error handling"""
+        query, params = db_audit.apply_audit(query, params)
+
         def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -209,6 +212,8 @@ class SQLiteDatabase:
 
     def execute_one(self, query, params=()):
         """Execute query and return single result with error handling"""
+        query, params = db_audit.apply_audit(query, params)
+
         def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -228,6 +233,8 @@ class SQLiteDatabase:
 
     def execute_insert(self, query, params=()):
         """Execute insert and return last row id with error handling"""
+        query, params = db_audit.apply_audit(query, params)
+
         def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -250,6 +257,13 @@ class SQLiteDatabase:
 
     def execute_many(self, query, params_list):
         """Execute query with multiple parameter sets with error handling"""
+        if params_list:
+            # Same query text for every row, so the rewrite is
+            # identical each time - only the per-row params differ.
+            rewritten = [db_audit.apply_audit(query, p) for p in params_list]
+            query = rewritten[0][0]
+            params_list = [p for _, p in rewritten]
+
         def run():
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -317,6 +331,15 @@ class SQLiteDatabase:
         self.migrate_barang_container_sizes()
         self._add_column_if_missing("containers", "archived", "INTEGER DEFAULT 0")
         self._add_column_if_missing("barang", "archived", "INTEGER DEFAULT 0")
+
+        # created_by/edited_by audit columns - who created/last edited a
+        # row (see src/models/db/audit.py, which stamps these on every
+        # INSERT/UPDATE against these tables automatically).
+        for table in ("barang", "containers", "customers", "kapals", "pengirim", "detail_container"):
+            self._add_column_if_missing(table, "created_by", "TEXT")
+            self._add_column_if_missing(table, "edited_by", "TEXT")
+        # detail_container never had updated_at (only assigned_at/created_at).
+        self._add_column_if_missing("detail_container", "updated_at", "TIMESTAMP")
 
     def _add_column_if_missing(self, table, column, col_type):
         """Dialect-aware ALTER TABLE ... ADD COLUMN, safe to call every startup."""
@@ -885,7 +908,7 @@ class ContainerDatabase(SQLiteDatabase):
         
         try:
             container = self.execute_one(
-                """SELECT 
+                """SELECT
                     c.container_id,
                     c.kapal_id,
                     c.etd,
@@ -893,6 +916,8 @@ class ContainerDatabase(SQLiteDatabase):
                     c.container,
                     c.seal,
                     c.ref_joa,
+                    c.created_by,
+                    c.edited_by,
                     c.created_at,
                     c.updated_at,
                     k.feeder,
@@ -999,7 +1024,7 @@ class BarangDatabase(SQLiteDatabase):
                             raise ValueError("Pengirim, Penerima, and Nama Barang are required")
 
                         # Insert barang
-                        cursor.execute('''
+                        insert_query = '''
                             INSERT INTO barang (pengirim, penerima, nama_barang,
                                             panjang_barang, lebar_barang, tinggi_barang, m3_barang, ton_barang, container_barang,
                                             m3_pp, m3_pd, m3_dd, ton_pp, ton_pd, ton_dd,
@@ -1010,7 +1035,8 @@ class BarangDatabase(SQLiteDatabase):
                                             container_40hc_pp, container_40hc_pd, container_40hc_dd,
                                             pajak)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ''', (
+                        '''
+                        insert_params = (
                             barang_data.get('pengirim'),
                             barang_data.get('penerima'),
                             barang_data.get('nama_barang'),
@@ -1042,7 +1068,9 @@ class BarangDatabase(SQLiteDatabase):
                             barang_data.get('container_40hc_pd'),
                             barang_data.get('container_40hc_dd'),
                             barang_data.get('pajak')
-                        ))
+                        )
+                        insert_query, insert_params = db_audit.apply_audit(insert_query, insert_params)
+                        cursor.execute(insert_query, insert_params)
 
                         barang_id = cursor.lastrowid
                         result['created_ids'].append(barang_id)
@@ -1103,7 +1131,7 @@ class BarangDatabase(SQLiteDatabase):
             # Lakukan update
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('''
+                update_query = '''
                     UPDATE barang
                     SET pengirim = ?, penerima = ?, nama_barang = ?,
                         panjang_barang = ?, lebar_barang = ?, tinggi_barang = ?, m3_barang = ?, ton_barang = ?, container_barang = ?,
@@ -1115,7 +1143,8 @@ class BarangDatabase(SQLiteDatabase):
                         container_40hc_pp = ?, container_40hc_pd = ?, container_40hc_dd = ?,
                         pajak = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE barang_id = ?
-                ''', (
+                '''
+                update_params = (
                     barang_data.get('pengirim'), barang_data.get('penerima'), barang_data.get('nama_barang'),
                     barang_data.get('panjang_barang'), barang_data.get('lebar_barang'), barang_data.get('tinggi_barang'),
                     barang_data.get('m3_barang'), barang_data.get('ton_barang'), barang_data.get('container_barang'),
@@ -1127,8 +1156,10 @@ class BarangDatabase(SQLiteDatabase):
                     barang_data.get('container_21_pp'), barang_data.get('container_21_pd'), barang_data.get('container_21_dd'),
                     barang_data.get('container_40hc_pp'), barang_data.get('container_40hc_pd'), barang_data.get('container_40hc_dd'),
                     barang_data.get('pajak'), barang_data['barang_id']
-                ))
-            
+                )
+                update_query, update_params = db_audit.apply_audit(update_query, update_params)
+                cursor.execute(update_query, update_params)
+
                 # Cek berapa row yang terpengaruh
                 rows_affected = cursor.rowcount
             
@@ -1145,7 +1176,10 @@ class BarangDatabase(SQLiteDatabase):
                     deleted_tax = cursor.rowcount
 
                     # Update detail_container untuk set tax_id = NULL
-                    cursor.execute('UPDATE detail_container SET tax_id = NULL WHERE barang_id = ?', (barang_id,))
+                    nullify_query, nullify_params = db_audit.apply_audit(
+                        'UPDATE detail_container SET tax_id = NULL WHERE barang_id = ?', (barang_id,)
+                    )
+                    cursor.execute(nullify_query, nullify_params)
 
                     if deleted_tax > 0:
                         logger.info(f"Deleted {deleted_tax} tax records for barang {barang_id} (pajak changed 1->0)")

@@ -8,7 +8,7 @@ import re
 from PIL import Image, ImageTk
 
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import setup_window_restore_behavior
+from src.utils.helpers import setup_window_restore_behavior, format_audit_line
 
 class BarangWindow:
 
@@ -1416,7 +1416,7 @@ class BarangWindow:
                     harga_col_dd = format_price(barang.get('col_dd'))
                     
                     # Format date
-                    created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
+                    created_date = str(barang.get('created_at', ''))[:10] if barang.get('created_at') else '-'
                     
                     # Create row tuple
                     row_data = (
@@ -2114,6 +2114,16 @@ class BarangWindow:
             self.save_changes(updated_barang)
             update_window.destroy()
 
+        # Who created/last edited this barang
+        tk.Label(
+            form_frame,
+            text=format_audit_line(barang_data),
+            font=('Arial', 8),
+            bg='#ecf0f1',
+            fg='#7f8c8d',
+            anchor='w'
+        ).pack(fill='x', pady=(0, 5))
+
         # Buttons
         btn_frame = tk.Frame(form_frame, bg='#ecf0f1')
         btn_frame.pack(fill='x', pady=30)
@@ -2270,7 +2280,7 @@ class BarangWindow:
                     'Harga Colli PD (Rp)': barang.get('col_pd', ''),
                     'Harga Colli DD (Rp)': barang.get('col_dd', ''),
                     
-                    'Tanggal Dibuat': barang.get('created_at', '')[:19] if barang.get('created_at') else ''
+                    'Tanggal Dibuat': str(barang.get('created_at', ''))[:19] if barang.get('created_at') else ''
                 })
             
             # Create DataFrame and export
@@ -4292,7 +4302,7 @@ class BarangWindow:
                 harga_container_40hc_dd = f"Rp {barang.get('container_40hc_dd', 0):,.0f}" if barang.get('container_40hc_dd') and barang.get('container_40hc_dd') != '-' else '-'
 
                 # Format date
-                created_date = barang.get('created_at', '')[:10] if barang.get('created_at') else '-'
+                created_date = str(barang.get('created_at', ''))[:10] if barang.get('created_at') else '-'
                 
                 # Format weight with comma as decimal separator
                 ton_barang = barang.get('ton_barang', '-')

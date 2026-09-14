@@ -494,7 +494,7 @@ class SenderWindow:
         # Display filtered data
         for sender in filtered_data:
             # Format date
-            created_date = sender['created_at'][:10] if sender['created_at'] else '-'
+            created_date = str(sender['created_at'])[:10] if sender['created_at'] else '-'
             
             self.tree.insert('', tk.END, values=(
                 sender['pengirim_id'],
@@ -1435,7 +1435,7 @@ class SenderWindow:
             for sender in senders:
                 try:
                     # Format date
-                    created_date = sender['created_at'][:10] if sender['created_at'] else '-'
+                    created_date = str(sender['created_at'])[:10] if sender['created_at'] else '-'
                 except KeyError:
                     created_date = '-'
                 

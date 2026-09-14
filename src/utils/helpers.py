@@ -1,3 +1,40 @@
+def _format_audit_timestamp(value):
+    """Timestamps come back as a datetime object (Postgres) or a raw
+    string (SQLite stores TIMESTAMP as TEXT) - normalize either into
+    DD/MM/YYYY HH:MM for display."""
+    if value is None:
+        return None
+    from datetime import datetime as _dt
+    if isinstance(value, _dt):
+        return value.strftime('%d/%m/%Y %H:%M')
+    text = str(value)
+    for pattern in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S'):
+        try:
+            return _dt.strptime(text[:26], pattern).strftime('%d/%m/%Y %H:%M')
+        except ValueError:
+            continue
+    return text
+
+
+def format_audit_line(record, placeholder="—"):
+    """'Dibuat: budi • 01/02/2026 14:30   |   Diubah: siti • 03/02/2026 09:15'
+    from a record's created_by/created_at/edited_by/updated_at columns.
+    Rows written before this feature existed have NULL audit columns,
+    which render as the placeholder rather than blank/None.
+    """
+    if not record:
+        return ""
+
+    def part(who, when):
+        who_text = who or placeholder
+        when_text = _format_audit_timestamp(when) or placeholder
+        return f"{who_text} • {when_text}"
+
+    created = part(record.get('created_by'), record.get('created_at'))
+    edited = part(record.get('edited_by'), record.get('updated_at'))
+    return f"Dibuat: {created}   |   Diubah: {edited}"
+
+
 def format_ton(value):
     """
     Format ton value with exactly 3 decimal places.

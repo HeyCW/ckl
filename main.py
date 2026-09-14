@@ -30,6 +30,11 @@ def main():
             """Callback after successful login"""
             print(f"🔐 Login success callback triggered for: {username}")
             try:
+                # Record who's logged in so every create/edit from here
+                # on gets stamped with it (see src/models/db/audit.py)
+                from src.models.db.audit import set_current_user
+                set_current_user(username)
+
                 # Lazy import MainWindow (hanya saat login berhasil)
                 from src.views.main_window import MainWindow
 

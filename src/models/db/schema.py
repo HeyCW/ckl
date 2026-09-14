@@ -58,6 +58,8 @@ TABLE_DDL = {
                 customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nama_customer TEXT NOT NULL,
                 alamat_customer TEXT NOT NULL,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -67,6 +69,8 @@ TABLE_DDL = {
                 customer_id SERIAL PRIMARY KEY,
                 nama_customer TEXT NOT NULL,
                 alamat_customer TEXT NOT NULL,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -83,6 +87,8 @@ TABLE_DDL = {
                 open DATE,
                 full DATE,
                 destination TEXT,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -97,6 +103,8 @@ TABLE_DDL = {
                 "open" DATE,
                 "full" DATE,
                 destination TEXT,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -113,6 +121,8 @@ TABLE_DDL = {
                 seal TEXT,
                 ref_joa TEXT,
                 archived INTEGER DEFAULT 0,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (kapal_id) REFERENCES kapals(kapal_id) ON DELETE SET NULL
@@ -128,6 +138,8 @@ TABLE_DDL = {
                 seal TEXT,
                 ref_joa TEXT,
                 archived INTEGER DEFAULT 0,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (kapal_id) REFERENCES kapals(kapal_id) ON DELETE SET NULL
@@ -170,6 +182,8 @@ TABLE_DDL = {
                 container_40hc_dd REAL,
                 pajak INTEGER DEFAULT 0,
                 archived INTEGER DEFAULT 0,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -209,6 +223,8 @@ TABLE_DDL = {
                 container_40hc_dd DOUBLE PRECISION,
                 pajak INTEGER DEFAULT 0,
                 archived INTEGER DEFAULT 0,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -264,7 +280,10 @@ TABLE_DDL = {
                 harga_per_unit DECIMAL(15,2) DEFAULT 0,
                 total_harga DECIMAL(15,2) DEFAULT 0,
                 assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
                 FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
                 FOREIGN KEY (container_id) REFERENCES containers (container_id),
@@ -284,7 +303,10 @@ TABLE_DDL = {
                 harga_per_unit NUMERIC(15,2) DEFAULT 0,
                 total_harga NUMERIC(15,2) DEFAULT 0,
                 assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 notes TEXT,
                 FOREIGN KEY (barang_id) REFERENCES barang (barang_id),
                 FOREIGN KEY (container_id) REFERENCES containers (container_id),
@@ -323,6 +345,8 @@ TABLE_DDL = {
             CREATE TABLE IF NOT EXISTS pengirim (
                 pengirim_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nama_pengirim TEXT NOT NULL,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -331,6 +355,8 @@ TABLE_DDL = {
             CREATE TABLE IF NOT EXISTS pengirim (
                 pengirim_id SERIAL PRIMARY KEY,
                 nama_pengirim TEXT NOT NULL,
+                created_by TEXT,
+                edited_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )

@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import format_ton, setup_window_restore_behavior
+from src.utils.helpers import format_ton, setup_window_restore_behavior, format_audit_line
 
 class ContainerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -7643,6 +7643,20 @@ class ContainerWindow:
             ref_joa_entry = tk.Entry(row, font=('Arial', 11), width=35)
             ref_joa_entry.pack(side='left', padx=(10, 0))
             ref_joa_entry.insert(0, safe_get(container[7]))
+
+            # Who created/last edited this container
+            audit_row = self.db.execute_one(
+                "SELECT created_by, edited_by, created_at, updated_at FROM containers WHERE container_id = ?",
+                (container_id,)
+            )
+            tk.Label(
+                form_frame,
+                text=format_audit_line(dict(audit_row) if audit_row else None),
+                font=('Arial', 8),
+                bg='#ffffff',
+                fg='#7f8c8d',
+                anchor='w'
+            ).pack(fill='x', padx=20, pady=(0, 10))
 
             # ✅ Save function with FEEDER + ETD matching
             def save_container():
