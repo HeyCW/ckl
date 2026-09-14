@@ -1,7 +1,9 @@
 import sqlite3
 import os
-import hashlib
+import secrets
 from datetime import datetime
+
+from src.utils.password_hash import hash_password
 
 # Path to database
 db_path = os.path.join(os.path.dirname(__file__), 'data', 'app.db')
@@ -13,21 +15,26 @@ try:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # 1. USERS - Create admin and staff users
+    # 1. USERS - Create admin and staff users. Passwords are randomly
+    # generated (not fixed strings) and printed once at the end - a
+    # seed script that writes known credentials into a real database
+    # is itself a security hole.
     print("1. Creating users...")
+    seeded_credentials = []
     users = [
-        ('owner', 'owner123', 'owner'),
-        ('admin', 'admin123', 'staff'),
-        ('staff', 'staff123', 'staff'),
+        ('owner', 'owner'),
+        ('admin', 'staff'),
+        ('staff', 'staff'),
     ]
 
-    for username, password, role in users:
-        # Hash password with SHA256 (same as authentication logic)
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+    for username, role in users:
+        password = secrets.token_urlsafe(12)
+        password_hash = hash_password(password)
         cursor.execute('''
             INSERT INTO users (username, password, role)
             VALUES (?, ?, ?)
         ''', (username, password_hash, role))
+        seeded_credentials.append((username, password, role))
         print(f"   Created user: {username} ({role})")
 
     # 2. PENGIRIM - Create sender companies
@@ -299,10 +306,9 @@ try:
     print(f"Barang:     {cursor.fetchone()[0]} goods")
 
     print("="*60)
-    print("\nLogin credentials:")
-    print("  owner/owner123   (role: owner)")
-    print("  admin/admin123   (role: staff)")
-    print("  staff/staff123   (role: staff)")
+    print("\nLogin credentials (generated - save these now, they are not stored anywhere else):")
+    for username, password, role in seeded_credentials:
+        print(f"  {username}/{password}   (role: {role})")
     print("="*60)
 
     print("\nInitial data seeded successfully!")

@@ -79,7 +79,23 @@ def _create_pool():
         min_size=db_config.get_pool_min_size(),
         max_size=db_config.get_pool_max_size(),
         timeout=timeout,
-        kwargs={"connect_timeout": timeout, "autocommit": False},
+        kwargs={
+            "connect_timeout": timeout,
+            "autocommit": False,
+            # The server is reached over a VPN tunnel (e.g. WireGuard),
+            # where a dead path (NAT/peer drop, VPS reboot) often closes
+            # silently - no RST ever reaches this side. Without these,
+            # a query on a half-open socket blocks on TCP retransmit for
+            # minutes (Linux default ~15) instead of failing fast, which
+            # freezes the single-threaded UI and skips the SQLite
+            # failover in _attempt(). tcp_user_timeout bounds how long a
+            # send can go unacknowledged before the kernel gives up.
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+            "tcp_user_timeout": 15000,  # ms
+        },
         # Validates the connection before handing it out, so one the
         # server closed during an idle stretch gets replaced instead of
         # failing the caller's query.

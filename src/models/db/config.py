@@ -30,6 +30,13 @@ def postgres_requested():
 
 
 def get_postgres_dsn():
+    """Build a libpq connection string from the environment.
+
+    Uses psycopg's conninfo builder rather than string concatenation so
+    values containing spaces or "keyword=value"-shaped text (a password
+    like "p@ss host=other" is the dangerous case) can't be
+    misinterpreted as extra/overriding connection parameters.
+    """
     _ensure_dotenv_loaded()
     host = os.environ.get("DB_HOST")
     if not host:
@@ -41,9 +48,15 @@ def get_postgres_dsn():
     password = os.environ.get("DB_PASSWORD", "")
     sslmode = os.environ.get("DB_SSLMODE", "require")
 
-    return (
-        f"host={host} port={port} dbname={name} user={user} "
-        f"password={password} sslmode={sslmode}"
+    from psycopg.conninfo import make_conninfo
+
+    return make_conninfo(
+        host=host,
+        port=port,
+        dbname=name,
+        user=user,
+        password=password,
+        sslmode=sslmode,
     )
 
 

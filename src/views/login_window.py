@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-import hashlib
 from src.models.database import AppDatabase
 from src.utils.icon_cache import icon_cache
 
@@ -178,15 +177,6 @@ class LoginWindow:
             foreground='red'
         )
         self.status_label.pack(pady=(10, 0))
-        
-        # Info section
-        info_label = ttk.Label(
-            main_frame,
-            text="Default login: admin / admin123",
-            font=('Arial', 9),
-            foreground='gray'
-        )
-        info_label.pack(side='bottom', pady=(20, 0))
         
         # Test button untuk debug
         test_btn = ttk.Button(

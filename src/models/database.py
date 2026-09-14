@@ -1,7 +1,7 @@
 import sqlite3
 import os
+import secrets
 from datetime import datetime
-import hashlib
 import logging
 
 from src.models.db.errors import DatabaseError
@@ -12,6 +12,7 @@ from src.models.db import connect as db_connect
 from src.models.db import mirror as db_mirror
 from src.models.db import sync_engine
 from src.models.db import audit as db_audit
+from src.utils.password_hash import hash_password, verify_password, needs_rehash
 
 # Setup logging - optimized untuk singleton pattern
 logger = logging.getLogger(__name__)
@@ -581,35 +582,49 @@ class SQLiteDatabase:
         
     
     def insert_default_data(self):
-        """Insert default admin user if not exists with error handling"""
+        """Create the initial admin/owner accounts on first run, each
+        with a random password printed/logged once so the operator can
+        log in and change it. A fixed default password (the previous
+        behavior) is a standing credential anyone reading the source -
+        or this repo's history - already knows."""
         try:
             admin_exists = self.execute_one(
-                "SELECT id FROM users WHERE username = ?", 
+                "SELECT id FROM users WHERE username = ?",
                 ("admin",)
             )
-            
+
             if not admin_exists:
-                password_hash = hashlib.sha256("admin123".encode()).hexdigest()
-                
+                temp_password = secrets.token_urlsafe(12)
+                password_hash = hash_password(temp_password)
+
                 self.execute('''
                     INSERT INTO users (username, password, email, role, is_active)
                     VALUES (?, ?, ?, ?, ?)
                 ''', ("admin", password_hash, "admin@example.com", "admin", 1))
-                
-                logger.info("Default admin user created: admin/admin123")
-                
+
+                logger.warning(
+                    f"Default admin user created: admin / {temp_password} "
+                    "- log in and change this password immediately."
+                )
+
             owner_exists = self.execute_one(
                 "SELECT id FROM users WHERE username = ?",
                 ("owner",)
             )
-            
+
             if not owner_exists:
-                password_hash = hashlib.sha256("CKLogistik123.".encode()).hexdigest()
-                
+                temp_password = secrets.token_urlsafe(12)
+                password_hash = hash_password(temp_password)
+
                 self.execute('''
                     INSERT INTO users (username, password, email, role, is_active)
                     VALUES (?, ?, ?, ?, ?)
                 ''', ("owner", password_hash, "owner@example.com", "owner", 1))
+
+                logger.warning(
+                    f"Default owner user created: owner / {temp_password} "
+                    "- log in and change this password immediately."
+                )
 
         except Exception as e:
             logger.error(f"Failed to create default admin user: {e}")
@@ -628,8 +643,8 @@ class UserDatabase(SQLiteDatabase):
             raise ValueError("Password must be at least 6 characters long")
         
         try:
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            
+            password_hash = hash_password(password)
+
             user_id = self.execute_insert('''
                 INSERT INTO users (username, password, email, role, is_active)
                 VALUES (?, ?, ?, ?, ?)
@@ -648,33 +663,45 @@ class UserDatabase(SQLiteDatabase):
             raise DatabaseError(f"Failed to create user: {e}")
     
     def authenticate_user(self, username, password):
-        """Authenticate user login with error handling"""
+        """Authenticate user login with error handling.
+
+        The stored hash can't be matched with a SQL equality check
+        anymore (bcrypt salts each hash differently), so this fetches
+        the row by username and verifies in Python instead. A row still
+        holding the app's old SHA-256 hash verifies the same way it
+        always did, then gets upgraded to bcrypt in place so it isn't
+        touched again on later logins.
+        """
         if not username or not password:
             raise ValueError("Username and password are required")
-        
+
         try:
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            
             user = self.execute_one('''
-                SELECT * FROM users 
-                WHERE username = ? AND password = ? AND is_active = 1
-            ''', (username, password_hash))
-            
-            if user:
+                SELECT * FROM users
+                WHERE username = ? AND is_active = 1
+            ''', (username,))
+
+            if user and verify_password(password, user['password']):
+                if needs_rehash(user['password']):
+                    self.execute(
+                        "UPDATE users SET password = ? WHERE id = ?",
+                        (hash_password(password), user['id']),
+                    )
+
                 # Update login info
                 self.execute('''
-                    UPDATE users 
-                    SET last_login = CURRENT_TIMESTAMP, 
+                    UPDATE users
+                    SET last_login = CURRENT_TIMESTAMP,
                         login_count = login_count + 1
                     WHERE id = ?
                 ''', (user['id'],))
-                
+
                 logger.info(f"User authenticated successfully: {username}")
                 return dict(user)
             else:
                 logger.warning(f"Failed authentication attempt for: {username}")
                 return None
-                
+
         except Exception as e:
             logger.error(f"Authentication error for {username}: {e}")
             raise DatabaseError(f"Authentication failed: {e}")
@@ -718,11 +745,11 @@ class UserDatabase(SQLiteDatabase):
             raise ValueError("Password must be at least 6 characters long")
         
         try:
-            password_hash = hashlib.sha256(new_password.encode()).hexdigest()
-            
+            password_hash = hash_password(new_password)
+
             self.execute('''
-                UPDATE users 
-                SET password = ?, updated_at = CURRENT_TIMESTAMP 
+                UPDATE users
+                SET password = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE username = ?
             ''', (password_hash, username))
             
