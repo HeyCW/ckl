@@ -20,7 +20,17 @@ from .postgres_compat import CompatConnection
 
 logger = logging.getLogger(__name__)
 
-_pool = None
+# Two pools: _write_pool (autocommit=False, one BEGIN/COMMIT per
+# statement - needed for the handful of call sites that run several
+# statements as one atomic unit) and _read_pool (autocommit=True, no
+# transaction wrapper at all). A read issued as BEGIN/SELECT/COMMIT is
+# 3 network round trips where 1 would do; seen directly in the
+# server's own query log during validation. Kept as two separate pools
+# rather than toggling autocommit on a shared one so a write path can
+# never accidentally get a connection with the wrong transaction
+# semantics.
+_write_pool = None
+_read_pool = None
 _adapters_registered = False
 
 
@@ -65,7 +75,7 @@ def _check_connection(conn):
     setattr(conn, _LAST_CHECKED_ATTR, now)
 
 
-def _create_pool():
+def _create_pool(autocommit):
     dsn = db_config.get_postgres_dsn()
     if not dsn:
         raise RuntimeError("Postgres is not configured (DB_HOST is not set)")
@@ -81,7 +91,7 @@ def _create_pool():
         timeout=timeout,
         kwargs={
             "connect_timeout": timeout,
-            "autocommit": False,
+            "autocommit": autocommit,
             # The server is reached over a VPN tunnel (e.g. WireGuard),
             # where a dead path (NAT/peer drop, VPS reboot) often closes
             # silently - no RST ever reaches this side. Without these,
@@ -114,39 +124,61 @@ def _create_pool():
 
 
 def get_pool():
-    global _pool
-    if _pool is None:
-        _pool = _create_pool()
-    return _pool
+    """The write pool (autocommit=False) - every existing caller of
+    this name gets transactional semantics unchanged."""
+    global _write_pool
+    if _write_pool is None:
+        _write_pool = _create_pool(autocommit=False)
+    return _write_pool
+
+
+def get_read_pool():
+    """The read pool (autocommit=True). Created lazily on first read so
+    a session that never runs a Postgres query (or fails over to
+    SQLite before one does) never pays for it."""
+    global _read_pool
+    if _read_pool is None:
+        _read_pool = _create_pool(autocommit=True)
+    return _read_pool
 
 
 def close_pool():
-    """Drop the pool (on failover to SQLite, or at shutdown) so it stops
-    holding/reconnecting connections. A later call re-creates it."""
-    global _pool
-    if _pool is not None:
-        try:
-            _pool.close()
-        except Exception as e:
-            logger.warning(f"Error closing Postgres pool: {e}")
-        _pool = None
+    """Drop both pools (on failover to SQLite, or at shutdown) so they
+    stop holding/reconnecting connections. A later call re-creates
+    whichever pool is next needed."""
+    global _write_pool, _read_pool
+    for name, pool in (("write", _write_pool), ("read", _read_pool)):
+        if pool is not None:
+            try:
+                pool.close()
+            except Exception as e:
+                logger.warning(f"Error closing Postgres {name} pool: {e}")
+    _write_pool = None
+    _read_pool = None
 
 
-def open_postgres_connection():
-    """Check a connection out of the pool. Raises on any failure
-    (unreachable host, bad credentials, missing driver, timeout).
+def open_postgres_connection(readonly=False):
+    """Check a connection out of the write pool (default) or the read
+    pool (readonly=True). Raises on any failure (unreachable host, bad
+    credentials, missing driver, timeout).
 
-    The returned CompatConnection returns it to the pool on close()/
-    context-manager exit rather than closing the socket.
+    The returned CompatConnection returns it to the same pool it came
+    from on close()/context-manager exit rather than closing the
+    socket.
     """
-    pool = get_pool()
+    pool = get_read_pool() if readonly else get_pool()
     conn = pool.getconn()
     return CompatConnection(conn, pool=pool)
 
 
 def probe_postgres():
     """Check out and return a connection to confirm Postgres is
-    reachable. Returns True/False, never raises."""
+    reachable. Returns True/False, never raises.
+
+    Only probes the write pool - if it's reachable the read pool will
+    be too (same server, same DSN minus autocommit), and creating it
+    here would cost a connection before anything has asked to read.
+    """
     try:
         conn = open_postgres_connection()
         conn.close()

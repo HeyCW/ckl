@@ -12,6 +12,7 @@ from src.models.db import connect as db_connect
 from src.models.db import mirror as db_mirror
 from src.models.db import sync_engine
 from src.models.db import audit as db_audit
+from src.models.db.readonly import is_readonly_query
 from src.utils.password_hash import hash_password, verify_password, needs_rehash
 
 # Setup logging - optimized untuk singleton pattern
@@ -131,8 +132,19 @@ class SQLiteDatabase:
             logger.error(f"Failed to create data directory: {e}")
             raise DatabaseError(f"Cannot create data directory: {e}")
     
-    def get_connection(self):
+    def get_connection(self, readonly=False):
         """Get database connection with error handling.
+
+        readonly=True gets an autocommit Postgres connection (no BEGIN/
+        COMMIT wrapper) - a plain SELECT is then 1 round trip instead of
+        3, which matters once every query crosses a network link.
+        Ignored on SQLite: a local file has no round trips to save, and
+        SQLite's own transaction handling is untouched either way.
+        Callers that run more than one statement against the same
+        connection must NOT pass readonly=True even if every statement
+        in that block happens to be a SELECT - they need the pool's
+        default (transactional) connection so the calls execute
+        together, not because any single one of them writes.
 
         If the backend is Postgres and it has become unreachable mid
         session, this demotes the instance to SQLite for the rest of
@@ -140,7 +152,7 @@ class SQLiteDatabase:
         """
         if self.backend_name == "postgres":
             try:
-                return db_connect.open_postgres_connection()
+                return db_connect.open_postgres_connection(readonly=readonly)
             except Exception as e:
                 self._failover_to_sqlite(e)
 
@@ -187,9 +199,10 @@ class SQLiteDatabase:
     def execute(self, query, params=()):
         """Execute query and return results with error handling"""
         query, params = db_audit.apply_audit(query, params)
+        readonly = is_readonly_query(query)
 
         def run():
-            with self.get_connection() as conn:
+            with self.get_connection(readonly=readonly) as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 return cursor.fetchall()
@@ -214,9 +227,10 @@ class SQLiteDatabase:
     def execute_one(self, query, params=()):
         """Execute query and return single result with error handling"""
         query, params = db_audit.apply_audit(query, params)
+        readonly = is_readonly_query(query)
 
         def run():
-            with self.get_connection() as conn:
+            with self.get_connection(readonly=readonly) as conn:
                 cursor = conn.cursor()
                 cursor.execute(query, params)
                 return cursor.fetchone()
