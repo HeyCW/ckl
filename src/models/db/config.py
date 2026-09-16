@@ -6,20 +6,52 @@ DB_ENGINE=sqlite to force SQLite even if DB_HOST is present.
 """
 
 import os
+import sys
 
 _dotenv_loaded = False
 
 
+def app_root():
+    """Directory the app's .env sits in.
+
+    Frozen (PyInstaller) builds: next to the .exe. Running from source:
+    the repo root, four levels up from src/models/db/config.py.
+    """
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    path = os.path.abspath(__file__)
+    for _ in range(4):
+        path = os.path.dirname(path)
+    return path
+
+
 def _ensure_dotenv_loaded():
+    """Load .env, anchored to the app directory rather than the cwd.
+
+    load_dotenv() with no path searches upward from the current working
+    directory once the app is frozen, so an .exe started from a desktop
+    shortcut (cwd = wherever the shortcut points) never finds the .env
+    sitting beside it. DB_HOST then comes back empty, the app decides
+    Postgres isn't configured at all, and it runs as plain SQLite with
+    no mirror and no sync - so the work done in that session has no way
+    back to the server. Resolving the path ourselves makes the lookup
+    independent of how the app was launched.
+    """
     global _dotenv_loaded
     if _dotenv_loaded:
         return
     _dotenv_loaded = True
     try:
         from dotenv import load_dotenv
-        load_dotenv()
     except ImportError:
-        pass
+        return
+    env_path = os.path.join(app_root(), ".env")
+    if os.path.isfile(env_path):
+        load_dotenv(env_path)
+    else:
+        # No .env beside the app - fall back to the library's own search
+        # so existing source checkouts and real env vars keep working.
+        load_dotenv()
 
 
 def postgres_requested():
