@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-from datetime import datetime
+from datetime import datetime, date
 import os
 import traceback
 import openpyxl
@@ -106,15 +106,19 @@ class PrintHandler:
             return '-'
         
         try:
+            # Jika sudah berupa objek date/datetime (dari kolom DATE di Postgres)
+            if isinstance(date_value, (datetime, date)):
+                return date_value.strftime('%d-%m-%Y')
+
             # Jika string format YYYY-MM-DD
             if isinstance(date_value, str) and len(date_value) == 10:
                 date_obj = datetime.strptime(date_value, '%Y-%m-%d')
                 # Untuk format angka saja: DD-MM-YYYY
                 return date_obj.strftime('%d-%m-%Y')
-                
+
                 # ATAU jika mau format Indonesia dengan nama bulan:
                 # return self.format_date_indonesian(date_obj, 'full')
-            
+
             return str(date_value)
         except:
             return str(date_value)
@@ -406,8 +410,8 @@ class PrintHandler:
                                 tanggal = datetime.strptime(tanggal, '%Y-%m-%d %H:%M:%S')
                             except:
                                 tanggal = datetime.now()
-                    
-                    formatted_date = tanggal.strftime('%d-%b') if isinstance(tanggal, datetime) else '-'
+
+                    formatted_date = tanggal.strftime('%d-%b') if isinstance(tanggal, (datetime, date)) else '-'
                     
                     pengirim = str(safe_barang_get('sender_name', '-'))
                     penerima = str(safe_barang_get('receiver_name', '-'))
@@ -1183,6 +1187,8 @@ class PrintHandler:
                                 tanggal = datetime.now()
                     elif isinstance(tanggal_raw, datetime):
                         tanggal = tanggal_raw
+                    elif isinstance(tanggal_raw, date):
+                        tanggal = datetime.combine(tanggal_raw, datetime.min.time())
                     else:
                         tanggal = datetime.now()
                     
@@ -1233,7 +1239,7 @@ class PrintHandler:
                             tanggal = datetime.strptime(tanggal, '%Y-%m-%d')
                         except:
                             tanggal = datetime.now()
-                    formatted_date = tanggal.strftime('%d-%b-%Y') if isinstance(tanggal, datetime) else '-'
+                    formatted_date = tanggal.strftime('%d-%b-%Y') if isinstance(tanggal, (datetime, date)) else '-'
                     
                     pengirim = str(safe_barang_get('sender_name', '-'))
                     penerima = str(safe_barang_get('receiver_name', '-'))

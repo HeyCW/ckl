@@ -324,6 +324,10 @@ TABLE_DDL = {
                 cost_description TEXT,
                 cost REAL NOT NULL DEFAULT 0,
                 created_date TEXT NOT NULL,
+                created_by TEXT,
+                edited_by TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (container_id) REFERENCES containers (id)
             )
         """,
@@ -336,6 +340,10 @@ TABLE_DDL = {
                 cost_description TEXT,
                 cost DOUBLE PRECISION NOT NULL DEFAULT 0,
                 created_date TEXT NOT NULL,
+                created_by TEXT,
+                edited_by TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (container_id) REFERENCES containers (container_id)
             )
         """,

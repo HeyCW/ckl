@@ -92,6 +92,17 @@ def _create_pool(autocommit):
         kwargs={
             "connect_timeout": timeout,
             "autocommit": autocommit,
+            # Pin the session zone so CURRENT_TIMESTAMP always writes UTC
+            # into the TIMESTAMP (no time zone) audit columns, whatever
+            # the server, database or role default happens to be. SQLite's
+            # CURRENT_TIMESTAMP is UTC by definition and cannot be
+            # changed, so UTC is the only zone both backends can agree on
+            # - and the app falls back to SQLite whenever Postgres is
+            # unreachable, so they must agree. Display converts to local
+            # (see helpers.format_db_timestamp); without this pin, a
+            # server set to Asia/Jakarta stores local time and that
+            # conversion shifts it a second time.
+            "options": "-c TimeZone=UTC",
             # The server is reached over a VPN tunnel (e.g. WireGuard),
             # where a dead path (NAT/peer drop, VPS reboot) often closes
             # silently - no RST ever reaches this side. Without these,

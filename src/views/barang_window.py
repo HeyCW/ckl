@@ -8,7 +8,7 @@ import re
 from PIL import Image, ImageTk
 
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import setup_window_restore_behavior, format_audit_line
+from src.utils.helpers import setup_window_restore_behavior, format_audit_line, format_db_timestamp
 
 class BarangWindow:
 
@@ -1176,7 +1176,7 @@ class BarangWindow:
                'Harga/Container_20_PP', 'Harga/Container_20_PD', 'Harga/Container_20_DD',
                'Harga/Container_21_PP', 'Harga/Container_21_PD', 'Harga/Container_21_DD',
                'Harga/Container_40HC_PP', 'Harga/Container_40HC_PD', 'Harga/Container_40HC_DD',
-               'Pajak', 'Created')
+               'Pajak', 'Created', 'Diubah', 'Diubah Oleh')
         
         self.tree = PaginatedTreeView(
             parent=tree_container,
@@ -1215,7 +1215,9 @@ class BarangWindow:
         self.tree.heading('Harga/Container_40HC_DD', text="Harga/Cont 40'HC DD (Rp)")
         self.tree.heading('Pajak', text='Pajak')
         self.tree.heading('Created', text='Tanggal Dibuat')
-        
+        self.tree.heading('Diubah', text='Diubah')
+        self.tree.heading('Diubah Oleh', text='Diubah Oleh')
+
         self.tree.column('ID', width=40)
         self.tree.column('Pengirim', width=150)
         self.tree.column('Penerima', width=150)
@@ -1243,6 +1245,8 @@ class BarangWindow:
         self.tree.column('Harga/Container_40HC_DD', width=140)
         self.tree.column('Pajak', width=100)
         self.tree.column('Created', width=120)
+        self.tree.column('Diubah', width=120)
+        self.tree.column('Diubah Oleh', width=100)
         
         # Bind double-click to edit
         self.tree.bind('<Double-1>', lambda e: self.update_barang())
@@ -1414,10 +1418,27 @@ class BarangWindow:
                     harga_col_pp = format_price(barang.get('col_pp'))
                     harga_col_pd = format_price(barang.get('col_pd'))
                     harga_col_dd = format_price(barang.get('col_dd'))
-                    
+
+                    # The nine container-size columns were missing here
+                    # while load_barang() sends them, so a filtered list
+                    # shifted every value nine columns left - pajak landed
+                    # under "Harga/Cont 20' PP". Order must match the
+                    # `columns` tuple exactly.
+                    harga_cont_20_pp = format_price(barang.get('container_20_pp'))
+                    harga_cont_20_pd = format_price(barang.get('container_20_pd'))
+                    harga_cont_20_dd = format_price(barang.get('container_20_dd'))
+                    harga_cont_21_pp = format_price(barang.get('container_21_pp'))
+                    harga_cont_21_pd = format_price(barang.get('container_21_pd'))
+                    harga_cont_21_dd = format_price(barang.get('container_21_dd'))
+                    harga_cont_40hc_pp = format_price(barang.get('container_40hc_pp'))
+                    harga_cont_40hc_pd = format_price(barang.get('container_40hc_pd'))
+                    harga_cont_40hc_dd = format_price(barang.get('container_40hc_dd'))
+
                     # Format date
-                    created_date = str(barang.get('created_at', ''))[:10] if barang.get('created_at') else '-'
-                    
+                    created_date = format_db_timestamp(barang.get('created_at'), '%Y-%m-%d') or '-'
+                    edited_at = format_db_timestamp(barang.get('updated_at')) or '—'
+                    edited_by = barang.get('edited_by') or '—'
+
                     # Create row tuple
                     row_data = (
                         barang.get('barang_id', ''),
@@ -1436,8 +1457,19 @@ class BarangWindow:
                         harga_col_pp,
                         harga_col_pd,
                         harga_col_dd,
+                        harga_cont_20_pp,
+                        harga_cont_20_pd,
+                        harga_cont_20_dd,
+                        harga_cont_21_pp,
+                        harga_cont_21_pd,
+                        harga_cont_21_dd,
+                        harga_cont_40hc_pp,
+                        harga_cont_40hc_pd,
+                        harga_cont_40hc_dd,
                         barang.get('pajak', '0'),
-                        created_date
+                        created_date,
+                        edited_at,
+                        edited_by
                     )
                     
                     formatted_data.append(row_data)
@@ -4302,8 +4334,10 @@ class BarangWindow:
                 harga_container_40hc_dd = f"Rp {barang.get('container_40hc_dd', 0):,.0f}" if barang.get('container_40hc_dd') and barang.get('container_40hc_dd') != '-' else '-'
 
                 # Format date
-                created_date = str(barang.get('created_at', ''))[:10] if barang.get('created_at') else '-'
-                
+                created_date = format_db_timestamp(barang.get('created_at'), '%Y-%m-%d') or '-'
+                edited_at = format_db_timestamp(barang.get('updated_at')) or '—'
+                edited_by = barang.get('edited_by') or '—'
+
                 # Format weight with comma as decimal separator
                 ton_barang = barang.get('ton_barang', '-')
                 if ton_barang and ton_barang != '-':
@@ -4350,7 +4384,9 @@ class BarangWindow:
                     harga_container_40hc_pd,
                     harga_container_40hc_dd,
                     barang.get('pajak', 0),
-                    created_date
+                    created_date,
+                    edited_at,
+                    edited_by
                 )
                 
                 formatted_data.append(row_data)

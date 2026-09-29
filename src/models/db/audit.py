@@ -12,10 +12,13 @@ see the two regexes below and the tests exercising them.
 
 import re
 
-# Tables the user asked to attribute. barang_tax and container_delivery_costs
-# are deliberately excluded - see the plan discussion: barang_tax is
-# system-generated, and the delivery-costs decision wasn't made.
-AUDITED_TABLES = {"barang", "containers", "customers", "kapals", "pengirim", "detail_container"}
+# Tables the user asked to attribute. barang_tax stays excluded: its rows
+# are system-generated from a barang's pajak flag, never edited by hand,
+# so there is nobody to attribute them to.
+AUDITED_TABLES = {
+    "barang", "containers", "customers", "kapals", "pengirim",
+    "detail_container", "container_delivery_costs",
+}
 
 _current_user = {"username": None}
 

@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import setup_window_restore_behavior, format_audit_line
+from src.utils.helpers import setup_window_restore_behavior, format_audit_line, format_db_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -381,7 +381,8 @@ class KapalWindow:
         tree_container.pack(fill='both', expand=True)
         
         # Define columns (DENGAN Shipping Line)
-        columns = ('ID', 'Shipping Line', 'Feeder', 'ETD Sub', 'CLS', 'Open', 'Full', 'Destination', 'Created', 'Updated')
+        columns = ('ID', 'Shipping Line', 'Feeder', 'ETD Sub', 'CLS', 'Open', 'Full', 'Destination',
+                   'Created', 'Updated', 'Diubah Oleh')
 
         # Create PaginatedTreeView
         self.tree = PaginatedTreeView(
@@ -405,7 +406,8 @@ class KapalWindow:
             'Full': ('Full', max(90, int(window_width * 0.08))),
             'Destination': ('Destination', max(150, int(window_width * 0.12))),
             'Created': ('Created', max(120, int(window_width * 0.12))),
-            'Updated': ('Updated', max(120, int(window_width * 0.12)))
+            'Updated': ('Updated', max(120, int(window_width * 0.12))),
+            'Diubah Oleh': ('Diubah Oleh', max(100, int(window_width * 0.08)))
         }
 
         for col, (heading_text, width) in column_configs.items():
@@ -593,7 +595,7 @@ class KapalWindow:
             # Query dengan shipping_line
             query = """
                 SELECT kapal_id, shipping_line, feeder, etd_sub, cls, "open", "full",
-                    destination, created_at, updated_at
+                    destination, created_at, updated_at, edited_by
                 FROM kapals
                 ORDER BY created_at DESC
             """
@@ -608,18 +610,20 @@ class KapalWindow:
                     # Format dates for display
                     formatted_row = []
                     for i, value in enumerate(row):
-                        # Date columns: etd_sub(3), cls(4), open(5), full(6), created_at(8), updated_at(9)
+                        # etd_sub(3), cls(4), open(5), full(6), created_at(8),
+                        # updated_at(9), edited_by(10)
                         if i in [3, 4, 5, 6]:  # Date columns (tanpa timestamp)
                             formatted_value = self.format_date_for_display(value)
                         elif i in [8, 9] and value:  # DateTime columns
-                            try:
-                                if 'T' in str(value):
-                                    dt = datetime.fromisoformat(str(value).replace('T', ' '))
-                                    formatted_value = dt.strftime('%d/%m/%Y %H:%M')
-                                else:
-                                    formatted_value = str(value)
-                            except:
-                                formatted_value = str(value)
+                            # Stored as UTC by both backends; convert to
+                            # local so this reads as the wall clock the
+                            # kapal was actually entered at.
+                            formatted_value = format_db_timestamp(value) or str(value)
+                        elif i == 10:
+                            # Rows written before the audit columns existed
+                            # have NULL here; an em dash reads as "nobody
+                            # recorded", a blank cell reads as a glitch.
+                            formatted_value = str(value) if value else '—'
                         else:
                             formatted_value = str(value) if value is not None else ''
                         formatted_row.append(formatted_value)
