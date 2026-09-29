@@ -1746,7 +1746,7 @@ class ContainerWindow:
         # Kolom yang lebih lebar
         container_columns = ('Barang_ID', 'Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door', 'Dimensi',
                     'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal',
-                    'Diubah', 'Diubah_Oleh')
+                    'Tgl_Input', 'Diubah', 'Diubah_Oleh')
 
         self.container_barang_tree = PaginatedTreeView(
             parent=container_tree_frame,
@@ -1770,7 +1770,8 @@ class ContainerWindow:
             ('Colli', 'Colli', 50),
             ('Harga_Unit', 'Harga/Unit', 90),
             ('Total_Harga', 'Total', 95),
-            ('Tanggal', 'Tanggal', 85),
+            ('Tanggal', 'Waktu Assign', 110),
+            ('Tgl_Input', 'Tgl Input', 85),
             ('Diubah', 'Diubah', 110),
             ('Diubah_Oleh', 'Diubah Oleh', 90)
         ]
@@ -8209,6 +8210,9 @@ class ContainerWindow:
                     edited_by = safe_get(barang, 'edited_by', None) or '—'
 
 
+                    # Tanggal yang diinput user saat assign (detail_container.tanggal)
+                    tgl_input = self.format_date_indonesian(safe_get(barang, 'tanggal', None))
+
                     # Create unique iid
                     unique_iid = f"{barang_id}_{assigned_at}"
                     
@@ -8228,7 +8232,8 @@ class ContainerWindow:
                             colli_amount,        # Colli
                             harga_display,       # Harga/Unit
                             total_display,       # Total Harga
-                            assigned_at,     # ✅ Tanggal (DD/MM/YYYY)
+                            assigned_at,     # Waktu assign (dipakai sbg penanda baris; index 12)
+                            tgl_input,       # Tgl Input (DD/MM/YYYY)
                             edited_at,       # Diubah
                             edited_by        # Diubah Oleh
                         )
