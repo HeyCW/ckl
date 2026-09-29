@@ -6487,168 +6487,63 @@ class ContainerWindow:
             success_count = 0
             error_count = 0
             tax_cleaned_count = 0
-            
-            for item in selected_items:
-                print(f"\n{'='*60}")
-                print(f"🗑️ Processing removal for: {item['nama']} (ID: {item['id']})")
-                print(f"{'='*60}")
 
+            for item in selected_items:
                 try:
-                    # ========================================
-                    # 🔍 DEBUG: CEK FORMAT DI DATABASE
-                    # ========================================
-                    print(f"\n📊 STEP 1: Checking database format...")
-                    debug_query = """
-                        SELECT 
-                            assigned_at,
-                            typeof(assigned_at) as type,
-                            length(assigned_at) as len,
-                            quote(assigned_at) as quoted
-                        FROM detail_container 
-                        WHERE barang_id = ? AND container_id = ?
-                    """
-                    debug_result = self.db.execute(debug_query, (item['id'], container_id))
-                    
-                    if debug_result:
-                        print(f"   Records found in DB: {len(debug_result)}")
-                        for idx, row in enumerate(debug_result):
-                            print(f"\n   Record {idx + 1}:")
-                            print(f"   ├─ Value in DB  : '{row[0]}'")
-                            print(f"   ├─ Type         : {row[1]}")
-                            print(f"   ├─ Length       : {row[2]}")
-                            print(f"   ├─ Quoted       : {row[3]}")
-                            print(f"   └─ Expected (UI): '{item['assigned_at']}'")
-                            print(f"   └─ Match?       : {str(row[0]) == str(item['assigned_at'])}")
-                    else:
-                        print(f"   ❌ No records found in database!")
-                    
-                    # ========================================
-                    # 🔍 STEP 2: GET TAX_ID
-                    # ========================================
-                    print(f"\n📊 STEP 2: Getting tax_id...")
-                    tax_id = None
-                    try:
-                        # Try dengan assigned_at exact match
-                        tax_query = "SELECT tax_id, assigned_at FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at = ?"
-                        tax_result = self.db.execute_one(tax_query, (item['id'], container_id, item['assigned_at']))
-                        
-                        if tax_result and tax_result[0]:
-                            tax_id = tax_result[0]
-                            print(f"   ✅ Found tax_id: {tax_id} (exact match)")
-                            print(f"   └─ assigned_at in record: '{tax_result[1]}'")
+                    # Portable lookup (no SQLite/Postgres-specific SQL): fetch this
+                    # barang's rows in the container and match assigned_at in Python.
+                    rows = self.db.execute(
+                        "SELECT id, tax_id, assigned_at FROM detail_container "
+                        "WHERE barang_id = ? AND container_id = ?",
+                        (item['id'], container_id)
+                    )
+                    if not rows:
+                        error_count += 1
+                        print(f"No detail_container row for barang {item['id']} in container {container_id}")
+                        continue
+
+                    ui_ts = str(item['assigned_at']).strip()
+                    match = None
+                    for row in rows:
+                        if str(row[2]).strip() == ui_ts:
+                            match = row
+                            break
+                    if match is None and len(ui_ts) >= 19:
+                        # Tolerate differing sub-second formatting
+                        for row in rows:
+                            if str(row[2]).strip()[:19] == ui_ts[:19]:
+                                match = row
+                                break
+                    if match is None:
+                        if len(rows) == 1:
+                            match = rows[0]
                         else:
-                            # Try dengan LIKE pattern (untuk handle microseconds)
-                            assigned_at_pattern = str(item['assigned_at'])[:19] + '%'
-                            tax_query_like = "SELECT tax_id, assigned_at FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at LIKE ?"
-                            tax_result_like = self.db.execute_one(tax_query_like, (item['id'], container_id, assigned_at_pattern))
-                            
-                            if tax_result_like and tax_result_like[0]:
-                                tax_id = tax_result_like[0]
-                                print(f"   ✅ Found tax_id: {tax_id} (LIKE pattern match)")
-                                print(f"   └─ assigned_at in record: '{tax_result_like[1]}'")
-                            else:
-                                # Fallback tanpa assigned_at
-                                tax_query_fallback = "SELECT tax_id FROM detail_container WHERE barang_id = ? AND container_id = ?"
-                                tax_result_fallback = self.db.execute_one(tax_query_fallback, (item['id'], container_id))
-                                if tax_result_fallback and tax_result_fallback[0]:
-                                    tax_id = tax_result_fallback[0]
-                                    print(f"   ⚠️ Found tax_id: {tax_id} (fallback - no assigned_at)")
-                                else:
-                                    print(f"   ❌ No tax_id found")
-                            
-                    except Exception as tax_query_error:
-                        print(f"   ❌ Error getting tax_id: {tax_query_error}")
-                    
-                    # ========================================
-                    # 🔍 STEP 3: DELETE RECORD
-                    # ========================================
-                    print(f"\n📊 STEP 3: Attempting delete...")
-                    
-                    # Try 1: Exact match dengan assigned_at
-                    delete_query = "DELETE FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at = ?"
-                    delete_params = (item['id'], container_id, item['assigned_at'])
-                    
-                    print(f"   Query: {delete_query}")
-                    print(f"   Params: {delete_params}")
-                    
-                    check_query = "SELECT COUNT(*) FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at = ?"
-                    check_result = self.db.execute(check_query, delete_params)
-                    count = check_result[0][0] if check_result else 0
-                    
-                    print(f"   Records matching (exact): {count}")
-                    
-                    if count > 0:
-                        # Execute delete
-                        result = self.db.execute(delete_query, delete_params)
-                        print(f"   ✅ Deleted successfully (exact match)")
-                        success_count += 1
-                    else:
-                        # Try 2: LIKE pattern untuk handle microseconds
-                        print(f"\n   ⚠️ Trying LIKE pattern...")
-                        assigned_at_pattern = str(item['assigned_at'])[:19] + '%'
-                        delete_query_like = "DELETE FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at LIKE ?"
-                        delete_params_like = (item['id'], container_id, assigned_at_pattern)
-                        
-                        print(f"   Pattern: '{assigned_at_pattern}'")
-                        
-                        check_query_like = "SELECT COUNT(*) FROM detail_container WHERE barang_id = ? AND container_id = ? AND assigned_at LIKE ?"
-                        check_result_like = self.db.execute(check_query_like, delete_params_like)
-                        count_like = check_result_like[0][0] if check_result_like else 0
-                        
-                        print(f"   Records matching (LIKE): {count_like}")
-                        
-                        if count_like > 0:
-                            result = self.db.execute(delete_query_like, delete_params_like)
-                            print(f"   ✅ Deleted successfully (LIKE match)")
-                            success_count += 1
-                        else:
-                            # Try 3: Fallback tanpa assigned_at
-                            print(f"\n   ⚠️ Trying fallback (no assigned_at)...")
-                            alt_delete_query = "DELETE FROM detail_container WHERE barang_id = ? AND container_id = ?"
-                            alt_delete_params = (item['id'], container_id)
-                            
-                            alt_check_result = self.db.execute("SELECT COUNT(*) FROM detail_container WHERE barang_id = ? AND container_id = ?", alt_delete_params)
-                            alt_count = alt_check_result[0][0] if alt_check_result else 0
-                            
-                            print(f"   Records matching (fallback): {alt_count}")
-                            
-                            if alt_count > 0:
-                                result = self.db.execute(alt_delete_query, alt_delete_params)
-                                print(f"   ✅ Deleted successfully (fallback)")
-                                success_count += 1
-                            else:
-                                error_count += 1
-                                print(f"   ❌ No records found to delete!")
-                                continue
-                    
-                    # ========================================
-                    # 🔍 STEP 4: DELETE TAX RECORD
-                    # ========================================
+                            error_count += 1
+                            print(f"Cannot identify which row to delete for barang {item['id']} (assigned_at={ui_ts!r})")
+                            continue
+
+                    detail_id, tax_id = match[0], match[1]
+
+                    self.db.execute("DELETE FROM detail_container WHERE id = ?", (detail_id,))
+                    success_count += 1
+
+                    # Remove the tax record only if no other row still references it
                     if tax_id:
-                        print(f"\n📊 STEP 4: Deleting tax record...")
                         try:
-                            tax_delete_result = self.db.execute("DELETE FROM barang_tax WHERE tax_id = ?", (tax_id,))
-                            if tax_delete_result:
+                            still_used = self.db.execute(
+                                "SELECT 1 FROM detail_container WHERE tax_id = ?", (tax_id,)
+                            )
+                            if not still_used:
+                                self.db.execute("DELETE FROM barang_tax WHERE tax_id = ?", (tax_id,))
                                 tax_cleaned_count += 1
-                                print(f"   ✅ Deleted tax record: {tax_id}")
-                            else:
-                                print(f"   ⚠️ Tax record {tax_id} may not exist")
                         except Exception as tax_delete_error:
-                            print(f"   ⚠️ Error deleting tax: {tax_delete_error}")
-                    
-                    print(f"\n{'='*60}")
-                    print(f"✅ Completed removal for: {item['nama']}")
-                    print(f"{'='*60}\n")
-                    
+                            print(f"Error deleting tax {tax_id}: {tax_delete_error}")
+
                 except Exception as e:
                     error_count += 1
-                    print(f"\n{'='*60}")
-                    print(f"❌ FAILED for: {item['nama']}")
-                    print(f"{'='*60}")
-                    print(f"Error: {e}")
                     import traceback
+                    print(f"Failed to remove {item['nama']} (ID: {item['id']}): {e}")
                     traceback.print_exc()
-                    print(f"{'='*60}\n")
             
             # Show result message with tax cleanup info
             result_msg = ""
@@ -6685,7 +6580,7 @@ class ContainerWindow:
             print(f"🔄 Displays refreshed after removing {success_count} barang from container {container_id}")
             
         except ValueError as ve:
-            messagebox.showerror("Error", f"Format container ID tidak valid: {str(ve, parent=self.window)}")
+            messagebox.showerror("Error", f"Format container ID tidak valid: {ve}", parent=self.window)
         except Exception as e:
             import traceback
             error_detail = traceback.format_exc()
