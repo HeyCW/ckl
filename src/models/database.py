@@ -1,6 +1,6 @@
 import sqlite3
 import os
-import secrets
+from contextlib import contextmanager
 from datetime import datetime
 import logging
 
@@ -32,6 +32,17 @@ if not logger.handlers:
 
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
+
+# Built-in accounts, created on first run and kept in sync on every
+# start by Database.insert_default_data(). These passwords are
+# deliberately hardcoded so the app always has a known way in - anyone
+# who can read this file (or this repo's history) knows them, so treat
+# them as convenience logins, not as protection.
+DEFAULT_ACCOUNTS = (
+    # username, password, email, role
+    ("owner", "owner123", "owner@example.com", "owner"),
+    ("admin", "admin123", "admin@example.com", "admin"),
+)
 
 # Exception classes from whichever DB-API driver is actually connected
 # (sqlite3 always, psycopg only when Postgres is configured/installed).
@@ -295,7 +306,58 @@ class SQLiteDatabase:
         except Exception as e:
             logger.error(f"Unexpected error in bulk operation: {e}")
             raise DatabaseError(f"Unexpected bulk operation error: {e}")
-    
+
+    @contextmanager
+    def transaction(self):
+        """Run several statements as one atomic unit on a single
+        connection - committed only if the whole block completes,
+        rolled back otherwise.
+
+        execute()/execute_insert()/execute_one() each open and commit
+        their own connection, so a script issuing several of them (e.g.
+        seed_initial_data.py inserting users, then customers, then
+        barang) can be left half-populated if a later call fails. Use
+        this instead when that matters:
+
+            with db.transaction() as tx:
+                tx.execute_insert("INSERT INTO pengirim (...) VALUES (?)", (...))
+                tx.execute_one("SELECT ...", (...))
+
+        The yielded object mirrors execute()/execute_one()/execute_insert()
+        and still runs every statement through apply_audit(), so
+        created_by/edited_by stamping is unaffected. No failover/retry
+        here (unlike _attempt()) - this is for short-lived maintenance
+        scripts, not the interactive app's steady-state query path.
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        class _TransactionHandle:
+            def execute(self, query, params=()):
+                q, p = db_audit.apply_audit(query, params)
+                cursor.execute(q, p)
+                return cursor.fetchall()
+
+            def execute_one(self, query, params=()):
+                q, p = db_audit.apply_audit(query, params)
+                cursor.execute(q, p)
+                return cursor.fetchone()
+
+            def execute_insert(self, query, params=()):
+                q, p = db_audit.apply_audit(query, params)
+                cursor.execute(q, p)
+                return cursor.lastrowid
+
+        try:
+            yield _TransactionHandle()
+            conn.commit()
+        except Exception as e:
+            logger.warning(f"Transaction rolled back: {e}")
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def init_db(self):
         """Initialize database with required tables - Optimized"""
         try:
@@ -350,11 +412,28 @@ class SQLiteDatabase:
         # created_by/edited_by audit columns - who created/last edited a
         # row (see src/models/db/audit.py, which stamps these on every
         # INSERT/UPDATE against these tables automatically).
-        for table in ("barang", "containers", "customers", "kapals", "pengirim", "detail_container"):
+        for table in ("barang", "containers", "customers", "kapals", "pengirim",
+                      "detail_container", "container_delivery_costs"):
             self._add_column_if_missing(table, "created_by", "TEXT")
             self._add_column_if_missing(table, "edited_by", "TEXT")
         # detail_container never had updated_at (only assigned_at/created_at).
         self._add_column_if_missing("detail_container", "updated_at", "TIMESTAMP")
+        # container_delivery_costs had no timestamp columns at all. They go
+        # on bare: SQLite's ALTER TABLE rejects a non-constant DEFAULT
+        # (CURRENT_TIMESTAMP), so the default is attached afterwards on
+        # Postgres only. On SQLite the columns stay NULL until the row is
+        # next written, which is what the mirror gets refreshed with anyway.
+        for column in ("created_at", "updated_at"):
+            self._add_column_if_missing("container_delivery_costs", column, "TIMESTAMP")
+        if self.backend_name == "postgres":
+            for column in ("created_at", "updated_at"):
+                try:
+                    self.execute(
+                        f"ALTER TABLE container_delivery_costs "
+                        f"ALTER COLUMN {column} SET DEFAULT CURRENT_TIMESTAMP"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not set default on container_delivery_costs.{column}: {e}")
 
     def _add_column_if_missing(self, table, column, col_type):
         """Dialect-aware ALTER TABLE ... ADD COLUMN, safe to call every startup."""
@@ -576,52 +655,44 @@ class SQLiteDatabase:
         
     
     def insert_default_data(self):
-        """Create the initial admin/owner accounts on first run, each
-        with a random password printed/logged once so the operator can
-        log in and change it. A fixed default password (the previous
-        behavior) is a standing credential anyone reading the source -
-        or this repo's history - already knows."""
+        """Create/refresh the built-in admin and owner accounts.
+
+        Credentials are fixed (see DEFAULT_ACCOUNTS) so the app can
+        always be opened with a known login. Every startup checks the
+        stored hash and rewrites it when it no longer matches, which
+        means a password changed from the Kelola User screen for these
+        two accounts is reset back on the next run - that is the point
+        of hardcoding them. Create a separate account for anyone who
+        needs a password of their own.
+        """
         try:
-            admin_exists = self.execute_one(
-                "SELECT id FROM users WHERE username = ?",
-                ("admin",)
-            )
-
-            if not admin_exists:
-                temp_password = secrets.token_urlsafe(12)
-                password_hash = hash_password(temp_password)
-
-                self.execute('''
-                    INSERT INTO users (username, password, email, role, is_active)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', ("admin", password_hash, "admin@example.com", "admin", 1))
-
-                logger.warning(
-                    f"Default admin user created: admin / {temp_password} "
-                    "- log in and change this password immediately."
+            for username, password, email, role in DEFAULT_ACCOUNTS:
+                existing = self.execute_one(
+                    "SELECT id, password FROM users WHERE username = ?",
+                    (username,)
                 )
 
-            owner_exists = self.execute_one(
-                "SELECT id FROM users WHERE username = ?",
-                ("owner",)
-            )
+                if not existing:
+                    self.execute('''
+                        INSERT INTO users (username, password, email, role, is_active)
+                        VALUES (?, ?, ?, ?, ?)
+                    ''', (username, hash_password(password), email, role, 1))
+                    logger.info(f"Default {role} user created: {username}")
+                    continue
 
-            if not owner_exists:
-                temp_password = secrets.token_urlsafe(12)
-                password_hash = hash_password(temp_password)
-
-                self.execute('''
-                    INSERT INTO users (username, password, email, role, is_active)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', ("owner", password_hash, "owner@example.com", "owner", 1))
-
-                logger.warning(
-                    f"Default owner user created: owner / {temp_password} "
-                    "- log in and change this password immediately."
-                )
+                # Already there: only touch the row when the stored hash
+                # stopped matching the hardcoded password (older random
+                # password, legacy SHA-256 hash, or a manual change), so
+                # a normal startup does no write at all.
+                if not verify_password(password, existing['password']):
+                    self.execute(
+                        "UPDATE users SET password = ? WHERE id = ?",
+                        (hash_password(password), existing['id']),
+                    )
+                    logger.info(f"Default {role} user password reset: {username}")
 
         except Exception as e:
-            logger.error(f"Failed to create default admin user: {e}")
+            logger.error(f"Failed to create default users: {e}")
             # Don't raise here as this is not critical
 
 # User Management Methods
@@ -772,6 +843,24 @@ class UserDatabase(SQLiteDatabase):
             logger.error(f"Failed to deactivate user {username}: {e}")
             raise DatabaseError(f"Failed to deactivate user: {e}")
     
+    def activate_user(self, username):
+        """Reactivate a previously deactivated account."""
+        if not username:
+            raise ValueError("Username is required")
+
+        try:
+            self.execute('''
+                UPDATE users
+                SET is_active = 1, updated_at = CURRENT_TIMESTAMP
+                WHERE username = ?
+            ''', (username,))
+
+            logger.info(f"User activated: {username}")
+
+        except Exception as e:
+            logger.error(f"Failed to activate user {username}: {e}")
+            raise DatabaseError(f"Failed to activate user: {e}")
+
     def get_all_users(self):
         """Get all users with error handling"""
         try:
@@ -1694,7 +1783,9 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                     b.pajak,
                     COALESCE(dc.harga_per_unit, 0) as harga_per_unit,
                     COALESCE(dc.total_harga, 0) as total_harga,
-                    dc.assigned_at
+                    dc.assigned_at,
+                    dc.updated_at,
+                    dc.edited_by
                 FROM detail_container dc
                 JOIN barang b ON dc.barang_id = b.barang_id
                 JOIN customers r ON b.penerima = r.customer_id

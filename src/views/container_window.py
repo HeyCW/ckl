@@ -2,12 +2,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from src.models.database import AppDatabase, DatabaseError
 from src.utils.print_handler import PrintHandler
-from datetime import datetime
+from datetime import datetime, date
 from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import format_ton, setup_window_restore_behavior, format_audit_line
+from src.utils.helpers import format_ton, setup_window_restore_behavior, format_audit_line, format_db_timestamp
 
 class ContainerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -63,8 +63,10 @@ class ContainerWindow:
                 self.container_tree.column('Party', width=int(available_width * 0.15))
                 self.container_tree.column('Container', width=int(available_width * 0.18))
                 self.container_tree.column('Seal', width=int(available_width * 0.12))
-                self.container_tree.column('Ref JOA', width=int(available_width * 0.15))
-                self.container_tree.column('Items', width=int(available_width * 0.12))
+                self.container_tree.column('Ref JOA', width=int(available_width * 0.12))
+                self.container_tree.column('Items', width=int(available_width * 0.09))
+                self.container_tree.column('Diubah', width=int(available_width * 0.11))
+                self.container_tree.column('Diubah Oleh', width=int(available_width * 0.09))
             except:
                 pass
 
@@ -577,7 +579,8 @@ class ContainerWindow:
         container_tree_container.pack(fill='both', expand=True)
         
         # Container columns
-        container_columns = ('ID', 'Kapal', 'ETD', 'Party', 'Container', 'Seal', 'Ref JOA', 'Items')
+        container_columns = ('ID', 'Kapal', 'ETD', 'Party', 'Container', 'Seal', 'Ref JOA', 'Items',
+                             'Diubah', 'Diubah Oleh')
 
         # Create PaginatedTreeView
         self.container_tree = PaginatedTreeView(
@@ -597,6 +600,10 @@ class ContainerWindow:
         self.container_tree.heading('Seal', text='Seal')
         self.container_tree.heading('Ref JOA', text='Ref JOA')
         self.container_tree.heading('Items', text='Jumlah Barang')
+        self.container_tree.heading('Diubah', text='Diubah')
+        self.container_tree.heading('Diubah Oleh', text='Diubah Oleh')
+        self.container_tree.column('Diubah', width=120)
+        self.container_tree.column('Diubah Oleh', width=100)
 
         # Configure columns
         self.container_tree.column('ID', width=40)
@@ -944,6 +951,8 @@ class ContainerWindow:
                 if not date_value or date_value == '-':
                     return '-'
                 try:
+                    if isinstance(date_value, (datetime, date)):
+                        return date_value.strftime('%d-%m-%Y')
                     if isinstance(date_value, str) and len(date_value) == 10:
                         date_obj = datetime.strptime(date_value, '%Y-%m-%d')
                         return date_obj.strftime('%d-%m-%Y')
@@ -1095,7 +1104,7 @@ class ContainerWindow:
                         except:
                             tanggal = datetime.now()
 
-                formatted_date = tanggal.strftime('%d-%b') if isinstance(tanggal, datetime) else '-'
+                formatted_date = tanggal.strftime('%d-%b') if isinstance(tanggal, (datetime, date)) else '-'
 
                 pengirim = str(safe_barang_get('sender_name', '-'))
                 penerima = str(safe_barang_get('receiver_name', '-'))
@@ -1736,7 +1745,8 @@ class ContainerWindow:
 
         # Kolom yang lebih lebar
         container_columns = ('Barang_ID', 'Pengirim', 'Penerima', 'Nama', 'Satuan', 'Door', 'Dimensi',
-                    'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal')
+                    'Volume', 'Berat', 'Colli', 'Harga_Unit', 'Total_Harga', 'Tanggal',
+                    'Diubah', 'Diubah_Oleh')
 
         self.container_barang_tree = PaginatedTreeView(
             parent=container_tree_frame,
@@ -1760,7 +1770,9 @@ class ContainerWindow:
             ('Colli', 'Colli', 50),
             ('Harga_Unit', 'Harga/Unit', 90),
             ('Total_Harga', 'Total', 95),
-            ('Tanggal', 'Tanggal', 85)
+            ('Tanggal', 'Tanggal', 85),
+            ('Diubah', 'Diubah', 110),
+            ('Diubah_Oleh', 'Diubah Oleh', 90)
         ]
 
         for col, text, width in headers_config:
@@ -2089,7 +2101,7 @@ class ContainerWindow:
                 font=('Arial', 12, 'bold'), bg='#ffffff').pack(anchor='w', pady=(0, 10))
         
         # Treeview dengan kolom lokasi
-        columns = ('ID', 'Title', 'Deskripsi', 'Lokasi', 'Biaya')
+        columns = ('ID', 'Title', 'Deskripsi', 'Lokasi', 'Biaya', 'Diubah', 'Diubah Oleh')
         delivery_tree = ttk.Treeview(tree_frame, columns=columns, show='headings', height=8)
 
         delivery_tree.heading('ID', text='ID')
@@ -2097,12 +2109,16 @@ class ContainerWindow:
         delivery_tree.heading('Deskripsi', text='Deskripsi')
         delivery_tree.heading('Lokasi', text='Lokasi')
         delivery_tree.heading('Biaya', text='Biaya (Rp)')
+        delivery_tree.heading('Diubah', text='Diubah')
+        delivery_tree.heading('Diubah Oleh', text='Diubah Oleh')
 
         delivery_tree.column('ID', width=50)
-        delivery_tree.column('Title', width=200)
-        delivery_tree.column('Deskripsi', width=200)
-        delivery_tree.column('Lokasi', width=120)
-        delivery_tree.column('Biaya', width=120)
+        delivery_tree.column('Title', width=170)
+        delivery_tree.column('Deskripsi', width=170)
+        delivery_tree.column('Lokasi', width=100)
+        delivery_tree.column('Biaya', width=110)
+        delivery_tree.column('Diubah', width=110)
+        delivery_tree.column('Diubah Oleh', width=90)
         
         # Scrollbar
         scrollbar = ttk.Scrollbar(tree_frame, orient='vertical', command=delivery_tree.yview)
@@ -2118,7 +2134,8 @@ class ContainerWindow:
             
             # Query dengan kolom location
             results = self.db.execute("""
-                SELECT id, description, cost_description, delivery, cost, created_date
+                SELECT id, description, cost_description, delivery, cost, created_date,
+                       updated_at, edited_by
                 FROM container_delivery_costs
                 WHERE container_id = ?
                 ORDER BY created_date DESC
@@ -2133,6 +2150,9 @@ class ContainerWindow:
                     row[2] or '-',  # cost_description (deskripsi)
                     row[3] or 'Surabaya',  # delivery (lokasi)
                     biaya_formatted,  # cost
+                    # Rows written before these columns existed are NULL.
+                    format_db_timestamp(row[6]) or '—',
+                    row[7] or '—',
                 ))
                 total_biaya += row[4]
             
@@ -3070,26 +3090,41 @@ class ContainerWindow:
     def _get_barang_details(self, selected_items):
         """Get detailed barang data for pricing options"""
         barang_details = {}
+        warned = False
         for item in selected_items:
             try:
                 barang_data = self.db.execute_one("""
                     SELECT 
                         b.*,
-                        COALESCE(s.nama_customer, b.pengirim) AS sender_name,
-                        COALESCE(r.nama_customer, b.penerima) AS receiver_name
+                        COALESCE(s.nama_customer, CAST(b.pengirim AS TEXT)) AS sender_name,
+                        COALESCE(r.nama_customer, CAST(b.penerima AS TEXT)) AS receiver_name
                     FROM barang b
                     LEFT JOIN customers s 
-                        ON (CAST(b.pengirim AS TEXT) = CAST(s.customer_id AS TEXT) OR b.pengirim = s.nama_customer)
+                        ON (CAST(b.pengirim AS TEXT) = CAST(s.customer_id AS TEXT) OR CAST(b.pengirim AS TEXT) = s.nama_customer)
                     LEFT JOIN customers r 
-                        ON (CAST(b.penerima AS TEXT) = CAST(r.customer_id AS TEXT) OR b.penerima = r.nama_customer)
+                        ON (CAST(b.penerima AS TEXT) = CAST(r.customer_id AS TEXT) OR CAST(b.penerima AS TEXT) = r.nama_customer)
                     WHERE b.barang_id = ?
                 """, (item['id'],))
                 
                 if barang_data:
                     barang_details[item['id']] = dict(barang_data)
             except Exception as e:
+                # Without the warning below this failure is invisible: the
+                # empty dict makes every price field read as 0, so the
+                # dialog opens looking fine and quietly prices everything
+                # at zero instead of reporting that it couldn't read the
+                # barang. Warn once per call, not once per row.
                 print(f"Error getting barang details for {item['id']}: {e}")
                 barang_details[item['id']] = {}
+                if not warned:
+                    warned = True
+                    messagebox.showerror(
+                        "Gagal membaca data harga",
+                        "Data harga barang tidak bisa dibaca, jadi harga otomatis akan "
+                        "tampil 0. Jangan simpan harga dari dialog ini sebelum masalahnya "
+                        f"selesai.\n\nDetail: {e}",
+                        parent=getattr(self, '_active_pricing_window', None) or self.window,
+                    )
         
         return barang_details
 
@@ -4137,26 +4172,41 @@ class ContainerWindow:
     def _get_edit_barang_details(self, selected_items):
         """Get detailed barang data for edit pricing options"""
         barang_details = {}
+        warned = False
         for item in selected_items:
             try:
                 barang_data = self.db.execute_one("""
                     SELECT 
                         b.*,
-                        COALESCE(s.nama_customer, b.pengirim) AS sender_name,
-                        COALESCE(r.nama_customer, b.penerima) AS receiver_name
+                        COALESCE(s.nama_customer, CAST(b.pengirim AS TEXT)) AS sender_name,
+                        COALESCE(r.nama_customer, CAST(b.penerima AS TEXT)) AS receiver_name
                     FROM barang b 
                     LEFT JOIN customers s 
-                        ON (CAST(b.pengirim AS TEXT) = CAST(s.customer_id AS TEXT) OR b.pengirim = s.nama_customer)
+                        ON (CAST(b.pengirim AS TEXT) = CAST(s.customer_id AS TEXT) OR CAST(b.pengirim AS TEXT) = s.nama_customer)
                     LEFT JOIN customers r 
-                        ON (CAST(b.penerima AS TEXT) = CAST(r.customer_id AS TEXT) OR b.penerima = r.nama_customer)
+                        ON (CAST(b.penerima AS TEXT) = CAST(r.customer_id AS TEXT) OR CAST(b.penerima AS TEXT) = r.nama_customer)
                     WHERE b.barang_id = ?
                 """, (item['id'],))
                 
                 if barang_data:
                     barang_details[item['id']] = dict(barang_data)
             except Exception as e:
+                # Without the warning below this failure is invisible: the
+                # empty dict makes every price field read as 0, so the
+                # dialog opens looking fine and quietly prices everything
+                # at zero instead of reporting that it couldn't read the
+                # barang. Warn once per call, not once per row.
                 print(f"Error getting barang details for {item['id']}: {e}")
                 barang_details[item['id']] = {}
+                if not warned:
+                    warned = True
+                    messagebox.showerror(
+                        "Gagal membaca data harga",
+                        "Data harga barang tidak bisa dibaca, jadi harga otomatis akan "
+                        "tampil 0. Jangan simpan harga dari dialog ini sebelum masalahnya "
+                        f"selesai.\n\nDetail: {e}",
+                        parent=getattr(self, '_active_pricing_window', None) or self.window,
+                    )
         
         return barang_details
 
@@ -5236,7 +5286,12 @@ class ContainerWindow:
             
             # ✅ Set nilai awal dari database (convert YYYY-MM-DD → date object)
             try:
-                date_obj = datetime.strptime(current_date_db, '%Y-%m-%d').date()
+                if isinstance(current_date_db, datetime):
+                    date_obj = current_date_db.date()
+                elif isinstance(current_date_db, date):
+                    date_obj = current_date_db
+                else:
+                    date_obj = datetime.strptime(str(current_date_db), '%Y-%m-%d').date()
                 date_entry.set_date(date_obj)
             except Exception as e:
                 print(f"Error setting date: {e}")
@@ -5478,7 +5533,10 @@ class ContainerWindow:
                                 change_desc.append(f"Satuan: {old_satuan} → {new_satuan}")
                             if date_changed:
                                 try:
-                                    old_date_obj = datetime.strptime(old_date_db, '%Y-%m-%d')
+                                    if isinstance(old_date_db, (datetime, date)):
+                                        old_date_obj = old_date_db
+                                    else:
+                                        old_date_obj = datetime.strptime(str(old_date_db), '%Y-%m-%d')
                                     old_date_indonesian = old_date_obj.strftime('%d/%m/%Y')
                                 except:
                                     old_date_indonesian = old_date_db if old_date_db else 'N/A'
@@ -7899,7 +7957,8 @@ class ContainerWindow:
                     c.seal,
                     c.ref_joa,
                     c.created_at,
-                    c.updated_at
+                    c.updated_at,
+                    c.edited_by
                 FROM containers c
                 LEFT JOIN kapals k ON c.kapal_id = k.kapal_id
                 WHERE c.archived = 0
@@ -7927,7 +7986,9 @@ class ContainerWindow:
                         container[5] if container[5] else '-',  # container
                         container[6] if container[6] else '-',  # seal
                         container[7] if container[7] else '-',  # ref_joa
-                        f"{item_count} items"
+                        f"{item_count} items",
+                        format_db_timestamp(container[9]) or '—',  # updated_at
+                        container[10] if container[10] else '—'    # edited_by
                     )
                 })
             
@@ -8139,9 +8200,15 @@ class ContainerWindow:
                     
                     # Assigned at (untuk unique ID)
                     assigned_at = safe_get(barang, 'assigned_at', '')
-                    
-                    
-                    
+
+                    # updated_at comes from CURRENT_TIMESTAMP (UTC, pinned
+                    # in connect.py) so it converts; assigned_at above is
+                    # written with datetime.now() and is already local, so
+                    # it deliberately does not go through the converter.
+                    edited_at = format_db_timestamp(safe_get(barang, 'updated_at', None)) or '—'
+                    edited_by = safe_get(barang, 'edited_by', None) or '—'
+
+
                     # Create unique iid
                     unique_iid = f"{barang_id}_{assigned_at}"
                     
@@ -8161,7 +8228,9 @@ class ContainerWindow:
                             colli_amount,        # Colli
                             harga_display,       # Harga/Unit
                             total_display,       # Total Harga
-                            assigned_at      # ✅ Tanggal (DD/MM/YYYY)
+                            assigned_at,     # ✅ Tanggal (DD/MM/YYYY)
+                            edited_at,       # Diubah
+                            edited_by        # Diubah Oleh
                         )
                     })
                     

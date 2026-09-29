@@ -7,7 +7,7 @@ import re
 from src.models.database import AppDatabase
 from PIL import Image, ImageTk
 from src.widget.paginated_tree_view import PaginatedTreeView
-from src.utils.helpers import setup_window_restore_behavior, format_audit_line
+from src.utils.helpers import setup_window_restore_behavior, format_audit_line, format_db_timestamp
 
 class CustomerWindow:
     def __init__(self, parent, db, refresh_callback=None):
@@ -462,7 +462,7 @@ class CustomerWindow:
         tree_container = tk.Frame(tree_frame, bg='#ecf0f1')
         tree_container.pack(fill='both', expand=True)
         
-        columns = ('ID', 'Nama', 'Alamat', 'Created')
+        columns = ('ID', 'Nama', 'Alamat', 'Created', 'Diubah', 'Diubah Oleh')
         
         self.tree = PaginatedTreeView(
             parent=tree_container,
@@ -476,13 +476,17 @@ class CustomerWindow:
         self.tree.heading('Nama', text='Nama Customer')
         self.tree.heading('Alamat', text='Alamat')
         self.tree.heading('Created', text='Tanggal Dibuat')
-        
+        self.tree.heading('Diubah', text='Diubah')
+        self.tree.heading('Diubah Oleh', text='Diubah Oleh')
+
         # Responsive initial column widths
         window_width = self.window.winfo_width()
         self.tree.column('ID', width=max(60, int(window_width * 0.06)))
         self.tree.column('Nama', width=max(200, int(window_width * 0.25)))
-        self.tree.column('Alamat', width=max(350, int(window_width * 0.48)))
+        self.tree.column('Alamat', width=max(250, int(window_width * 0.30)))
         self.tree.column('Created', width=max(120, int(window_width * 0.13)))
+        self.tree.column('Diubah', width=max(120, int(window_width * 0.13)))
+        self.tree.column('Diubah Oleh', width=max(100, int(window_width * 0.09)))
         
         self.tree.pack(fill='both', expand=True)
 
@@ -541,13 +545,17 @@ class CustomerWindow:
             filtered_data.append(customer)
         
         for customer in filtered_data:
-            created_date = str(customer.get('created_at', ''))[:10] if customer.get('created_at') else '-'
-            
+            created_date = format_db_timestamp(customer.get('created_at'), '%Y-%m-%d') or '-'
+            edited_at = format_db_timestamp(customer.get('updated_at')) or '—'
+            edited_by = customer.get('edited_by') or '—'
+
             self.tree.insert('', tk.END, values=(
                 customer['customer_id'],
                 customer['nama_customer'],
                 customer['alamat_customer'] or '-',
-                created_date
+                created_date,
+                edited_at,
+                edited_by
             ))
         
         total_count = len(self.original_customer_data)
@@ -1493,15 +1501,19 @@ class CustomerWindow:
             formatted_data = []
             
             for customer in customers:
-                created_date = str(customer.get('created_at', ''))[:10] if customer.get('created_at') else '-'
-                
+                created_date = format_db_timestamp(customer.get('created_at'), '%Y-%m-%d') or '-'
+                edited_at = format_db_timestamp(customer.get('updated_at')) or '—'
+                edited_by = customer.get('edited_by') or '—'
+
                 formatted_data.append({
                     'iid': str(customer['customer_id']),
                     'values': (
                         customer['customer_id'],
                         customer['nama_customer'],
                         customer['alamat_customer'] or '-',
-                        created_date
+                        created_date,
+                        edited_at,
+                        edited_by
                     )
                 })
             

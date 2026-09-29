@@ -1,19 +1,98 @@
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from src.models.database import AppDatabase
 from src.utils.icon_cache import icon_cache
+from src.utils.helpers import safe_error_message
 
 # Lazy imports - akan di-load saat dibutuhkan saja
 # Ini membuat startup aplikasi jauh lebih cepat
+
+# Modules each menu button imports on first use. They pull in pandas,
+# openpyxl and tkcalendar between them - over a second of import time
+# that would otherwise be paid by whichever button is clicked first.
+# preload_window_modules() loads them in the background instead.
+PRELOAD_MODULES = (
+    "src.views.container_window",
+    "src.views.customer_window",
+    "src.views.barang_window",
+    "src.views.kapal_window",
+    "src.views.job_order_window",
+    "src.views.lifting_window",
+    "src.views.user_window",
+)
+
 
 class MainWindow:
     def __init__(self, root, current_user=None):
         self.root = root
         self.db = AppDatabase()
         self.current_user = current_user  # Simpan info user yang login
-        
+        self.menu_buttons = []
+
         self.setup_main_window()
         self.create_main_interface()
+
+        # Slightly delayed so the menu paints first and the preload's
+        # CPU time doesn't compete with drawing it.
+        self.root.after(200, self.preload_window_modules)
+
+    def preload_window_modules(self):
+        """Import the menu's window modules in the background.
+
+        Import only - these modules define classes and touch no Tk state
+        at import time, so doing it off the main thread is safe. Widgets
+        are still created only on the main thread, in show_*_window.
+        """
+        def run():
+            import importlib
+            for module in PRELOAD_MODULES:
+                try:
+                    importlib.import_module(module)
+                except Exception as e:
+                    # Preloading is an optimization - never let it break
+                    # the app. The real import in show_*_window will
+                    # surface the failure properly if it persists.
+                    print(f"⚠️ Preload gagal untuk {module}: {e}")
+
+        threading.Thread(target=run, name="window-preloader", daemon=True).start()
+
+    def open_window(self, description, build):
+        """Build a window with the app visibly busy.
+
+        Opening a window blocks the main thread for anywhere from ~100ms
+        to a few seconds (widget construction, plus the module import on
+        the very first click). Without feedback that reads as a frozen
+        app, so the cursor and the menu buttons show the work in
+        progress and are restored no matter how the build ends.
+        """
+        self.root.config(cursor='watch')
+        for button in self.menu_buttons:
+            button.config(state='disabled')
+        self.root.update_idletasks()
+
+        try:
+            build()
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Tidak dapat membuka window {description}:\n{safe_error_message(e)}",
+                parent=self.root
+            )
+        finally:
+            self.root.config(cursor='')
+            for button in self.menu_buttons:
+                button.config(state='normal')
+
+    def collect_menu_buttons(self, container):
+        """Every tk.Button under container, so open_window can grey them
+        out while a window is being built."""
+        buttons = []
+        for child in container.winfo_children():
+            if isinstance(child, tk.Button):
+                buttons.append(child)
+            buttons.extend(self.collect_menu_buttons(child))
+        return buttons
     
     def setup_main_window(self):
         """Setup main window"""
@@ -232,7 +311,7 @@ class MainWindow:
         )
         job_order_btn.pack(side='left', padx=15)
 
-        # Row 3: Lifting button (only for owner)
+        # Row 3: Lifting and user management (only for owner)
         if self.is_owner():
             row3_frame = tk.Frame(menu_frame, bg='#ecf0f1')
             row3_frame.pack(pady=12)
@@ -249,14 +328,31 @@ class MainWindow:
                 command=self.show_lifting_window
             )
             lifting_btn.pack(side='left', padx=15)
+
+            user_btn = tk.Button(
+                row3_frame,
+                text="👤\nKELOLA USER\nBuat Akun & Atur Password",
+                font=('Arial', 12, 'bold'),
+                bg="#8e44ad",
+                fg='white',
+                relief='flat',
+                width=20,
+                height=6,
+                command=self.show_user_window
+            )
+            user_btn.pack(side='left', padx=15)
+
+        # Collected once the rows exist, so open_window can disable them
+        # while a window is being built.
+        self.menu_buttons = self.collect_menu_buttons(menu_frame)
     
     def show_customer_window(self):
         """Show customer management window"""
-        try:
+        def build():
             from src.views.customer_window import CustomerWindow
             CustomerWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window customer:\n{str(e)}", parent=self.root)
+
+        self.open_window("customer", build)
 
     def show_lifting_window(self):
         """Show lifting management window - OWNER ONLY"""
@@ -269,43 +365,62 @@ class MainWindow:
                 parent=self.root)
             return
 
-        try:
+        def build():
             from src.views.lifting_window import LiftingWindow
             LiftingWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window lifting:\n{str(e)}", parent=self.root)
+
+        self.open_window("lifting", build)
     
+    def show_user_window(self):
+        """Show user management window - OWNER ONLY"""
+        # Double check: the button is only built for owners, but the
+        # window creates accounts and sets passwords, so re-verify here
+        # rather than trusting the caller.
+        if not self.is_owner():
+            messagebox.showwarning(
+                "Akses Ditolak",
+                "⚠️ Maaf, menu Kelola User hanya dapat diakses oleh Owner.\n\n"
+                "Silakan hubungi owner untuk membuat atau mengubah akun.",
+                parent=self.root)
+            return
+
+        def build():
+            from src.views.user_window import UserWindow
+            UserWindow(self.root, self.db, current_user=self.current_user)
+
+        self.open_window("kelola user", build)
+
     def show_job_order_window(self):
         """Show job order management window"""
-        try:
+        def build():
             from src.views.job_order_window import JobOrderWindow
             JobOrderWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window job order:\n{str(e)}", parent=self.root)
+
+        self.open_window("job order", build)
 
     def show_barang_window(self):
         """Show barang management window"""
-        try:
+        def build():
             from src.views.barang_window import BarangWindow
             BarangWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window barang:\n{str(e)}", parent=self.root)
+
+        self.open_window("barang", build)
 
     def show_kapal_window(self):
         """Show kapal management window"""
-        try:
+        def build():
             from src.views.kapal_window import KapalWindow
             KapalWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window kapal:\n{str(e)}", parent=self.root)
+
+        self.open_window("kapal", build)
 
     def show_container_window(self):
         """Show container management window"""
-        try:
+        def build():
             from src.views.container_window import ContainerWindow
             ContainerWindow(self.root, self.db)
-        except Exception as e:
-            messagebox.showerror("Error", f"Tidak dapat membuka window container:\n{str(e)}", parent=self.root)
+
+        self.open_window("container", build)
 
     def on_window_closing(self):
         """Handle window closing"""

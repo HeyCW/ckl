@@ -430,7 +430,7 @@ class JobOrderWindow:
                 if kapal_id:
                     try:
                         kapal_query = """
-                            SELECT feeder, destination, etd_sub, cls, open, full, shipping_line
+                            SELECT feeder, destination, etd_sub, cls, "open", "full", shipping_line
                             FROM kapals
                             WHERE kapal_id = ?
                         """
@@ -559,7 +559,7 @@ class JobOrderWindow:
             customer_query = f"""
                 SELECT DISTINCT
                     b.penerima as customer_id,
-                    COALESCE(c.nama_customer, b.penerima) as customer_name
+                    COALESCE(c.nama_customer, CAST(b.penerima AS TEXT)) as customer_name
                 FROM barang b
                 JOIN detail_container dc ON b.barang_id = dc.barang_id
                 JOIN customers c ON c.customer_id = b.penerima

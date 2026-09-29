@@ -262,7 +262,22 @@ class LiftingWindow:
     
     def load_data_from_db(self, start_date=None, end_date=None):
         try:
-            query = """
+            # Built here rather than inline as "(? IS NULL OR ...)":
+            # Postgres can't infer a bare parameter's type inside an
+            # IS NULL test and rejects the whole query with "could not
+            # determine data type of parameter $1". Only literal SQL is
+            # interpolated below - the dates stay bound parameters.
+            conditions = []
+            params = []
+            if start_date:
+                conditions.append("date(k.etd_sub) >= date(?)")
+                params.append(start_date)
+            if end_date:
+                conditions.append("date(k.etd_sub) <= date(?)")
+                params.append(end_date)
+            where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+            query = f"""
                 WITH invoice_per_container AS (
                     SELECT container_id, SUM(total_harga) AS total_invoice
                     FROM detail_container
@@ -360,36 +375,34 @@ class LiftingWindow:
                     GROUP BY cdc.container_id
                 )
                 SELECT
-                    k.etd_sub AS 'ETD SUB',
-                    c.ref_joa AS 'NO JOA',
-                    SUM(COALESCE(d.thc_pol,0)) AS 'THC, LOLO, SEAL, DOC, CLEANING POL',
-                    SUM(COALESCE(d.freight_pol,0)) AS 'Freight LSS POL',
-                    SUM(COALESCE(d.trucking_pol,0)) AS 'TRUCKING POL',
-                    SUM(COALESCE(d.ops_pol,0)) AS 'OPS POL',
-                    SUM(COALESCE(d.bi_lain_pol,0)) AS 'BI. LAIN POL',
-                    SUM(COALESCE(d.pph_pol,0)) AS 'PPH POL',
-                    SUM(COALESCE(d.ppn_pol,0)) AS 'PPN POL',
-                    SUM(COALESCE(d.total_biaya_pol,0)) AS 'TOTAL BIAYA POL',
-                    SUM(COALESCE(d.thc_pod,0)) AS 'THC, LOLO, RELOKASI POD',
-                    SUM(COALESCE(d.trucking_dooring_pod,0)) AS 'TRUCKING, DOORING POD',
-                    SUM(COALESCE(d.forklift_pod,0)) AS 'FORKLIF POD',
-                    SUM(COALESCE(d.buruh_pod,0)) AS 'BURUH POD',
-                    SUM(COALESCE(d.bi_lain_pod,0)) AS 'BI. LAIN POD',
-                    SUM(COALESCE(d.total_biaya_pod,0)) AS 'TOTAL BIAYA POD',
-                    SUM(COALESCE(d.total_biaya,0)) AS 'TOTAL BIAYA',
-                    SUM(COALESCE(inv.total_invoice,0)) AS 'NILAI INVOICE'
+                    k.etd_sub AS "ETD SUB",
+                    c.ref_joa AS "NO JOA",
+                    SUM(COALESCE(d.thc_pol,0)) AS "THC, LOLO, SEAL, DOC, CLEANING POL",
+                    SUM(COALESCE(d.freight_pol,0)) AS "Freight LSS POL",
+                    SUM(COALESCE(d.trucking_pol,0)) AS "TRUCKING POL",
+                    SUM(COALESCE(d.ops_pol,0)) AS "OPS POL",
+                    SUM(COALESCE(d.bi_lain_pol,0)) AS "BI. LAIN POL",
+                    SUM(COALESCE(d.pph_pol,0)) AS "PPH POL",
+                    SUM(COALESCE(d.ppn_pol,0)) AS "PPN POL",
+                    SUM(COALESCE(d.total_biaya_pol,0)) AS "TOTAL BIAYA POL",
+                    SUM(COALESCE(d.thc_pod,0)) AS "THC, LOLO, RELOKASI POD",
+                    SUM(COALESCE(d.trucking_dooring_pod,0)) AS "TRUCKING, DOORING POD",
+                    SUM(COALESCE(d.forklift_pod,0)) AS "FORKLIF POD",
+                    SUM(COALESCE(d.buruh_pod,0)) AS "BURUH POD",
+                    SUM(COALESCE(d.bi_lain_pod,0)) AS "BI. LAIN POD",
+                    SUM(COALESCE(d.total_biaya_pod,0)) AS "TOTAL BIAYA POD",
+                    SUM(COALESCE(d.total_biaya,0)) AS "TOTAL BIAYA",
+                    SUM(COALESCE(inv.total_invoice,0)) AS "NILAI INVOICE"
                 FROM containers c
                 LEFT JOIN kapals k ON c.kapal_id = k.kapal_id
                 LEFT JOIN delivery_per_container d ON c.container_id = d.container_id
                 LEFT JOIN invoice_per_container inv ON c.container_id = inv.container_id
-                WHERE (? IS NULL OR date(k.etd_sub) >= date(?))
-                  AND (? IS NULL OR date(k.etd_sub) <= date(?))
+                {where_clause}
                 GROUP BY c.ref_joa, k.etd_sub
                 ORDER BY date(k.etd_sub) DESC;
             """
-            
-            params = (start_date, start_date, end_date, end_date)
-            rows = [dict(r) for r in self.db.execute(query, params)]
+
+            rows = [dict(r) for r in self.db.execute(query, tuple(params))]
             
             # Bersihkan tabel
             self.tree.delete(*self.tree.get_children())
