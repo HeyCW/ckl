@@ -6172,6 +6172,12 @@ class ContainerWindow:
             if not selected_items:
                 messagebox.showwarning("Peringatan", "Tidak ada barang yang valid untuk ditambahkan!", parent=self.window)
                 return
+
+            # Assign in the order shown in the list (Tk's selection() order is
+            # not guaranteed), so container order matches input order.
+            _order = {iid: i for i, iid in enumerate(self.available_tree.get_children())}
+            _selected_order = {id(it): _order.get(iid, len(_order)) for it, iid in zip(selected_items, selection)}
+            selected_items.sort(key=lambda it: _selected_order[id(it)])
             
             # ============================================
             # STEP 7: Show Pricing Dialog

@@ -1700,7 +1700,7 @@ class AppDatabase(UserDatabase, CustomerDatabase, ContainerDatabase, BarangDatab
                 JOIN customers r ON b.penerima = r.customer_id
                 JOIN customers s ON b.pengirim = s.customer_id
                 WHERE dc.container_id = ?
-                ORDER BY dc.assigned_at ASC 
+                ORDER BY dc.assigned_at ASC, dc.id ASC
             """,
             (container_id,))
         

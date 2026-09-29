@@ -1157,53 +1157,8 @@ class PrintHandler:
                 15   # Door
             ]
 
-            def get_sort_key(barang_row):
-                try:
-                    if hasattr(barang_row, 'keys'):
-                        barang = {key: barang_row[key] for key in barang_row.keys()}
-                    else:
-                        barang = dict(barang_row)
-                    
-                    def safe_barang_get(key, default='-'):
-                        try:
-                            value = barang.get(key, default)
-                            return value if value not in [None, '', 'NULL', 'null'] else default
-                        except Exception:
-                            return default
-                    
-                    tanggal_raw = safe_barang_get('tanggal_barang', datetime.now())
-                    
-                    if isinstance(tanggal_raw, str):
-                        try:
-                            tanggal = datetime.strptime(tanggal_raw, '%Y-%m-%d')
-                        except:
-                            try:
-                                tanggal = datetime.strptime(tanggal_raw, '%Y-%m-%d %H:%M:%S')
-                            except:
-                                tanggal = datetime.now()
-                    elif isinstance(tanggal_raw, datetime):
-                        tanggal = tanggal_raw
-                    else:
-                        tanggal = datetime.now()
-                    
-                    pengirim = str(safe_barang_get('sender_name', '')).strip()
-                    penerima = str(safe_barang_get('receiver_name', '')).strip()
-                    
-                    if not pengirim:
-                        pengirim = 'ZZZ_NO_SENDER'
-                    if not penerima:
-                        penerima = 'ZZZ_NO_RECEIVER'
-                    
-                    return (tanggal, pengirim, penerima)
-                    
-                except Exception as e:
-                    print(f"ERROR in get_sort_key: {e}")
-                    return (datetime.now(), 'ZZZ_ERROR', 'ZZZ_ERROR')
-            
-            try:
-                barang_list = sorted(barang_list, key=get_sort_key)
-            except Exception as e:
-                print(f"SORTING FAILED: {e}")
+            # Keep the order barang were assigned to the container (the query
+            # already returns rows ORDER BY assigned_at, id). Do not re-sort.
             
             total_m3 = 0
             total_ton = 0
