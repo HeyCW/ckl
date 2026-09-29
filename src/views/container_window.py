@@ -1779,7 +1779,13 @@ class ContainerWindow:
         for col, text, width in headers_config:
             self.container_barang_tree.heading(col, text=text)
             self.container_barang_tree.column(col, width=width, minwidth=50)
-        
+
+        # Tampilkan Tgl Input paling awal. Hanya urutan tampilan yang berubah;
+        # urutan data (dan index values[] yang dibaca edit/hapus) tetap sama.
+        self.container_barang_tree.tree.configure(
+            displaycolumns=('Tgl_Input',) + tuple(c for c in container_columns if c != 'Tgl_Input')
+        )
+
         # Pack treeview dengan scrollbar horizontal
         self.container_barang_tree.pack(fill='both', expand=True)
 
